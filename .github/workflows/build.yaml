@@ -46,7 +46,7 @@ jobs:
         if: github.ref == 'refs/heads/main'
         env:
           REGISTRY: ${{ steps.login-ecr-public.outputs.registry }}
-          REGISTRY_ALIAS: compiler-explorer
+          REGISTRY_ALIAS: l7x5u0s5
           REPOSITORY: compiler-explorer/explain
           IMAGE_TAG: ${{ github.sha }}
         run: |
