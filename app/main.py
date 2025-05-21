@@ -1,6 +1,6 @@
 import logging
 
-from anthropic import Anthropic
+from anthropic import Anthropic, __version__ as AnthropicVersion
 from app.config import settings
 from fastapi import FastAPI
 from mangum import Mangum
@@ -13,7 +13,7 @@ app = FastAPI()
 handler = Mangum(app)
 
 anthropic_client = Anthropic(api_key=settings.anthropic_api_key)
-logger.info(f"Anthropic SDK version: {anthropic_client.__version__}")
+logger.info(f"Anthropic SDK version: {AnthropicVersion}")
 
 
 @app.get("/")
