@@ -1,0 +1,49 @@
+name: Python tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Set up Python
+        run: uv python install
+
+      - name: Run pre-commit
+        run: uv run pre-commit run --all
+
+      - name: Run tests
+        run: uv run pytest
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::052730242331:role/explain-ci
+          aws-region: us-east-1
+      - name: Login to Amazon ECR Public
+        id: login-ecr-public
+        uses: aws-actions/amazon-ecr-login@v2
+        with:
+          registry-type: public
+
+      - name: Build docker image
+        run: docker build -t explain .
+
+      # - name: Push docker image to Amazon ECR Public
+      #   env:
+      #     REGISTRY: ${{ steps.login-ecr-public.outputs.registry }}
+      #     REGISTRY_ALIAS: my-ecr-public-registry-alias
+      #     REPOSITORY: my-ecr-public-repo
+      #     IMAGE_TAG: ${{ github.sha }}
+      #   run: |
+      #     docker push $REGISTRY/$REGISTRY_ALIAS/$REPOSITORY:$IMAGE_TAG
