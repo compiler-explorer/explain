@@ -1,0 +1,16 @@
+/docker-squash
+*.pyc
+*.pem
+*.swp
+*.xz
+config.json
+.env
+/.deploy
+.nfs*
+node_modules
+/.mypy_cache
+/.dist
+/.poetry
+/.venv
+.pytest_cache
+/.env
