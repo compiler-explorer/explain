@@ -33,22 +33,19 @@ jobs:
           role-to-assume: arn:aws:iam::052730242331:role/github-actions/explain-ci
           aws-region: us-east-1
 
-      - name: Login to Amazon ECR Public
-        id: login-ecr-public
+      - name: Login to Amazon ECR
+        id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
-        with:
-          registry-type: public
 
       - name: Build docker image
-        run: docker build -t compiler-explorer/explain .
+        run: docker build -t explain .
 
       - name: Push docker image to Amazon ECR Public
         if: github.ref == 'refs/heads/main'
         env:
-          REGISTRY: ${{ steps.login-ecr-public.outputs.registry }}
-          REGISTRY_ALIAS: l7x5u0s5
-          REPOSITORY: compiler-explorer/explain
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          REPOSITORY: explain
           IMAGE_TAG: gh-${{ github.run_number }}
         run: |
-          docker tag compiler-explorer/explain $REGISTRY/$REGISTRY_ALIAS/$REPOSITORY:$IMAGE_TAG
-          docker push $REGISTRY/$REGISTRY_ALIAS/$REPOSITORY:$IMAGE_TAG
+          docker tag explain $REGISTRY/$REPOSITORY:$IMAGE_TAG
+          docker push $REGISTRY/$REPOSITORY:$IMAGE_TAG
