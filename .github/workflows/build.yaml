@@ -11,7 +11,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions: # Needed for OIDC login
       id-token: write
-      contents: read
 
     steps:
       - uses: actions/checkout@v4
@@ -31,7 +30,7 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::052730242331:role/explain-ci
+          role-to-assume: arn:aws:iam::052730242331:role/github-actions/explain-ci
           aws-region: us-east-1
 
       - name: Login to Amazon ECR Public
