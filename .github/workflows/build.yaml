@@ -1,4 +1,4 @@
-name: Python tests
+name: Build, test and deploy
 
 on:
   push:
@@ -48,7 +48,7 @@ jobs:
           REGISTRY: ${{ steps.login-ecr-public.outputs.registry }}
           REGISTRY_ALIAS: l7x5u0s5
           REPOSITORY: compiler-explorer/explain
-          IMAGE_TAG: ${{ github.sha }}
+          IMAGE_TAG: gh-${{ github.run_number }}
         run: |
           docker tag compiler-explorer/explain $REGISTRY/$REGISTRY_ALIAS/$REPOSITORY:$IMAGE_TAG
           docker push $REGISTRY/$REGISTRY_ALIAS/$REPOSITORY:$IMAGE_TAG
