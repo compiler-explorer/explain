@@ -9,8 +9,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      id-token: write # Needed for OIDC login
+    permissions: # Needed for OIDC login
+      id-token: write
+      contents: read
 
     steps:
       - uses: actions/checkout@v4
