@@ -17,4 +17,6 @@ dependencies = [
 dev = [
     # In development mode, include the FastAPI development server.
     "fastapi[standard]>=0.115",
+    "pre-commit>=4.2.0",
+    "pytest>=8.3.5",
 ]
