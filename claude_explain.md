@@ -227,7 +227,7 @@ This approach has several advantages:
 ### Terraform Configuration
 
 1. **Lambda Resource**:
-   - Python 3.12 runtime
+   - Python 3.13 runtime
    - Memory allocation based on expected workload
    - Timeout appropriate for Claude API interaction
    - Environment variables for configuration (API keys retrieved from Parameter Store)
