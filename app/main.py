@@ -6,6 +6,7 @@ from app.explain import process_request
 from app.explain_api import ExplainRequest, ExplainResponse
 from app.metrics import NoopMetricsProvider
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from mangum import Mangum
 import aws_embedded_metrics
 
@@ -13,8 +14,17 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-# TODO consider https://github.com/FanchenBao/fastapi_lambda_api-gateway_sample/blob/main/app/main.py for CORS
 app = FastAPI(root_path=settings.root_path)
+
+# Configure CORS - allows all origins for public API
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,  # Must be False when using allow_origins=["*"]
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["*"],
+    max_age=86400,  # Cache preflight requests for 24 hours
+)
 handler = Mangum(app)
 
 anthropic_client = Anthropic(api_key=settings.anthropic_api_key)
@@ -30,21 +40,6 @@ metrics_provider = NoopMetricsProvider()
 @app.get("/")
 async def root() -> str:
     return "Hello, world!"
-
-
-# TODO: work out how to get these headers
-"""
-    # Default CORS headers for browser access
-    default_headers = {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key", # really?
-        "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
-        "Pragma": "no-cache",
-        "Expires": "0",
-    }
-"""
 
 
 @aws_embedded_metrics.metric_scope
