@@ -1,0 +1,67 @@
+{
+  "description": "Complex compiler transformations and advanced optimizations",
+  "cases": [
+    {
+      "id": "complex_vectorization_001",
+      "category": "vectorization",
+      "quality": "good_example",
+      "description": "Auto-vectorized loop with SIMD instructions",
+      "input": {
+        "language": "C++",
+        "compiler": "gcc 13.1",
+        "compilationOptions": ["-O3", "-march=native"],
+        "instructionSet": "x86_64",
+        "code": "void add_arrays(float* a, float* b, float* c, int n) {\n    for (int i = 0; i < n; i++) {\n        c[i] = a[i] + b[i];\n    }\n}",
+        "asm": [
+          {"text": "add_arrays:", "address": 0},
+          {"text": "  test ecx, ecx", "address": 1},
+          {"text": "  jle .L1", "address": 2},
+          {"text": "  cmp ecx, 7", "address": 3},
+          {"text": "  jle .L6", "address": 4},
+          {"text": "  movdqa xmm0, XMMWORD PTR [rdi]", "address": 5, "source": {"line": 3}},
+          {"text": "  addps xmm0, XMMWORD PTR [rsi]", "address": 6, "source": {"line": 3}},
+          {"text": "  movups XMMWORD PTR [rdx], xmm0", "address": 7, "source": {"line": 3}},
+          {"text": "  add rdi, 16", "address": 8},
+          {"text": "  add rsi, 16", "address": 9},
+          {"text": "  add rdx, 16", "address": 10},
+          {"text": "  sub ecx, 4", "address": 11},
+          {"text": "  cmp ecx, 3", "address": 12},
+          {"text": "  jg .L3", "address": 13},
+          {"text": ".L1:", "address": 14},
+          {"text": "  ret", "address": 15}
+        ]
+      },
+      "expected_topics": ["vectorization", "simd", "loop_unrolling", "memory_alignment"],
+      "difficulty": "advanced"
+    },
+    {
+      "id": "complex_branch_001",
+      "category": "branch_optimization",
+      "quality": "challenging_example",
+      "description": "Complex branching with likely/unlikely hints",
+      "input": {
+        "language": "C++",
+        "compiler": "clang 16.0",
+        "compilationOptions": ["-O2", "-fprofile-use"],
+        "instructionSet": "x86_64",
+        "code": "int process_value(int x) {\n    if (__builtin_expect(x > 1000, 0)) {\n        return x * 2 + expensive_computation(x);\n    }\n    return x + 1;\n}",
+        "asm": [
+          {"text": "process_value:", "address": 0},
+          {"text": "  cmp edi, 1000", "address": 1, "source": {"line": 2}},
+          {"text": "  jle .L2", "address": 2},
+          {"text": "  push rbx", "address": 3},
+          {"text": "  mov ebx, edi", "address": 4},
+          {"text": "  call expensive_computation", "address": 5, "source": {"line": 3}},
+          {"text": "  lea eax, [rax+rbx*2]", "address": 6, "source": {"line": 3}},
+          {"text": "  pop rbx", "address": 7},
+          {"text": "  ret", "address": 8},
+          {"text": ".L2:", "address": 9},
+          {"text": "  lea eax, [rdi+1]", "address": 10, "source": {"line": 5}},
+          {"text": "  ret", "address": 11}
+        ]
+      },
+      "expected_topics": ["branch_prediction", "profile_guided_optimization", "builtin_expect"],
+      "difficulty": "advanced"
+    }
+  ]
+}
