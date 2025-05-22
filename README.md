@@ -64,7 +64,7 @@ The service will be available at http://localhost:8000
 uv run pytest
 
 # Run specific test
-uv run pytest app/explain_test.py::test_should_succeed
+uv run pytest app/explain_test.py::TestProcessRequest::test_process_request_success
 ```
 
 ### Code Quality
