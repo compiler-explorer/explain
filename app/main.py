@@ -1,14 +1,16 @@
 import logging
 
-from anthropic import Anthropic, __version__ as AnthropicVersion
+import aws_embedded_metrics
+from anthropic import Anthropic
+from anthropic import __version__ as anthropic_version
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from mangum import Mangum
+
 from app.config import settings
 from app.explain import process_request
 from app.explain_api import ExplainRequest, ExplainResponse
 from app.metrics import NoopMetricsProvider
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from mangum import Mangum
-import aws_embedded_metrics
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger()
@@ -28,7 +30,7 @@ app.add_middleware(
 handler = Mangum(app)
 
 anthropic_client = Anthropic(api_key=settings.anthropic_api_key)
-logger.info(f"Anthropic SDK version: {AnthropicVersion}")
+logger.info(f"Anthropic SDK version: {anthropic_version}")
 
 metrics_provider = NoopMetricsProvider()
 #    if metrics:
@@ -39,10 +41,12 @@ metrics_provider = NoopMetricsProvider()
 
 @app.get("/")
 async def root() -> str:
+    """Temporary placeholder for a better API."""
     return "Hello, world!"
 
 
 @aws_embedded_metrics.metric_scope
 @app.post("/")
 async def explain(request: ExplainRequest) -> ExplainResponse:
+    """Explain a Compiler Explorer compilation from its source and output assembly."""
     return process_request(request, anthropic_client, metrics_provider)

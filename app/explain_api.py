@@ -1,5 +1,4 @@
-"""
-Pydantic models for the Claude Explain API.
+"""Pydantic models for the Claude Explain API.
 
 Defines request and response types based on the API specification
 in claude_explain.md.
@@ -42,20 +41,12 @@ class ExplainRequest(BaseModel):
     """Request body for the /explain endpoint."""
 
     language: str = Field(..., description="Programming language (e.g., 'c++', 'rust')")
-    compiler: str = Field(
-        ..., description="Compiler identifier (e.g., 'g112', 'clang1500')"
-    )
+    compiler: str = Field(..., description="Compiler identifier (e.g., 'g112', 'clang1500')")
     code: str = Field(..., description="Original source code")
-    compilationOptions: list[str] = Field(
-        default_factory=list, description="Array of compiler flags/options"
-    )
-    instructionSet: str | None = Field(
-        None, description="Target architecture (e.g., 'amd64', 'arm64')"
-    )
+    compilationOptions: list[str] = Field(default_factory=list, description="Array of compiler flags/options")
+    instructionSet: str | None = Field(None, description="Target architecture (e.g., 'amd64', 'arm64')")
     asm: list[AssemblyItem] = Field(..., description="Array of assembly objects")
-    labelDefinitions: dict[str, int] | None = Field(
-        None, description="Optional map of label names to line numbers"
-    )
+    labelDefinitions: dict[str, int] | None = Field(None, description="Optional map of label names to line numbers")
 
 
 class TokenUsage(BaseModel):
@@ -79,9 +70,7 @@ class ExplainResponse(BaseModel):
 
     explanation: str | None = Field(None, description="The generated explanation")
     status: str = Field(..., description="'success' or 'error'")
-    message: str | None = Field(
-        None, description="Error message (only present on error)"
-    )
+    message: str | None = Field(None, description="Error message (only present on error)")
     model: str | None = Field(None, description="The Claude model used")
     usage: TokenUsage | None = Field(None, description="Token usage information")
     cost: CostBreakdown | None = Field(None, description="Cost breakdown")
@@ -97,9 +86,7 @@ class ExplainErrorResponse(BaseModel):
 class ExplainSuccessResponse(BaseModel):
     """Success response from the /explain endpoint."""
 
-    status: str = Field(
-        "success", description="Always 'success' for successful responses"
-    )
+    status: str = Field("success", description="Always 'success' for successful responses")
     explanation: str = Field(..., description="The generated explanation")
     model: str = Field(..., description="The Claude model used")
     usage: TokenUsage = Field(..., description="Token usage information")

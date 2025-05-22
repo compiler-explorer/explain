@@ -1,18 +1,19 @@
 import json
 from unittest.mock import MagicMock
+
 import pytest
 
 from app.explain import (
+    MAX_ASSEMBLY_LINES,
+    MAX_TOKENS,
+    MODEL,
+    prepare_structured_data,
     process_request,
     select_important_assembly,
-    prepare_structured_data,
-    MAX_ASSEMBLY_LINES,
-    MODEL,
-    MAX_TOKENS,
 )
 from app.explain_api import (
-    ExplainRequest,
     AssemblyItem,
+    ExplainRequest,
     SourceMapping,
 )
 from app.metrics import NoopMetricsProvider
@@ -82,18 +83,13 @@ def noop_metrics():
 class TestProcessRequest:
     """Test the main process_request function."""
 
-    def test_process_request_success(
-        self, sample_request, mock_anthropic_client, noop_metrics
-    ):
+    def test_process_request_success(self, sample_request, mock_anthropic_client, noop_metrics):
         """Test successful processing of a request."""
         response = process_request(sample_request, mock_anthropic_client, noop_metrics)
 
         # Verify response structure
         assert response.status == "success"
-        assert (
-            response.explanation
-            == "This assembly code implements a simple square function..."
-        )
+        assert response.explanation == "This assembly code implements a simple square function..."
         assert response.model == MODEL
 
         # Check usage information
@@ -145,9 +141,7 @@ class TestProcessRequest:
         structured_data = json.loads(messages[0]["content"][1]["text"])
         assert structured_data["language"] == "c++"
         assert structured_data["compiler"] == "g++"
-        assert (
-            structured_data["sourceCode"] == "int square(int x) {\n  return x * x;\n}"
-        )
+        assert structured_data["sourceCode"] == "int square(int x) {\n  return x * x;\n}"
 
 
 class TestSelectImportantAssembly:
@@ -206,13 +200,14 @@ class TestSelectImportantAssembly:
         # Check that important lines (with sources) are included
         has_source_lines = False
         for line in result:
-            if "isOmissionMarker" not in line and line.get("source") is not None:
-                if (
-                    isinstance(line["source"], dict)
-                    and line["source"].get("line") is not None
-                ):
-                    has_source_lines = True
-                    break
+            if (
+                "isOmissionMarker" not in line
+                and line.get("source") is not None
+                and isinstance(line["source"], dict)
+                and line["source"].get("line") is not None
+            ):
+                has_source_lines = True
+                break
         assert has_source_lines
 
     def test_select_important_assembly_preserves_function_boundaries(self):

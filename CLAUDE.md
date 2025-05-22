@@ -89,3 +89,7 @@ Uses AWS Embedded Metrics for CloudWatch integration when deployed, with a no-op
 ## Code Style Guidelines
 
 - Prefer using modern Python 3.9+ type syntax. Good: `a: list[str] | None`. Bad: `a: Optional[List[str]]`
+
+## Development Workflow Notes
+
+- The pre commit hooks may modify the code and so: always run them before `git add`, and if a commit hook fails then it's probably you'll need to `git add` again if it indicated if fixed issues (e.g. `ruff`)

@@ -2,9 +2,9 @@ import json
 import logging
 
 from anthropic import Anthropic
-from app.explain_api import ExplainRequest, ExplainResponse, TokenUsage, CostBreakdown
-from app.metrics import MetricsProvider
 
+from app.explain_api import CostBreakdown, ExplainRequest, ExplainResponse, TokenUsage
+from app.metrics import MetricsProvider
 
 # Configure logging
 LOGGER = logging.getLogger("explain")
@@ -53,12 +53,13 @@ def select_important_assembly(
             continue
 
         # Source mapping makes this important
-        if asm_item.get("source") and asm_item["source"] is not None:
-            if (
-                isinstance(asm_item["source"], dict)
-                and asm_item["source"].get("line") is not None
-            ):
-                important_indices.add(idx)
+        if (
+            asm_item.get("source")
+            and asm_item["source"] is not None
+            and isinstance(asm_item["source"], dict)
+            and asm_item["source"].get("line") is not None
+        ):
+            important_indices.add(idx)
 
         # Function returns and epilogues are important
         text = asm_item.get("text", "").strip()
@@ -80,7 +81,7 @@ def select_important_assembly(
     # If we still have too many lines, prioritize
     if len(all_indices) > max_lines:
         # Prioritize function boundaries and source mappings over context
-        important_indices_list = sorted(list(important_indices))
+        important_indices_list = sorted(important_indices)
         all_indices = set(important_indices_list[:max_lines])
 
     # Collect selected assembly items
@@ -137,9 +138,7 @@ def prepare_structured_data(body: ExplainRequest) -> dict:
 
     if len(asm_dicts) > MAX_ASSEMBLY_LINES:
         # If assembly is too large, we need smart truncation
-        structured_data["assembly"] = select_important_assembly(
-            asm_dicts, body.labelDefinitions or {}
-        )
+        structured_data["assembly"] = select_important_assembly(asm_dicts, body.labelDefinitions or {})
         structured_data["truncated"] = True
         structured_data["originalLength"] = len(asm_dicts)
     else:
@@ -180,15 +179,20 @@ def process_request(
 
     structured_data = prepare_structured_data(body)
 
-    # TODO: consider not baking the language and arch here for system prompt caching later on. We'll need to hit minimum token lengths.
-    system_prompt = f"""You are an expert in {arch} assembly code and {language}, helping users of the Compiler Explorer website understand how their code compiles to assembly.
-The request will be in the form of a JSON document, which explains a source program and how it was compiled, and the resulting assembly code that was generated.
+    # TODO: consider not baking the language and arch here for system prompt caching later on.
+    #  We'll need to hit minimum token lengths.
+    system_prompt = f"""You are an expert in {arch} assembly code and {language}, helping users of the
+Compiler Explorer website understand how their code compiles to assembly.
+The request will be in the form of a JSON document, which explains a source program and how it was compiled,
+and the resulting assembly code that was generated.
 Provide clear, concise explanations. Focus on key transformations, optimizations, and important assembly patterns.
 Explanations should be educational and highlight why certain code constructs generate specific assembly instructions.
-Give no commentary on the original source: it is expected the user already understands their input, and is only looking for guidance on the assembly output.
+Give no commentary on the original source: it is expected the user already understands their input, and is only
+looking for guidance on the assembly output.
 If it makes it easiest to explain, note the corresponding parts of the source code, but do not focus on this.
 Do not give an overall conclusion.
-Be precise and accurate about CPU features and optimizations - avoid making incorrect claims about branch prediction or other hardware details."""
+Be precise and accurate about CPU features and optimizations - avoid making incorrect claims about branch
+prediction or other hardware details."""
 
     # Call Claude API with JSON structure
     LOGGER.info(f"Using Anthropic client with model: {MODEL}")
