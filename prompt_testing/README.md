@@ -86,10 +86,6 @@ user_prompt: "Explain the {arch} assembly output."
 
 assistant_prefill: "I have analysed the assembly code and my analysis is:"
 
-template_variables:
-  - arch
-  - language
-
 model_config:
   model: claude-3-5-sonnet-20241022
   max_tokens: 4000

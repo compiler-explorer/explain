@@ -68,6 +68,26 @@ class PromptTester:
             labelDefinitions=input_data.get("labelDefinitions", {}),
         )
 
+    def _build_template_context(self, request: ExplainRequest) -> dict[str, Any]:
+        """Build template context dictionary from request data for prompt formatting."""
+        # Only include variables that come directly from the ExplainRequest
+        context = {
+            "language": request.language,
+            "arch": request.instructionSet or "unknown",
+            "compiler": request.compiler,
+        }
+
+        # Add compilation options as a formatted string (directly from request)
+        if request.compilationOptions:
+            context["compilation_options"] = " ".join(request.compilationOptions)
+        else:
+            context["compilation_options"] = ""
+
+        # Include boolean indicating if labels are present (from labelDefinitions field)
+        context["has_labels"] = bool(request.labelDefinitions and request.labelDefinitions)
+
+        return context
+
     def run_single_test(
         self, test_case: dict[str, Any], prompt_version: str, model: str = MODEL, max_tokens: int = MAX_TOKENS
     ) -> dict[str, Any]:
@@ -85,13 +105,13 @@ class PromptTester:
         # Prepare structured data (same as in explain.py)
         structured_data = prepare_structured_data(request)
 
-        # Format prompts with language and architecture
-        language = request.language
-        arch = request.instructionSet or "unknown"
+        # Build template context from request data
+        template_context = self._build_template_context(request)
 
-        system_prompt = prompt_config["system_prompt"].format(language=language, arch=arch)
-        user_prompt = prompt_config["user_prompt"].format(arch=arch)
-        assistant_prefill = prompt_config["assistant_prefill"]
+        # Format prompts using template context
+        system_prompt = prompt_config["system_prompt"].format(**template_context)
+        user_prompt = prompt_config["user_prompt"].format(**template_context)
+        assistant_prefill = prompt_config["assistant_prefill"].format(**template_context)
 
         # Call Claude API
         start_time = time.time()

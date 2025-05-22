@@ -19,11 +19,6 @@ user_prompt: "Explain the {arch} assembly output."
 
 assistant_prefill: "I have analysed the assembly code and my analysis is:"
 
-# Template variables that will be substituted
-template_variables:
-  - arch        # instruction set architecture (e.g., "x86_64", "ARM64")
-  - language    # programming language (e.g., "C++", "Rust")
-
 # Metadata
 model_config:
   max_tokens: 1024
