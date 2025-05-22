@@ -1,0 +1,122 @@
+# Review Templates for Claude-based Evaluation
+# These templates define how Claude evaluates prompt responses
+
+default_review:
+  system_prompt: |
+    You are an expert compiler engineer and technical educator reviewing explanations
+    of compiler output. Evaluate responses for technical accuracy, educational value,
+    and clarity. Be rigorous but fair in your assessment.
+
+  evaluation_dimensions:
+    technical_accuracy:
+      weight: 0.30
+      description: |
+        Evaluate the technical accuracy of the explanation:
+        - Are assembly instructions correctly explained?
+        - Are compiler optimizations accurately described?
+        - Are technical claims verifiable and correct?
+        - Does it avoid oversimplifications that lead to inaccuracy?
+        - Are register names, instruction mnemonics, and calling conventions correct?
+
+    educational_value:
+      weight: 0.25
+      description: |
+        Assess the educational value for someone learning about compilers:
+        - Is the explanation at an appropriate level for the target audience?
+        - Does it build understanding progressively?
+        - Are complex concepts explained clearly?
+        - Does it provide insight into why the compiler made certain choices?
+        - Would a reader gain actionable knowledge?
+
+    clarity_structure:
+      weight: 0.20
+      description: |
+        Evaluate clarity and structure:
+        - Is the explanation well-organized and easy to follow?
+        - Are technical terms properly introduced before use?
+        - Is the language clear and concise?
+        - Does it avoid unnecessary jargon while maintaining precision?
+        - Is there a logical flow from simple to complex concepts?
+
+    completeness:
+      weight: 0.15
+      description: |
+        Assess completeness relative to the input:
+        - Does it address all significant transformations in the assembly?
+        - Are important optimizations explained?
+        - Does it cover the key differences between source and assembly?
+        - Is the scope appropriate (not too narrow or too broad)?
+        - Are edge cases or special behaviors noted where relevant?
+
+    practical_insights:
+      weight: 0.10
+      description: |
+        Evaluate practical insights provided:
+        - Does it help developers understand performance implications?
+        - Are there actionable insights about writing better code?
+        - Does it explain when/why certain optimizations occur?
+        - Does it connect assembly behavior to source code patterns?
+        - Are real-world implications discussed?
+
+# Specialized review template for optimization-focused cases
+optimization_review:
+  system_prompt: |
+    You are a compiler optimization expert reviewing explanations of optimized code.
+    Focus particularly on how well the explanation covers optimization techniques,
+    their triggers, and performance implications.
+
+  evaluation_dimensions:
+    optimization_accuracy:
+      weight: 0.35
+      description: |
+        Specifically evaluate optimization explanations:
+        - Are optimization techniques correctly identified and named?
+        - Is the optimization trigger condition explained?
+        - Are performance benefits quantified or qualified appropriately?
+        - Are trade-offs mentioned (code size, debuggability, etc.)?
+
+    technical_accuracy:
+      weight: 0.25
+      description: |
+        General technical accuracy of the explanation
+
+    educational_value:
+      weight: 0.20
+      description: |
+        How well does it teach optimization concepts?
+
+    practical_insights:
+      weight: 0.20
+      description: |
+        Actionable insights for writing optimization-friendly code
+
+# Template for beginner-focused evaluation
+beginner_review:
+  system_prompt: |
+    You are reviewing explanations intended for beginners learning about compilers.
+    Prioritize clarity and educational scaffolding over exhaustive technical detail.
+
+  evaluation_dimensions:
+    clarity_structure:
+      weight: 0.35
+      description: |
+        Is this accessible to beginners?
+        - Avoids overwhelming jargon
+        - Explains prerequisites
+        - Uses analogies where helpful
+        - Progresses logically
+
+    educational_value:
+      weight: 0.30
+      description: |
+        Does it effectively teach concepts to beginners?
+
+    technical_accuracy:
+      weight: 0.20
+      description: |
+        Accurate while appropriately simplified
+
+    completeness:
+      weight: 0.15
+      description: |
+        Covers essentials without overwhelming detail

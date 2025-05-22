@@ -4,7 +4,6 @@ Main test runner for prompt evaluation.
 
 import json
 import time
-import traceback
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -16,6 +15,7 @@ from dotenv import load_dotenv
 from app.explain import MAX_TOKENS, MODEL, prepare_structured_data
 from app.explain_api import AssemblyItem, ExplainRequest
 from app.metrics import NoopMetricsProvider
+from prompt_testing.evaluation.claude_reviewer import ClaudeReviewer, HybridScorer
 from prompt_testing.evaluation.scorer import AutomaticScorer, load_all_test_cases
 
 # Load environment variables from .env file
@@ -25,7 +25,14 @@ load_dotenv()
 class PromptTester:
     """Main class for running prompt tests."""
 
-    def __init__(self, project_root: str, anthropic_api_key: str | None = None):
+    def __init__(
+        self,
+        project_root: str,
+        anthropic_api_key: str | None = None,
+        scorer_type: str = "automatic",  # "automatic", "claude", or "hybrid"
+        claude_sample_rate: float = 0.2,
+        reviewer_model: str = "claude-sonnet-4-0",
+    ):
         self.project_root = Path(project_root)
         self.prompt_dir = self.project_root / "prompt_testing" / "prompts"
         self.test_cases_dir = self.project_root / "prompt_testing" / "test_cases"
@@ -37,7 +44,19 @@ class PromptTester:
         else:
             self.client = Anthropic()  # Will use ANTHROPIC_API_KEY env var
 
-        self.scorer = AutomaticScorer()
+        # Initialize scorer based on type
+        self.scorer_type = scorer_type
+        if scorer_type == "automatic":
+            self.scorer = AutomaticScorer()
+        elif scorer_type == "claude":
+            self.scorer = ClaudeReviewer(anthropic_api_key=anthropic_api_key, reviewer_model=reviewer_model)
+        elif scorer_type == "hybrid":
+            self.scorer = HybridScorer(
+                use_claude_for_all=False, claude_sample_rate=claude_sample_rate, anthropic_api_key=anthropic_api_key
+            )
+        else:
+            raise ValueError(f"Unknown scorer type: {scorer_type}")
+
         self.metrics_provider = NoopMetricsProvider()  # Use noop provider for testing
 
     def load_prompt(self, prompt_version: str) -> dict[str, Any]:
@@ -88,6 +107,14 @@ class PromptTester:
 
         return context
 
+    def _format_assembly(self, asm_items: list[AssemblyItem]) -> str:
+        """Format assembly items into a readable string for Claude review."""
+        lines = []
+        for item in asm_items:
+            if item.text and item.text.strip():
+                lines.append(item.text)
+        return "\n".join(lines)
+
     def run_single_test(
         self, test_case: dict[str, Any], prompt_version: str, model: str = MODEL, max_tokens: int = MAX_TOKENS
     ) -> dict[str, Any]:
@@ -115,65 +142,84 @@ class PromptTester:
 
         # Call Claude API
         start_time = time.time()
-        try:
-            message = self.client.messages.create(
-                model=model,
-                max_tokens=max_tokens,
-                system=system_prompt,
-                messages=[
-                    {
-                        "role": "user",
-                        "content": [
-                            {
-                                "type": "text",
-                                "text": user_prompt,
-                            },
-                            {"type": "text", "text": json.dumps(structured_data)},
-                        ],
-                    },
-                    {
-                        "role": "assistant",
-                        "content": [
-                            {
-                                "type": "text",
-                                "text": assistant_prefill,
-                            },
-                        ],
-                    },
-                ],
-            )
+        message = self.client.messages.create(
+            model=model,
+            max_tokens=max_tokens,
+            system=system_prompt,
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": user_prompt,
+                        },
+                        {"type": "text", "text": json.dumps(structured_data)},
+                    ],
+                },
+                {
+                    "role": "assistant",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": assistant_prefill,
+                        },
+                    ],
+                },
+            ],
+        )
 
-            response_time_ms = int((time.time() - start_time) * 1000)
-            explanation = message.content[0].text.strip()
+        response_time_ms = int((time.time() - start_time) * 1000)
+        explanation = message.content[0].text.strip()
 
-            # Extract token usage
-            input_tokens = message.usage.input_tokens
-            output_tokens = message.usage.output_tokens
+        # Extract token usage
+        input_tokens = message.usage.input_tokens
+        output_tokens = message.usage.output_tokens
 
-            success = True
-            error = None
-
-        except Exception as e:
-            response_time_ms = int((time.time() - start_time) * 1000)
-            explanation = ""
-            input_tokens = 0
-            output_tokens = 0
-            success = False
-            error = str(e)
-            # Log full exception details for debugging
-            print(f"Error in API call for test case {case_id}: {e}")
-            print(f"Full traceback:\n{traceback.format_exc()}")
+        success = True
+        error = None
 
         # Evaluate response
         if success:
             expected_topics = test_case.get("expected_topics", [])
             difficulty = test_case.get("difficulty", "intermediate")
 
-            metrics = self.scorer.evaluate_response(
-                explanation, expected_topics, difficulty, output_tokens, response_time_ms
-            )
+            # Different evaluation based on scorer type
+            if self.scorer_type == "automatic":
+                metrics = self.scorer.evaluate_response(
+                    explanation, expected_topics, difficulty, output_tokens, response_time_ms
+                )
+                scorer_method = "automatic"
+            elif self.scorer_type == "claude":
+                # Claude reviewer needs source and assembly code
+                metrics = self.scorer.evaluate_response(
+                    source_code=request.code,
+                    assembly_code=self._format_assembly(request.asm),
+                    explanation=explanation,
+                    expected_topics=expected_topics,
+                    difficulty=difficulty,
+                    token_count=output_tokens,
+                    response_time_ms=response_time_ms,
+                )
+                scorer_method = "claude"
+            elif self.scorer_type == "hybrid":
+                # Hybrid scorer decides which method to use
+                metrics, scorer_method = self.scorer.evaluate_response(
+                    source_code=request.code,
+                    assembly_code=self._format_assembly(request.asm),
+                    explanation=explanation,
+                    expected_topics=expected_topics,
+                    difficulty=difficulty,
+                    token_count=output_tokens,
+                    response_time_ms=response_time_ms,
+                    case_id=case_id,
+                )
+            else:
+                metrics = None
+                scorer_method = "none"
         else:
             metrics = None
+            scorer_method = "none"
 
         return {
             "case_id": case_id,
@@ -186,6 +232,7 @@ class PromptTester:
             "output_tokens": output_tokens,
             "response_time_ms": response_time_ms,
             "metrics": metrics.__dict__ if metrics else None,
+            "scorer_method": scorer_method,
             "timestamp": datetime.now().isoformat(),
         }
 
@@ -211,32 +258,18 @@ class PromptTester:
 
         results = []
         for case in all_cases:
-            try:
-                result = self.run_single_test(case, prompt_version)
-                results.append(result)
+            result = self.run_single_test(case, prompt_version)
+            results.append(result)
 
-                # Print progress
-                if result["success"]:
-                    metrics = result["metrics"]
-                    if metrics:
-                        print(f"  ✓ {result['case_id']}: {metrics['overall_score']:.2f}")
-                    else:
-                        print(f"  ✓ {result['case_id']}: completed")
+            # Print progress
+            if result["success"]:
+                metrics = result["metrics"]
+                if metrics:
+                    print(f"  ✓ {result['case_id']}: {metrics['overall_score']:.2f}")
                 else:
-                    print(f"  ✗ {result['case_id']}: {result['error']}")
-
-            except Exception as e:
-                print(f"  ✗ {case['id']}: Unexpected error: {e}")
-                print(f"Full traceback:\n{traceback.format_exc()}")
-                results.append(
-                    {
-                        "case_id": case["id"],
-                        "prompt_version": prompt_version,
-                        "success": False,
-                        "error": f"Unexpected error: {e}",
-                        "timestamp": datetime.now().isoformat(),
-                    }
-                )
+                    print(f"  ✓ {result['case_id']}: completed")
+            else:
+                print(f"  ✗ {result['case_id']}: {result['error']}")
 
         # Calculate summary statistics
         successful_results = [r for r in results if r["success"]]
@@ -343,12 +376,36 @@ def main():
     parser.add_argument("--compare", help="Compare with another prompt version")
     parser.add_argument("--output", help="Output file name")
 
+    # Scorer configuration
+    parser.add_argument(
+        "--scorer",
+        choices=["automatic", "claude", "hybrid"],
+        default="automatic",
+        help="Scoring method: automatic (regex), claude (AI review), or hybrid",
+    )
+    parser.add_argument(
+        "--claude-sample-rate",
+        type=float,
+        default=0.2,
+        help="For hybrid scorer: fraction of cases to evaluate with Claude (0.0-1.0)",
+    )
+    parser.add_argument(
+        "--reviewer-model",
+        default="claude-3-sonnet-20241022",
+        help="Claude model to use for reviewing (e.g., claude-3-opus-20240229)",
+    )
+
     args = parser.parse_args()
 
     # Get project root (assuming script is run from project root)
     project_root = str(Path.cwd())
 
-    tester = PromptTester(project_root)
+    tester = PromptTester(
+        project_root,
+        scorer_type=args.scorer,
+        claude_sample_rate=args.claude_sample_rate,
+        reviewer_model=args.reviewer_model,
+    )
 
     if args.compare:
         results = tester.compare_prompt_versions(args.prompt, args.compare, args.cases)

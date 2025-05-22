@@ -10,6 +10,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+from prompt_testing.evaluation.prompt_advisor import PromptOptimizer
 from prompt_testing.evaluation.reviewer import ReviewManager, create_simple_review_cli
 from prompt_testing.evaluation.scorer import load_all_test_cases
 from prompt_testing.runner import PromptTester
@@ -20,46 +21,46 @@ load_dotenv()
 
 def cmd_run(args):
     """Run test suite command."""
-    tester = PromptTester(args.project_root)
+    tester = PromptTester(
+        args.project_root,
+        scorer_type=args.scorer,
+        claude_sample_rate=args.claude_sample_rate,
+        reviewer_model=args.reviewer_model,
+    )
 
-    try:
-        if args.compare:
-            results = tester.compare_prompt_versions(args.prompt, args.compare, args.cases)
-            output_file = args.output or f"comparison_{args.prompt}_vs_{args.compare}.json"
-        else:
-            results = tester.run_test_suite(args.prompt, args.cases, args.categories)
-            output_file = args.output
+    if args.compare:
+        results = tester.compare_prompt_versions(args.prompt, args.compare, args.cases)
+        output_file = args.output or f"comparison_{args.prompt}_vs_{args.compare}.json"
+    else:
+        results = tester.run_test_suite(args.prompt, args.cases, args.categories)
+        output_file = args.output
 
-        output_path = tester.save_results(results, output_file)
+    output_path = tester.save_results(results, output_file)
 
-        # Print summary
-        if "summary" in results:
-            summary = results["summary"]
-            print(f"\nSummary for {args.prompt}:")
-            print(f"  Success rate: {summary['success_rate']:.1%}")
-            print(f"  Cases: {summary['successful_cases']}/{summary['total_cases']}")
+    # Print summary
+    if "summary" in results:
+        summary = results["summary"]
+        print(f"\nSummary for {args.prompt}:")
+        print(f"  Success rate: {summary['success_rate']:.1%}")
+        print(f"  Cases: {summary['successful_cases']}/{summary['total_cases']}")
 
-            if "average_metrics" in summary:
-                avg = summary["average_metrics"]
-                print(f"  Average score: {avg['overall_score']:.2f}")
-                print(f"  Average accuracy: {avg['accuracy_score']:.2f}")
-                print(f"  Average clarity: {avg['clarity_score']:.2f}")
-                print(f"  Average tokens: {avg['average_tokens']:.0f}")
-                print(f"  Average response time: {avg['average_response_time']:.0f}ms")
+        if "average_metrics" in summary:
+            avg = summary["average_metrics"]
+            print(f"  Average score: {avg['overall_score']:.2f}")
+            print(f"  Average accuracy: {avg['accuracy_score']:.2f}")
+            print(f"  Average clarity: {avg['clarity_score']:.2f}")
+            print(f"  Average tokens: {avg['average_tokens']:.0f}")
+            print(f"  Average response time: {avg['average_response_time']:.0f}ms")
 
-        if args.compare and "case_comparisons" in results:
-            comparisons = results["case_comparisons"]
-            better_v1 = sum(1 for c in comparisons if c.get("better_version") == args.prompt)
-            better_v2 = sum(1 for c in comparisons if c.get("better_version") == args.compare)
-            print(f"\nComparison {args.prompt} vs {args.compare}:")
-            print(f"  {args.prompt} better: {better_v1} cases")
-            print(f"  {args.compare} better: {better_v2} cases")
+    if args.compare and "case_comparisons" in results:
+        comparisons = results["case_comparisons"]
+        better_v1 = sum(1 for c in comparisons if c.get("better_version") == args.prompt)
+        better_v2 = sum(1 for c in comparisons if c.get("better_version") == args.compare)
+        print(f"\nComparison {args.prompt} vs {args.compare}:")
+        print(f"  {args.prompt} better: {better_v1} cases")
+        print(f"  {args.compare} better: {better_v2} cases")
 
-        print(f"\nDetailed results saved to: {output_path}")
-
-    except Exception as e:
-        print(f"Error running tests: {e}")
-        return 1
+    print(f"\nDetailed results saved to: {output_path}")
 
     return 0
 
@@ -70,38 +71,31 @@ def cmd_list(args):
 
     # List test cases
     print("Available test cases:")
-    try:
-        test_cases = load_all_test_cases(str(project_root / "prompt_testing" / "test_cases"))
+    test_cases = load_all_test_cases(str(project_root / "prompt_testing" / "test_cases"))
 
-        by_category = {}
-        for case in test_cases:
-            category = case.get("category", "unknown")
-            if category not in by_category:
-                by_category[category] = []
-            by_category[category].append(case)
+    by_category = {}
+    for case in test_cases:
+        category = case.get("category", "unknown")
+        if category not in by_category:
+            by_category[category] = []
+        by_category[category].append(case)
 
-        for category, cases in sorted(by_category.items()):
-            print(f"\n  {category}:")
-            for case in cases:
-                quality = case.get("quality", "unknown")
-                difficulty = case.get("difficulty", "unknown")
-                print(f"    {case['id']} - {case.get('description', 'No description')} ({quality}, {difficulty})")
-
-    except Exception as e:
-        print(f"  Error loading test cases: {e}")
+    for category, cases in sorted(by_category.items()):
+        print(f"\n  {category}:")
+        for case in cases:
+            quality = case.get("quality", "unknown")
+            difficulty = case.get("difficulty", "unknown")
+            print(f"    {case['id']} - {case.get('description', 'No description')} ({quality}, {difficulty})")
 
     # List prompts
     print("\nAvailable prompts:")
-    try:
-        prompts_dir = project_root / "prompt_testing" / "prompts"
-        if prompts_dir.exists():
-            for prompt_file in sorted(prompts_dir.glob("*.yaml")):
-                prompt_name = prompt_file.stem
-                print(f"  {prompt_name}")
-        else:
-            print("  No prompts directory found")
-    except Exception as e:
-        print(f"  Error loading prompts: {e}")
+    prompts_dir = project_root / "prompt_testing" / "prompts"
+    if prompts_dir.exists():
+        for prompt_file in sorted(prompts_dir.glob("*.yaml")):
+            prompt_name = prompt_file.stem
+            print(f"  {prompt_name}")
+    else:
+        print("  No prompts directory found")
 
     return 0
 
@@ -110,33 +104,28 @@ def cmd_review(args):
     """Human review interface."""
     if args.results_file:
         # Review specific results file
-        try:
-            results_path = Path(args.results_file)
-            with results_path.open() as f:
-                results = json.load(f)
+        results_path = Path(args.results_file)
+        with results_path.open() as f:
+            results = json.load(f)
 
-            if "results" in results:
-                # Single test run
-                for result in results["results"]:
-                    if not result["success"]:
-                        continue
+        if "results" in results:
+            # Single test run
+            for result in results["results"]:
+                if not result["success"]:
+                    continue
 
-                    review = create_simple_review_cli(result["case_id"], result["response"], result["prompt_version"])
+                review = create_simple_review_cli(result["case_id"], result["response"], result["prompt_version"])
 
-                    # Save review
-                    manager = ReviewManager(str(Path(args.project_root) / "prompt_testing" / "results"))
-                    manager.save_review(review)
+                # Save review
+                manager = ReviewManager(str(Path(args.project_root) / "prompt_testing" / "results"))
+                manager.save_review(review)
 
-                    print("Review saved!")
+                print("Review saved!")
 
-                    if input("\nContinue to next case? (y/N): ").lower() != "y":
-                        break
-            else:
-                print("Invalid results file format")
-                return 1
-
-        except Exception as e:
-            print(f"Error reviewing results: {e}")
+                if input("\nContinue to next case? (y/N): ").lower() != "y":
+                    break
+        else:
+            print("Invalid results file format")
             return 1
     else:
         # Interactive review mode
@@ -206,6 +195,63 @@ def cmd_analyze(args):
     return 0
 
 
+def cmd_improve(args):
+    """Analyze results and suggest prompt improvements."""
+
+    optimizer = PromptOptimizer(args.project_root)
+
+    # If specific results file provided
+    if args.results_file:
+        results_file = args.results_file
+    else:
+        # Find the most recent results file for the prompt
+        results_dir = Path(args.project_root) / "prompt_testing" / "results"
+        pattern = f"*_{args.prompt}.json"
+        files = list(results_dir.glob(pattern))
+        if not files:
+            print(f"No results found for prompt: {args.prompt}")
+            return 1
+
+        # Get most recent
+        results_file = max(files, key=lambda f: f.stat().st_mtime).name
+        print(f"Using most recent results: {results_file}")
+
+    # Analyze and potentially create improved version
+    output_path = optimizer.analyze_and_improve(
+        results_file, args.prompt, args.output if args.create_improved else None
+    )
+
+    # Display key suggestions
+    if args.show_suggestions and not args.create_improved:
+        with output_path.open() as f:
+            analysis = json.load(f)
+
+        print("\n=== PROMPT IMPROVEMENT SUGGESTIONS ===")
+
+        if "analysis_summary" in analysis:
+            summary = analysis["analysis_summary"]
+            print(f"\nAverage Score: {summary['average_score']:.2f}")
+            print("\nMost Common Missing Topics:")
+            for topic, count in summary.get("common_missing_topics", []):
+                print(f"  - {topic} ({count} times)")
+
+        if "suggestions" in analysis and isinstance(analysis["suggestions"], dict):
+            suggestions = analysis["suggestions"]
+
+            if "priority_improvements" in suggestions:
+                print("\n🎯 Priority Improvements:")
+                for imp in suggestions["priority_improvements"][:3]:
+                    print(f"\n  Issue: {imp['issue']}")
+                    print(f"  Current: '{imp.get('current_text', 'N/A')[:60]}...'")
+                    print(f"  Suggested: '{imp.get('suggested_text', 'N/A')[:60]}...'")
+                    print(f"  Rationale: {imp.get('rationale', 'N/A')}")
+
+            if "expected_impact" in suggestions:
+                print(f"\n✨ Expected Impact: {suggestions['expected_impact']}")
+
+    return 0
+
+
 def main():
     """Main CLI entry point."""
     parser = argparse.ArgumentParser(
@@ -213,14 +259,20 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Run basic optimization tests with current prompt
+  # Run basic optimization tests with current prompt (automatic scoring)
   uv run prompt-test run --prompt current --categories basic_optimizations
+
+  # Use Claude-based AI scoring for deeper evaluation
+  uv run prompt-test run --prompt current --scorer claude
+
+  # Use hybrid scoring (20% Claude sampling)
+  uv run prompt-test run --prompt current --scorer hybrid --claude-sample-rate 0.2
 
   # Compare two prompt versions
   uv run prompt-test run --prompt v1_baseline --compare current
 
-  # Run specific test cases
-  uv run prompt-test run --prompt current --cases basic_loop_001 basic_inline_001
+  # Run specific test cases with Claude scoring
+  uv run prompt-test run --prompt current --cases basic_loop_001 --scorer claude
 
   # List available test cases and prompts
   uv run prompt-test list
@@ -230,6 +282,12 @@ Examples:
 
   # Analyze all results
   uv run prompt-test analyze
+
+  # Get improvement suggestions based on test results
+  uv run prompt-test improve --prompt current
+
+  # Create an experimental improved version
+  uv run prompt-test improve --prompt current --create-improved --output current_v2
         """,
     )
 
@@ -246,6 +304,26 @@ Examples:
     run_parser.add_argument("--categories", nargs="*", help="Test case categories to run")
     run_parser.add_argument("--compare", help="Compare with another prompt version")
     run_parser.add_argument("--output", help="Output file name (auto-generated if not specified)")
+
+    # Scorer configuration
+    run_parser.add_argument(
+        "--scorer",
+        choices=["automatic", "claude", "hybrid"],
+        default="automatic",
+        help="Scoring method: automatic (regex), claude (AI review), or hybrid",
+    )
+    run_parser.add_argument(
+        "--claude-sample-rate",
+        type=float,
+        default=0.2,
+        help="For hybrid scorer: fraction of cases to evaluate with Claude (0.0-1.0)",
+    )
+    run_parser.add_argument(
+        "--reviewer-model",
+        default="claude-sonnet-4-0",
+        help="Claude model to use for reviewing (e.g., claude-sonnet-4-0, claude-3-5-sonnet-20241022)",
+    )
+
     run_parser.set_defaults(func=cmd_run)
 
     # List command
@@ -260,6 +338,21 @@ Examples:
     # Analyze command
     analyze_parser = subparsers.add_parser("analyze", help="Analyze results and generate reports")
     analyze_parser.set_defaults(func=cmd_analyze)
+
+    # Improve command
+    improve_parser = subparsers.add_parser("improve", help="Get AI suggestions for prompt improvements")
+    improve_parser.add_argument("--prompt", required=True, help="Prompt version to improve")
+    improve_parser.add_argument(
+        "--results-file", help="Specific results file to analyze (uses most recent if not specified)"
+    )
+    improve_parser.add_argument(
+        "--show-suggestions", action="store_true", default=True, help="Display suggestions in terminal"
+    )
+    improve_parser.add_argument(
+        "--create-improved", action="store_true", help="Create an experimental improved prompt version"
+    )
+    improve_parser.add_argument("--output", help="Name for the improved prompt version")
+    improve_parser.set_defaults(func=cmd_improve)
 
     args = parser.parse_args()
 

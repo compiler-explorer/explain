@@ -19,6 +19,12 @@ uv run prompt-test list
 # Run current prompt against basic optimization cases
 uv run prompt-test run --prompt current --categories basic_optimizations
 
+# Use Claude-based AI scoring instead of regex patterns
+uv run prompt-test run --prompt current --scorer claude
+
+# Use hybrid scoring (20% of cases evaluated by Claude)
+uv run prompt-test run --prompt current --scorer hybrid --claude-sample-rate 0.2
+
 # Compare two prompt versions
 uv run prompt-test run --prompt current --compare v1_baseline
 
@@ -93,16 +99,58 @@ model_config:
 
 ## Evaluation Metrics
 
-### Automatic Scoring
+The framework supports three scoring methods:
 
-The framework automatically scores responses on:
+### 1. Automatic Scoring (Default)
 
-- **Accuracy** (0-1): How well it covers expected topics
-- **Technical Accuracy** (0-1): Absence of technical inaccuracies
-- **Clarity** (0-1): Readability and educational value
-- **Completeness** (0-1): Covers all relevant aspects
+Fast regex-based pattern matching that scores responses on:
+
+- **Accuracy** (0-1): How well it covers expected topics using keyword patterns
+- **Technical Accuracy** (0-1): Absence of known inaccuracy patterns
+- **Clarity** (0-1): Heuristic-based readability analysis
+- **Completeness** (0-1): Coverage of expected topics
 - **Length Appropriateness** (0-1): Not too verbose or brief
 - **Overall Score**: Weighted combination of above metrics
+
+### 2. Claude-Based AI Scoring
+
+Uses advanced Claude models to provide nuanced evaluation:
+
+- **Technical Accuracy**: Deep understanding of assembly correctness
+- **Educational Value**: Assessment of teaching effectiveness
+- **Clarity & Structure**: Analysis of explanation organization
+- **Completeness**: Context-aware coverage evaluation
+- **Practical Insights**: Value for real-world development
+
+Benefits over automatic scoring:
+- Understands context and relationships between concepts
+- Catches subtle technical errors regex patterns miss
+- Evaluates pedagogical effectiveness
+- Provides detailed feedback on strengths/weaknesses
+
+### 3. Hybrid Scoring
+
+Combines both methods for efficiency:
+- Uses automatic scoring for most cases
+- Samples a configurable percentage with Claude
+- Provides statistical validation of automatic scores
+- Balances cost/speed with accuracy
+
+### Scoring Method Selection
+
+```bash
+# Use automatic scoring (fastest, default)
+uv run prompt-test run --prompt current --scorer automatic
+
+# Use Claude scoring (most accurate, slower)
+uv run prompt-test run --prompt current --scorer claude
+
+# Use hybrid (20% Claude sampling)
+uv run prompt-test run --prompt current --scorer hybrid --claude-sample-rate 0.2
+
+# Use different Claude model for review
+uv run prompt-test run --prompt current --scorer claude --reviewer-model claude-3-opus-20240229
+```
 
 ## Usage Examples
 
@@ -217,3 +265,33 @@ For more help, check the CLI help:
 uv run prompt-test --help
 uv run prompt-test run --help
 ```
+
+## Constitutional AI Approach
+
+The Claude-based scoring implements a "constitutional AI" approach where:
+
+1. **Fast Model Generates**: Claude Haiku or Sonnet generates explanations quickly
+2. **Advanced Model Reviews**: Claude Opus or Sonnet reviews the outputs with deep thinking
+3. **Feedback Loop**: Review scores guide prompt improvements
+4. **Self-Improving**: The system learns what makes good explanations
+
+This approach enables:
+- **Scalable Quality**: Fast generation with quality assurance
+- **Objective Metrics**: AI-based evaluation reduces human bias
+- **Continuous Improvement**: Data-driven prompt optimization
+- **Cost Efficiency**: Only use expensive models for evaluation
+
+### Customizing Review Criteria
+
+You can customize how Claude evaluates responses by editing `evaluation/review_templates.yaml`:
+
+```yaml
+custom_review:
+  system_prompt: "Your custom reviewer instructions..."
+  evaluation_dimensions:
+    your_dimension:
+      weight: 0.30
+      description: "What to evaluate..."
+```
+
+This allows domain-specific evaluation criteria without code changes.
