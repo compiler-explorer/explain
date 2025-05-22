@@ -4,10 +4,12 @@ Main test runner for prompt evaluation.
 
 import json
 import time
+import traceback
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+import yaml
 from anthropic import Anthropic
 from dotenv import load_dotenv
 
@@ -38,13 +40,14 @@ class PromptTester:
         self.scorer = AutomaticScorer()
         self.metrics_provider = NoopMetricsProvider()  # Use noop provider for testing
 
-    def load_prompt(self, prompt_version: str) -> str:
-        """Load a prompt template from file."""
-        prompt_file = self.prompt_dir / f"{prompt_version}.txt"
+    def load_prompt(self, prompt_version: str) -> dict[str, Any]:
+        """Load a prompt configuration from YAML file."""
+        prompt_file = self.prompt_dir / f"{prompt_version}.yaml"
         if not prompt_file.exists():
             raise FileNotFoundError(f"Prompt file not found: {prompt_file}")
 
-        return prompt_file.read_text().strip()
+        with prompt_file.open(encoding="utf-8") as f:
+            return yaml.safe_load(f)
 
     def convert_test_case_to_request(self, test_case: dict[str, Any]) -> ExplainRequest:
         """Convert a test case to an ExplainRequest object."""
@@ -73,8 +76,8 @@ class PromptTester:
         case_id = test_case["id"]
         print(f"Running test case: {case_id} with prompt: {prompt_version}")
 
-        # Load prompt template
-        system_prompt_template = self.load_prompt(prompt_version)
+        # Load prompt configuration
+        prompt_config = self.load_prompt(prompt_version)
 
         # Convert test case to request
         request = self.convert_test_case_to_request(test_case)
@@ -82,10 +85,13 @@ class PromptTester:
         # Prepare structured data (same as in explain.py)
         structured_data = prepare_structured_data(request)
 
-        # Format the system prompt with language and architecture
+        # Format prompts with language and architecture
         language = request.language
         arch = request.instructionSet or "unknown"
-        system_prompt = system_prompt_template.format(language=language, arch=arch)
+
+        system_prompt = prompt_config["system_prompt"].format(language=language, arch=arch)
+        user_prompt = prompt_config["user_prompt"].format(arch=arch)
+        assistant_prefill = prompt_config["assistant_prefill"]
 
         # Call Claude API
         start_time = time.time()
@@ -100,7 +106,7 @@ class PromptTester:
                         "content": [
                             {
                                 "type": "text",
-                                "text": f"Explain the {arch} assembly output.",
+                                "text": user_prompt,
                             },
                             {"type": "text", "text": json.dumps(structured_data)},
                         ],
@@ -110,7 +116,7 @@ class PromptTester:
                         "content": [
                             {
                                 "type": "text",
-                                "text": "I have analysed the assembly code and my analysis is:",
+                                "text": assistant_prefill,
                             },
                         ],
                     },
@@ -134,6 +140,9 @@ class PromptTester:
             output_tokens = 0
             success = False
             error = str(e)
+            # Log full exception details for debugging
+            print(f"Error in API call for test case {case_id}: {e}")
+            print(f"Full traceback:\n{traceback.format_exc()}")
 
         # Evaluate response
         if success:
@@ -198,6 +207,7 @@ class PromptTester:
 
             except Exception as e:
                 print(f"  ✗ {case['id']}: Unexpected error: {e}")
+                print(f"Full traceback:\n{traceback.format_exc()}")
                 results.append(
                     {
                         "case_id": case["id"],

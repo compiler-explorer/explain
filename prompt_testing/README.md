@@ -20,7 +20,7 @@ uv run prompt-test list
 uv run prompt-test run --prompt current --categories basic_optimizations
 
 # Compare two prompt versions
-uv run prompt-test run --prompt v1_baseline --compare current
+uv run prompt-test run --prompt current --compare v1_baseline
 
 # Analyze all previous results
 uv run prompt-test analyze
@@ -30,14 +30,14 @@ uv run prompt-test analyze
 
 ```
 prompt_testing/
-├── test_cases/           # Test case definitions (JSON files)
-│   ├── basic_optimizations.json
-│   ├── complex_transformations.json
-│   └── edge_cases.json
-├── prompts/              # Prompt versions (text files)
-│   ├── v1_baseline.txt
-│   ├── current.txt
-│   └── v2_improved.txt
+├── test_cases/           # Test case definitions (YAML files)
+│   ├── basic_optimizations.yaml
+│   ├── complex_transformations.yaml
+│   └── edge_cases.yaml
+├── prompts/              # Prompt versions (YAML files)
+│   ├── v1_baseline.yaml
+│   ├── current.yaml
+│   └── v2_improved.yaml
 ├── results/              # Test results and analysis
 │   └── [timestamp]_[prompt_version].json
 └── evaluation/           # Scoring and review tools
@@ -47,32 +47,52 @@ prompt_testing/
 
 ## Test Case Format
 
-Test cases are defined in JSON files with the following structure:
+Test cases are defined in YAML files with the following structure:
 
-```json
-{
-  "description": "Test case category description",
-  "cases": [
-    {
-      "id": "unique_case_id",
-      "category": "optimization_type",
-      "quality": "good_example|bad_example|challenging_example",
-      "description": "Human readable description",
-      "input": {
-        "language": "C++",
-        "compiler": "gcc 13.1",
-        "compilationOptions": ["-O2"],
-        "instructionSet": "x86_64",
-        "code": "source code here",
-        "asm": [
-          {"text": "mov eax, edi", "address": 1, "source": {"line": 2}}
-        ]
-      },
-      "expected_topics": ["vectorization", "loop_optimization"],
-      "difficulty": "beginner|intermediate|advanced"
-    }
-  ]
-}
+```yaml
+description: "Test case category description"
+
+cases:
+  - id: unique_case_id
+    category: optimization_type
+    quality: good_example  # good_example|bad_example|challenging_example
+    description: "Human readable description"
+    input:
+      language: C++
+      compiler: "gcc 13.1"
+      compilationOptions: ["-O2"]
+      instructionSet: x86_64
+      code: |
+        source code here
+      asm:
+        - text: "mov eax, edi"
+          address: 1
+          source:
+            line: 2
+    expected_topics: [vectorization, loop_optimization]
+    difficulty: beginner  # beginner|intermediate|advanced
+```
+
+## Prompt Format
+
+Prompts are defined in YAML files with separate system and user prompts:
+
+```yaml
+system_prompt: |
+  You are an expert in {arch} assembly code and {language}, helping users of the
+  Compiler Explorer website understand how their code compiles to assembly.
+
+user_prompt: "Explain the {arch} assembly output."
+
+assistant_prefill: "I have analysed the assembly code and my analysis is:"
+
+template_variables:
+  - arch
+  - language
+
+model_config:
+  model: claude-3-5-sonnet-20241022
+  max_tokens: 4000
 ```
 
 ## Evaluation Metrics
@@ -87,13 +107,6 @@ The framework automatically scores responses on:
 - **Completeness** (0-1): Covers all relevant aspects
 - **Length Appropriateness** (0-1): Not too verbose or brief
 - **Overall Score**: Weighted combination of above metrics
-
-### Human Review
-
-Human reviewers can provide:
-- Numerical scores (1-5 scale) for different dimensions
-- Qualitative feedback (strengths, weaknesses, suggestions)
-- Comparative preferences between prompt versions
 
 ## Usage Examples
 
@@ -117,7 +130,7 @@ uv run prompt-test run --prompt v1_baseline --compare current --categories basic
 
 1. Create a new prompt version:
    ```bash
-   cp prompt_testing/prompts/current.txt prompt_testing/prompts/v3_experiment.txt
+   cp prompt_testing/prompts/current.yaml prompt_testing/prompts/v3_experiment.yaml
    # Edit the new prompt
    ```
 
@@ -128,12 +141,12 @@ uv run prompt-test run --prompt v1_baseline --compare current --categories basic
 
 3. If it performs better, update current:
    ```bash
-   cp prompt_testing/prompts/v3_experiment.txt prompt_testing/prompts/current.txt
+   cp prompt_testing/prompts/v3_experiment.yaml prompt_testing/prompts/current.yaml
    ```
 
 ### Adding Test Cases
 
-1. Add new cases to existing JSON files or create new category files
+1. Add new cases to existing YAML files or create new category files
 2. Include realistic assembly output (you can use Compiler Explorer to generate examples)
 3. Specify expected topics that a good explanation should cover
 4. Test your new cases to ensure they work as expected
@@ -188,42 +201,12 @@ The testing framework uses the same core logic as the main explain service:
 
 This ensures that test results accurately reflect production performance.
 
-## Extending the Framework
-
-### Adding New Evaluation Metrics
-
-1. Extend `EvaluationMetrics` class in `evaluation/scorer.py`
-2. Add scoring logic to `AutomaticScorer.evaluate_response()`
-3. Update CLI to display new metrics
-
-### Adding New Test Case Categories
-
-1. Create new JSON file in `test_cases/`
-2. Define category-specific expected topics in scorer
-3. Add any category-specific evaluation logic
-
-### Custom Scoring
-
-You can create custom scoring functions:
-
-```python
-from prompt_testing.evaluation.scorer import AutomaticScorer
-
-class CustomScorer(AutomaticScorer):
-    def score_custom_metric(self, response: str) -> float:
-        # Your custom scoring logic
-        return score
-
-scorer = CustomScorer()
-metrics = scorer.evaluate_response(response, expected_topics, difficulty, token_count)
-```
-
 ## Troubleshooting
 
 ### Common Issues
 
 1. **API Key Issues**: Ensure `ANTHROPIC_API_KEY` environment variable is set
-2. **Missing Test Cases**: Run `python -m prompt_testing.cli list` to see available cases
+2. **Missing Test Cases**: Run `uv run prompt-test list` to see available cases
 3. **Import Errors**: Make sure you're running from the project root directory
 4. **Permission Errors**: Check that results directory is writable
 
@@ -232,9 +215,8 @@ metrics = scorer.evaluate_response(response, expected_topics, difficulty, token_
 - **Rate Limits**: The framework respects Anthropic API rate limits
 - **Parallel Testing**: Currently runs sequentially (could be parallelized)
 - **Token Usage**: Monitor costs when running large test suites
-- **Caching**: Consider adding response caching for repeated tests
 
-For more help, check the example commands in the CLI help:
+For more help, check the CLI help:
 ```bash
 uv run prompt-test --help
 uv run prompt-test run --help

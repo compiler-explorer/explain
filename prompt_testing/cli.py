@@ -95,7 +95,7 @@ def cmd_list(args):
     try:
         prompts_dir = project_root / "prompt_testing" / "prompts"
         if prompts_dir.exists():
-            for prompt_file in sorted(prompts_dir.glob("*.txt")):
+            for prompt_file in sorted(prompts_dir.glob("*.yaml")):
                 prompt_name = prompt_file.stem
                 print(f"  {prompt_name}")
         else:
