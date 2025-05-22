@@ -27,6 +27,9 @@ jobs:
       - name: Run tests
         run: uv run pytest
 
+      - name: Check docker image builds ok
+        run: docker build -t explain .
+
   docker:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
