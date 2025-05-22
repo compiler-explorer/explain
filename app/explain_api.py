@@ -38,7 +38,7 @@ class AssemblyItem(BaseModel):
 
 
 class ExplainRequest(BaseModel):
-    """Request body for the /explain endpoint."""
+    """Request body for the Claude Explain API."""
 
     language: str = Field(..., description="Programming language (e.g., 'c++', 'rust')")
     compiler: str = Field(..., description="Compiler identifier (e.g., 'g112', 'clang1500')")
@@ -66,7 +66,7 @@ class CostBreakdown(BaseModel):
 
 
 class ExplainResponse(BaseModel):
-    """Response from the /explain endpoint."""
+    """Response from the Claude Explain API."""
 
     explanation: str | None = Field(None, description="The generated explanation")
     status: str = Field(..., description="'success' or 'error'")
@@ -77,14 +77,14 @@ class ExplainResponse(BaseModel):
 
 
 class ExplainErrorResponse(BaseModel):
-    """Error response from the /explain endpoint."""
+    """Error response from the Claude Explain API."""
 
     status: str = Field("error", description="Always 'error' for error responses")
     message: str = Field(..., description="Error message describing what went wrong")
 
 
 class ExplainSuccessResponse(BaseModel):
-    """Success response from the /explain endpoint."""
+    """Success response from the Claude Explain API."""
 
     status: str = Field("success", description="Always 'success' for successful responses")
     explanation: str = Field(..., description="The generated explanation")

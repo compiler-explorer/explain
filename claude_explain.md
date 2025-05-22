@@ -16,7 +16,7 @@ The Claude Explain service will provide AI-powered explanations of compiler outp
    - Return Claude's response to the client
 
 2. **API Gateway**: HTTP API Gateway to:
-   - Expose the `/explain` endpoint
+   - Expose the root path `/` endpoint
    - Handle request routing
    - Provide CORS support
    - Enable rate limiting
@@ -89,7 +89,7 @@ The service will return a JSON response with:
   "explanation": "string",    // The generated explanation
   "status": "success" | "error",
   "message": "string",        // Only present on error
-  "model": "string",          // The Claude model used (e.g., "claude-3-haiku-20240307")
+  "model": "string",          // The Claude model used (e.g., "claude-3-5-haiku-20241022")
   "usage": {
     "input_tokens": 123,      // Number of input tokens used in the request
     "output_tokens": 456,     // Number of output tokens generated
@@ -259,9 +259,9 @@ This approach has several advantages:
 
 2. **API Gateway Configuration**:
    - HTTP API with CORS support
-   - POST route for `/explain` endpoint
+   - POST route for root path `/` endpoint
    - Integration with Lambda function
-   - Custom domain mapping to `api.compiler-explorer.com/explain`
+   - API Gateway integration handles path mapping
 
 3. **IAM Permissions**:
    - Lambda execution role
@@ -333,7 +333,7 @@ The implementation follows these dependency chains:
 ## Cost Considerations
 
 1. **Claude API Costs**:
-   - Claude 3.5 Haiku is priced at $0.80/million input tokens and $4.00/million output tokens (as of November 2024)
+   - Claude pricing varies by model - see Anthropic's current pricing
    - Monitor token usage
    - Consider implementing a token budget per request
    - Set up cost alerting
@@ -419,12 +419,12 @@ from botocore.exceptions import ClientError
 ssm = boto3.client('ssm')
 anthropic_client = None  # Initialized lazily
 
-# Constants
-MAX_CODE_LENGTH = 10000  # 10K chars should be enough for most source files
-MAX_ASM_LENGTH = 20000   # 20K chars for assembly output
-MODEL = "claude-3-haiku-20240307"
-MAX_TOKENS = 1024  # Adjust based on desired explanation length
-PARAM_NAME = "/ce/claude/api-key"  # Stored in Parameter Store
+# Configuration (see app/explain.py for current values)
+# - MAX_CODE_LENGTH: Maximum source code length
+# - MAX_ASM_LENGTH: Maximum assembly output length
+# - MODEL: Claude model identifier
+# - MAX_TOKENS: Response length limit
+# - PARAM_NAME: Parameter Store key for API key
 
 def get_anthropic_client():
     """Get or initialize Anthropic client with API key from Parameter Store."""
@@ -460,8 +460,7 @@ def validate_input(body):
 
 def prepare_structured_data(body):
     """Prepare a structured JSON object for Claude's consumption."""
-    # Set reasonable limits
-    MAX_ASSEMBLY_LINES = 300
+    # Use configured assembly line limit from constants
 
     # Extract and validate basic fields
     structured_data = {
@@ -510,7 +509,7 @@ def prepare_structured_data(body):
 
     return structured_data
 
-def select_important_assembly(asm_array, label_definitions, max_lines=300):
+def select_important_assembly(asm_array, label_definitions, max_lines=MAX_ASSEMBLY_LINES):
     """Select the most important assembly lines if the output is too large.
 
     This function identifies and preserves:
@@ -739,7 +738,7 @@ resource "aws_lambda_function" "explain" {
   source_code_hash = filebase64sha256("${path.module}/../lambda/lambda-package.zip")
   role = aws_iam_role.explain_lambda_role.arn
   handler = "explain.lambda_handler"
-  runtime = "python3.12"
+  runtime = "python3.13"
   timeout = 30
   memory_size = 256
 
@@ -761,7 +760,7 @@ resource "aws_apigatewayv2_integration" "explain" {
 # API Gateway Route
 resource "aws_apigatewayv2_route" "explain" {
   api_id = aws_apigatewayv2_api.ce_pub_api.id
-  route_key = "POST /explain"
+  route_key = "POST /"
   target = "integrations/${aws_apigatewayv2_integration.explain.id}"
 }
 
@@ -840,31 +839,46 @@ resource "aws_lambda_permission" "explain_api" {
 
 The core Claude Explain service has been implemented with the following features:
 
-- ✅ Lambda function with Python 3.12 runtime
+- ✅ FastAPI service with Python 3.13 runtime (can run as Lambda or standalone)
 - ✅ Input validation and smart assembly processing
-- ✅ Integration with Anthropic API (Claude 3 Haiku model)
+- ✅ Integration with Anthropic API (Claude 3.5 Haiku model)
 - ✅ Error handling and response formatting
-- ✅ Comprehensive unit tests
-- ✅ Local development HTTP server
-- ✅ Terraform configuration for AWS deployment
+- ✅ Comprehensive unit tests with pytest
+- ✅ Local development HTTP server with uv and FastAPI dev server
+- ✅ Docker containerization support
+- ✅ Pre-commit hooks with ruff linting and formatting
 - ✅ Documentation for developers and users
 
 Key features ready for deployment:
 
 - ✅ Local development server with secure file-based API key handling
-- ✅ Smart assembly truncation for large inputs
+- ✅ Smart assembly truncation for large inputs with configurable limits
+- ✅ Input size validation with configurable limits
 - ✅ CORS support for browser integration
-- ✅ Test script for local verification
+- ✅ Test script for local verification with `./test-explain.sh`
 - ✅ Error handling for various API failure modes
+- ✅ Structured API models with Pydantic validation
+- ✅ Metrics providers for monitoring (AWS CloudWatch when deployed, no-op locally)
 
 Remaining tasks before production release:
 
-- Deploy to AWS staging environment
-- Set up production API key and parameter store
-- Implement rate limiting
-- Configure domain and DNS
-- Create monitoring and alerting
-- Integrate with Compiler Explorer UI
+- 🟡 Deploy to AWS staging environment (infrastructure code ready)
+- 🟡 Set up production API key and parameter store
+- 🟡 Implement rate limiting at API Gateway level
+- 🟡 Configure domain and DNS
+- 🟡 Create monitoring and alerting
+- 🟡 Integrate with Compiler Explorer UI
+
+**Current Status**: The service is feature-complete and ready for deployment. All core functionality has been implemented and tested locally. The service can run both as a standalone FastAPI application for development and as an AWS Lambda function for production deployment.
+
+### Key Implementation Achievements
+
+- **Modern FastAPI Architecture**: Migrated from pure Lambda to FastAPI with Mangum adapter for flexibility
+- **Enhanced Type Safety**: Full Pydantic models for request/response validation
+- **Improved Model**: Upgraded to Claude 3.5 Haiku for better accuracy and reduced hallucinations
+- **Robust Testing**: Comprehensive test suite covering edge cases and error conditions
+- **Developer Experience**: Local development server, hot reload, and integration test script
+- **Production Ready**: Docker support, pre-commit hooks, and proper error handling
 
 ## Conclusion
 

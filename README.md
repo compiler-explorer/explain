@@ -10,10 +10,9 @@ For detailed design documentation, see [claude_explain.md](claude_explain.md).
 
 ## Project Structure
 
-- `app/main.py` - FastAPI application entry point with `/explain` endpoint
-- `app/explain.py` - Core logic for processing assembly explanation requests
-- `app/config.py` - Configuration management using Pydantic settings
-- `test-explain.sh` - Integration test script for the explain endpoint
+See the source code for the current project structure. Key entry points:
+- `app/main.py` - FastAPI application entry point
+- `test-explain.sh` - Integration test script
 
 ## Setup
 
@@ -64,7 +63,7 @@ The service will be available at http://localhost:8000
 uv run pytest
 
 # Run specific test
-uv run pytest app/explain_test.py::TestProcessRequest::test_process_request_success
+uv run pytest app/explain_test.py::test_process_request_success
 ```
 
 ### Code Quality
@@ -80,29 +79,17 @@ uv run ruff format
 
 ## Key Features
 
-### Assembly Intelligence
+### Key Features
 
-The service implements smart assembly filtering to handle large compiler outputs:
-
-- Preserves function boundaries (labels, entry/exit points)
-- Keeps instructions with source code mappings
-- Maintains contextual instructions around important code
-- Adds omission markers for skipped sections
-
-### Metrics & Monitoring
-
-Uses AWS Embedded Metrics for CloudWatch integration when deployed, with a no-op provider for local development. Tracks token usage, costs, and request patterns.
-
-### Environment Configuration
-
-- **Local development**: Uses `.env` file for API key
-- **AWS deployment**: Expects environment variables for API key and optional root path
+- Smart assembly filtering for large compiler outputs
+- AWS CloudWatch metrics integration when deployed
+- Local development with `.env` file configuration
 
 ## API Usage
 
 ### Endpoint
 
-`POST /explain`
+`POST /` (root path)
 
 ### Request Format
 
@@ -151,12 +138,9 @@ Uses AWS Embedded Metrics for CloudWatch integration when deployed, with a no-op
 }
 ```
 
-## Configuration Constants
+## Configuration
 
-- `MAX_ASSEMBLY_LINES = 300` - Maximum assembly lines processed
-- `MODEL = "claude-3-5-haiku-20241022"` - Claude model used
-- `MAX_TOKENS = 1024` - Response length limit
-- Token costs are tracked for billing/monitoring
+See `app/explain.py` for current limits and model configuration. The service includes configurable limits for input size, assembly processing, and response length.
 
 ## Deployment
 
