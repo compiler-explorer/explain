@@ -30,6 +30,9 @@ uv run prompt-test run --prompt current --compare v1_baseline
 
 # Analyze all previous results
 uv run prompt-test analyze
+
+# Get AI-powered prompt improvement suggestions
+uv run prompt-test improve --prompt current
 ```
 
 ## Directory Structure
@@ -47,8 +50,11 @@ prompt_testing/
 ├── results/              # Test results and analysis
 │   └── [timestamp]_[prompt_version].json
 └── evaluation/           # Scoring and review tools
-    ├── scorer.py
-    └── reviewer.py
+    ├── scorer.py        # Automatic regex-based scoring
+    ├── claude_reviewer.py # Claude-based AI scoring
+    ├── prompt_advisor.py # Prompt improvement suggestions
+    ├── reviewer.py       # Human review tools
+    └── review_templates.yaml # Customizable evaluation criteria
 ```
 
 ## Test Case Format
@@ -103,14 +109,49 @@ The framework supports three scoring methods:
 
 ### 1. Automatic Scoring (Default)
 
-Fast regex-based pattern matching that scores responses on:
+Fast regex-based pattern matching that scores responses on multiple dimensions:
 
-- **Accuracy** (0-1): How well it covers expected topics using keyword patterns
-- **Technical Accuracy** (0-1): Absence of known inaccuracy patterns
-- **Clarity** (0-1): Heuristic-based readability analysis
-- **Completeness** (0-1): Coverage of expected topics
-- **Length Appropriateness** (0-1): Not too verbose or brief
-- **Overall Score**: Weighted combination of above metrics
+#### How It Works
+
+The automatic scorer (`evaluation/scorer.py`) uses predefined patterns to evaluate responses:
+
+1. **Topic Coverage Detection**:
+   - Maintains a dictionary of optimization topics with associated regex patterns
+   - Example: "loop_optimization" looks for patterns like `\bloop\s+optimization\b`, `\bvectorization\b`, `\bunrolling\b`
+   - Checks if expected topics from test cases are mentioned in the response
+   - Falls back to simple keyword matching if topic not in predefined patterns
+
+2. **Technical Accuracy Check**:
+   - Searches for known incorrect claim patterns
+   - Examples: `\bbranch\s+predictor\s+will\s+always\b`, `\bcompiler\s+always\s+does\b`
+   - Deducts points for overly definitive claims about hardware behavior
+
+3. **Clarity Analysis**:
+   - Calculates average sentence length (optimal: 15-25 words)
+   - Measures technical term density (optimal: 5-15% of total words)
+   - Scores based on deviation from optimal ranges
+
+4. **Length Appropriateness**:
+   - Different target ranges by difficulty level:
+     - Beginner: 80-300 characters
+     - Intermediate: 150-500 characters
+     - Advanced: 200-800 characters
+   - Gradual penalty for being too short or too long
+
+#### Scoring Dimensions
+
+- **Accuracy Score** (0-1): Percentage of expected topics covered
+- **Technical Accuracy** (0-1): 1.0 minus penalties for incorrect claims
+- **Clarity Score** (0-1): Average of sentence length and technical term density scores
+- **Completeness Score** (0-1): Currently uses accuracy score as proxy
+- **Length Score** (0-1): Based on response length vs. difficulty-appropriate range
+- **Overall Score**: Weighted combination:
+  - Accuracy: 25%
+  - Technical Accuracy: 25%
+  - Clarity: 20%
+  - Completeness: 15%
+  - Length: 10%
+  - Consistency: 5%
 
 ### 2. Claude-Based AI Scoring
 
@@ -150,6 +191,49 @@ uv run prompt-test run --prompt current --scorer hybrid --claude-sample-rate 0.2
 
 # Use different Claude model for review
 uv run prompt-test run --prompt current --scorer claude --reviewer-model claude-3-opus-20240229
+```
+
+## Example Output
+
+### Automatic Scoring Output
+```
+Running 2 test cases with prompt version: current
+  ✓ basic_loop_001: 0.74
+  ✓ basic_inline_001: 0.86
+
+Summary for current:
+  Success rate: 100.0%
+  Cases: 2/2
+  Average score: 0.80
+  Average accuracy: 0.81
+  Average clarity: 0.79
+  Average tokens: 290
+```
+
+### Claude Scoring Output
+```
+Running 1 test cases with prompt version: current
+  ✓ basic_loop_001: 0.85
+
+Detailed feedback includes:
+- Missing topics: ["Register calling conventions", "Performance implications"]
+- Incorrect claims: ["Loop unrolling optimization"]
+- Notes: "Good structure but needs more beginner-friendly explanation"
+```
+
+### Improvement Suggestions Output
+```
+=== PROMPT IMPROVEMENT SUGGESTIONS ===
+
+Average Score: 0.87
+
+🎯 Priority Improvements:
+  Issue: Incorrect claims about optimization techniques
+  Current: 'Be precise and accurate about CPU features...'
+  Suggested: 'Be precise and accurate about all compiler optimizations...'
+  Rationale: Expanded guidance prevents misidentifying optimizations
+
+✨ Expected Impact: Score should improve from 0.87 to 0.90+
 ```
 
 ## Usage Examples
@@ -194,6 +278,33 @@ uv run prompt-test run --prompt v1_baseline --compare current --categories basic
 2. Include realistic assembly output (you can use Compiler Explorer to generate examples)
 3. Specify expected topics that a good explanation should cover
 4. Test your new cases to ensure they work as expected
+
+### Prompt Improvement Workflow
+
+1. Run tests with Claude scoring to get detailed feedback:
+   ```bash
+   uv run prompt-test run --prompt current --scorer claude
+   ```
+
+2. Analyze results and get improvement suggestions:
+   ```bash
+   uv run prompt-test improve --prompt current
+   ```
+
+3. Create an experimental improved version:
+   ```bash
+   uv run prompt-test improve --prompt current --create-improved --output current_v2
+   ```
+
+4. Test the improved version:
+   ```bash
+   uv run prompt-test run --prompt current_v2 --scorer claude --compare current
+   ```
+
+5. If improved, adopt as new current version:
+   ```bash
+   cp prompt_testing/prompts/current_v2.yaml prompt_testing/prompts/current.yaml
+   ```
 
 ### Human Review Workflow
 
@@ -260,6 +371,16 @@ This ensures that test results accurately reflect production performance.
 - **Parallel Testing**: Currently runs sequentially (could be parallelized)
 - **Token Usage**: Monitor costs when running large test suites
 
+### Error Handling
+
+The framework uses **fail-fast error propagation**:
+- No silent failures or fallbacks that hide issues
+- Full stack traces for debugging
+- Errors immediately bubble up rather than being caught and logged
+- This ensures you always know when something goes wrong
+
+Example: If Claude API fails during scoring, the entire test run stops with a clear error rather than falling back to automatic scoring.
+
 For more help, check the CLI help:
 ```bash
 uv run prompt-test --help
@@ -271,7 +392,7 @@ uv run prompt-test run --help
 The Claude-based scoring implements a "constitutional AI" approach where:
 
 1. **Fast Model Generates**: Claude Haiku or Sonnet generates explanations quickly
-2. **Advanced Model Reviews**: Claude Opus or Sonnet reviews the outputs with deep thinking
+2. **Advanced Model Reviews**: Claude Sonnet 4.0 (default) reviews outputs with deep analysis
 3. **Feedback Loop**: Review scores guide prompt improvements
 4. **Self-Improving**: The system learns what makes good explanations
 
@@ -280,6 +401,18 @@ This approach enables:
 - **Objective Metrics**: AI-based evaluation reduces human bias
 - **Continuous Improvement**: Data-driven prompt optimization
 - **Cost Efficiency**: Only use expensive models for evaluation
+
+### Model Configuration
+
+Default models:
+- **Generation**: claude-3-5-haiku-20241022 (from main service)
+- **Review**: claude-sonnet-4-0 (for evaluation)
+- **Improvement**: claude-sonnet-4-0 (for suggestions)
+
+You can override the review model:
+```bash
+uv run prompt-test run --prompt current --scorer claude --reviewer-model claude-3-opus-20240229
+```
 
 ### Customizing Review Criteria
 
