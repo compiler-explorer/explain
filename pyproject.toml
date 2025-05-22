@@ -19,6 +19,7 @@ dev = [
     "fastapi[standard]>=0.115",
     "pre-commit>=4.2.0",
     "pytest>=8.3.5",
+    "ruff>=0.11.10",
 ]
 
 [tool.ruff]
