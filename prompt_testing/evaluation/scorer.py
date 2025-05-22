@@ -2,11 +2,12 @@
 Scoring and evaluation system for prompt testing.
 """
 
-import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
+import yaml
 
 
 @dataclass
@@ -233,10 +234,10 @@ class AutomaticScorer:
 
 
 def load_test_case(file_path: str, case_id: str) -> dict[str, Any]:
-    """Load a specific test case from a JSON file."""
+    """Load a specific test case from a YAML file."""
     path = Path(file_path)
-    with path.open() as f:
-        data = json.load(f)
+    with path.open(encoding="utf-8") as f:
+        data = yaml.safe_load(f)
 
     for case in data["cases"]:
         if case["id"] == case_id:
@@ -250,9 +251,9 @@ def load_all_test_cases(test_cases_dir: str) -> list[dict[str, Any]]:
     all_cases = []
     test_dir = Path(test_cases_dir)
 
-    for file_path in test_dir.glob("*.json"):
-        with file_path.open() as f:
-            data = json.load(f)
+    for file_path in test_dir.glob("*.yaml"):
+        with file_path.open(encoding="utf-8") as f:
+            data = yaml.safe_load(f)
             all_cases.extend(data["cases"])
 
     return all_cases
