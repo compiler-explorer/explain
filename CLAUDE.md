@@ -85,3 +85,7 @@ Uses AWS Embedded Metrics for CloudWatch integration when deployed, with a no-op
 - `MODEL = "claude-3-5-haiku-20241022"` - Claude model used
 - `MAX_TOKENS = 1024` - Response length limit
 - Token costs are tracked for billing/monitoring
+
+## Code Style Guidelines
+
+- Prefer using modern Python 3.9+ type syntax. Good: `a: list[str] | None`. Bad: `a: Optional[List[str]]`

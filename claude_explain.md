@@ -44,29 +44,39 @@ The service will accept POST requests with JSON bodies containing a subset of th
   "instructionSet": "string",        // Target architecture (e.g., "amd64", "arm64")
   "asm": [                          // Array of assembly objects from compile response
     {
-      "text": "square(int):",       // Assembly text
+      "text": "factorial(int):",     // Assembly text
       "source": null,               // Optional source mapping
-      "labels": []                  // Array of label references
+      "labels": []                  // Array of label references with positioning
     },
     {
-      "text": "        push    rbp",
+      "text": "        cmp     edi, 1",
       "source": {
-        "file": null,               // Source file (usually null)
-        "line": 1,                  // Source line number
-        "column": 21                // Source column number
+        "line": 2,                  // Source line number
+        "column": 6                 // Source column number
       },
       "labels": []
+    },
+    {
+      "text": "        jle     .L4",
+      "source": {
+        "line": 2,
+        "column": 6
+      },
+      "labels": [
+        {
+          "name": ".L4",            // Label name
+          "range": {                // Position range in assembly text
+            "startCol": 13,
+            "endCol": 16
+          }
+        }
+      ]
     }
   ],
   "labelDefinitions": {             // Optional map of label names to line numbers
-    "square(int)": 1
-  },
-  "stderr": [                      // Optional array of compiler error/warning messages
-    "warning: unused variable 'x'"
-  ],
-  "optimizationOutput": [          // Optional optimization remarks (if available)
-    "loop vectorized"
-  ]
+    "factorial(int)": 0,
+    ".L4": 10
+  }
 }
 ```
 
@@ -158,30 +168,45 @@ Here's an example structure:
   "task": "Explain the relationship between source code and assembly output",
   "language": "c++",
   "compiler": "g++",
-  "compilationOptions": ["-O2", "-g", "-Wall"],
+  "compilationOptions": ["-O2"],
   "instructionSet": "amd64",
-  "sourceCode": "int square(int x) {\n  return x * x;\n}",
+  "sourceCode": "int factorial(int n) {\n  if (n <= 1) return 1;\n  return n * factorial(n-1);\n}",
   "assembly": [
     {
-      "text": "square(int):",
+      "text": "factorial(int):",
       "source": null,
       "labels": []
     },
     {
-      "text": "        push    rbp",
+      "text": "        cmp     edi, 1",
       "source": {
-        "line": 1,
-        "column": 21
+        "line": 2,
+        "column": 6
       },
       "labels": []
     },
+    {
+      "text": "        jle     .L4",
+      "source": {
+        "line": 2,
+        "column": 6
+      },
+      "labels": [
+        {
+          "name": ".L4",
+          "range": {
+            "startCol": 13,
+            "endCol": 16
+          }
+        }
+      ]
+    }
     // Additional assembly items...
   ],
   "labelDefinitions": {
-    "square(int)": 1
-  },
-  "compilerMessages": [],
-  "optimizationRemarks": []
+    "factorial(int)": 0,
+    ".L4": 10
+  }
 }
 ```
 

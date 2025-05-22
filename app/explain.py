@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 from typing import Dict, List, Optional, Tuple, Union
 
 from anthropic import Anthropic
+from app.explain_api import ExplainRequest, ExplainResponse
 import aws_embedded_metrics
 from aws_embedded_metrics.logger.metrics_logger import MetricsLogger
 
@@ -61,76 +62,6 @@ MAX_TOKENS = 1024  # Adjust based on desired explanation length
 # Update if model or pricing changes
 COST_PER_INPUT_TOKEN = 0.0000008  # $0.80/1M tokens
 COST_PER_OUTPUT_TOKEN = 0.000004  # $4.00/1M tokens
-
-
-def create_response(
-    status_code: int = 200, body: Optional[Union[Dict, List, str]] = None
-) -> Dict:
-    """Create a standardized API response."""
-    # Default CORS headers for browser access
-    default_headers = {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key",
-        "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
-        "Pragma": "no-cache",
-        "Expires": "0",
-    }
-
-    response = {
-        "statusCode": status_code,
-        "headers": default_headers,
-    }
-
-    # Add body if provided
-    if body is not None:
-        if isinstance(body, dict) or isinstance(body, list):
-            response["body"] = json.dumps(body)
-        else:
-            response["body"] = body
-
-    return response
-
-
-def handle_error(error: Exception, is_internal: bool = False) -> Dict:
-    """Centralized error handler that logs and creates error responses."""
-    if is_internal:
-        print(f"Unexpected error: {str(error)}")
-        return create_response(
-            status_code=500,
-            body={"status": "error", "message": "Internal server error"},
-        )
-    else:
-        print(f"Error: {str(error)}")
-        return create_response(
-            status_code=500, body={"status": "error", "message": str(error)}
-        )
-
-
-def validate_input(body: Dict) -> Tuple[bool, str]:
-    """Validate the input request body."""
-    required_fields = ["language", "compiler", "code", "asm"]
-    for field in required_fields:
-        if field not in body:
-            return False, f"Missing required field: {field}"
-
-    # Validate code length
-    if len(body.get("code", "")) > MAX_CODE_LENGTH:
-        return (
-            False,
-            f"Source code exceeds maximum length of {MAX_CODE_LENGTH} characters",
-        )
-
-    # Validate assembly format
-    if not isinstance(body.get("asm", []), list):
-        return False, "Assembly must be an array"
-
-    # Check if assembly array is empty
-    if len(body.get("asm", [])) == 0:
-        return False, "Assembly array cannot be empty"
-
-    return True, ""
 
 
 def select_important_assembly(
@@ -228,7 +159,7 @@ def select_important_assembly(
     return selected_assembly
 
 
-def prepare_structured_data(body: Dict) -> Dict:
+def prepare_structured_data(body: ExplainRequest) -> dict:
     """Prepare a structured JSON object for Claude's consumption."""
     # Extract and validate basic fields
     structured_data = {
@@ -280,10 +211,10 @@ def prepare_structured_data(body: Dict) -> Dict:
 
 
 def process_request(
-    body: Dict,
+    body: ExplainRequest,
     client: Anthropic,
     metrics_provider: Optional[MetricsProvider] = None,
-) -> Dict:
+) -> ExplainResponse:
     """Process a request and return the response.
 
     This is the core processing logic, separated from the lambda_handler
@@ -297,20 +228,13 @@ def process_request(
     Returns:
         A response dictionary with status and explanation
     """
-    try:
-        # Validate input
-        valid, error_message = validate_input(body)
-        if not valid:
-            return create_response(
-                status_code=400, body={"status": "error", "message": error_message}
-            )
+    language = body.language
+    arch = body.instructionSet
 
-        language = body["language"]
-        arch = body.get("instructionSet", "")
+    structured_data = prepare_structured_data(body)
 
-        structured_data = prepare_structured_data(body)
-
-        system_prompt = f"""You are an expert in {arch} assembly code and {language}, helping users of the Compiler Explorer website understand how their code compiles to assembly.
+    # TODO: consider not baking the language and arch here for system prompt caching later on. We'll need to hit minimum token lengths.
+    system_prompt = f"""You are an expert in {arch} assembly code and {language}, helping users of the Compiler Explorer website understand how their code compiles to assembly.
 The request will be in the form of a JSON document, which explains a source program and how it was compiled, and the resulting assembly code that was generated.
 Provide clear, concise explanations. Focus on key transformations, optimizations, and important assembly patterns.
 Explanations should be educational and highlight why certain code constructs generate specific assembly instructions.
@@ -319,123 +243,82 @@ If it makes it easiest to explain, note the corresponding parts of the source co
 Do not give an overall conclusion.
 Be precise and accurate about CPU features and optimizations - avoid making incorrect claims about branch prediction or other hardware details."""
 
-        # Call Claude API with JSON structure
-        try:
-            logger.info(f"Using Anthropic client with model: {MODEL}")
+    # Call Claude API with JSON structure
+    logger.info(f"Using Anthropic client with model: {MODEL}")
 
-            message = client.messages.create(
-                model=MODEL,
-                max_tokens=MAX_TOKENS,
-                system=system_prompt,
-                messages=[
+    message = client.messages.create(
+        model=MODEL,
+        max_tokens=MAX_TOKENS,
+        system=system_prompt,
+        messages=[
+            {
+                "role": "user",
+                "content": [
                     {
-                        "role": "user",
-                        "content": [
-                            {
-                                "type": "text",
-                                "text": f"Explain the {arch} assembly output.",
-                            },
-                            {"type": "text", "text": json.dumps(structured_data)},
-                        ],
+                        "type": "text",
+                        "text": f"Explain the {arch} assembly output.",
                     },
+                    {"type": "text", "text": json.dumps(structured_data)},
+                ],
+            },
+            {
+                "role": "assistant",
+                "content": [
                     {
-                        "role": "assistant",
-                        "content": [
-                            {
-                                "type": "text",
-                                "text": "I have analysed the assembly code and my analysis is:",
-                            },
-                        ],
+                        "type": "text",
+                        "text": "I have analysed the assembly code and my analysis is:",
                     },
                 ],
-            )
+            },
+        ],
+    )
 
-            # Get explanation and strip leading/trailing whitespace
-            explanation = message.content[0].text.strip()
+    # Get explanation and strip leading/trailing whitespace
+    explanation = message.content[0].text.strip()
 
-            # Extract usage information
-            input_tokens = message.usage.input_tokens
-            output_tokens = message.usage.output_tokens
-            total_tokens = input_tokens + output_tokens
+    # Extract usage information
+    input_tokens = message.usage.input_tokens
+    output_tokens = message.usage.output_tokens
+    total_tokens = input_tokens + output_tokens
 
-            # Calculate costs
-            input_cost = input_tokens * COST_PER_INPUT_TOKEN
-            output_cost = output_tokens * COST_PER_OUTPUT_TOKEN
-            total_cost = input_cost + output_cost
+    # Calculate costs
+    input_cost = input_tokens * COST_PER_INPUT_TOKEN
+    output_cost = output_tokens * COST_PER_OUTPUT_TOKEN
+    total_cost = input_cost + output_cost
 
-            # Record metrics if metrics provider is available
-            if metrics_provider:
-                # Add metrics with properties/dimensions
-                metrics_provider.set_property("language", language)
-                metrics_provider.set_property("compiler", body["compiler"])
-                metrics_provider.set_property("instructionSet", arch)
-                metrics_provider.put_metric("ClaudeExplainRequest", 1)
+    # Record metrics if metrics provider is available
+    if metrics_provider:
+        # Add metrics with properties/dimensions
+        metrics_provider.set_property("language", language)
+        metrics_provider.set_property("compiler", body["compiler"])
+        metrics_provider.set_property("instructionSet", arch)
+        metrics_provider.put_metric("ClaudeExplainRequest", 1)
 
-                # Track token usage
-                metrics_provider.put_metric("ClaudeExplainInputTokens", input_tokens)
-                metrics_provider.put_metric("ClaudeExplainOutputTokens", output_tokens)
-                metrics_provider.put_metric("ClaudeExplainCost", total_cost)
+        # Track token usage
+        metrics_provider.put_metric("ClaudeExplainInputTokens", input_tokens)
+        metrics_provider.put_metric("ClaudeExplainOutputTokens", output_tokens)
+        metrics_provider.put_metric("ClaudeExplainCost", total_cost)
 
-            # # Record to SQS for long-term stats if available
-            # try:
-            #     queue_url = os.environ.get("SQS_STATS_QUEUE")
-            #     if queue_url:
-            #         sqs_client = boto3.client("sqs")
-            #         date = datetime.datetime.utcnow().strftime("%Y-%m-%d")
-            #         time = datetime.datetime.utcnow().strftime("%H:%M:%S")
-            #         sqs_client.send_message(
-            #             QueueUrl=queue_url,
-            #             MessageBody=json.dumps(
-            #                 dict(
-            #                     type="ClaudeExplain",
-            #                     date=date,
-            #                     time=time,
-            #                     value=f"{language}:{body['compiler']}:{arch}",
-            #                     tokens=total_tokens,
-            #                     cost=round(total_cost, 6),
-            #                 ),
-            #                 sort_keys=True,
-            #             ),
-            #         )
-            # except Exception as e:
-            #     # Log but don't fail if stats recording fails
-            #     logger.warning(f"Failed to record stats to SQS: {str(e)}")
-
-            # Construct the response with usage and cost information
-            response_body = {
-                "status": "success",
-                "explanation": explanation,
-                "model": MODEL,
-                "usage": {
-                    "input_tokens": input_tokens,
-                    "output_tokens": output_tokens,
-                    "total_tokens": total_tokens,
-                },
-                "cost": {
-                    "input_cost": round(input_cost, 6),
-                    "output_cost": round(output_cost, 6),
-                    "total_cost": round(total_cost, 6),
-                },
-            }
-
-        except Exception as e:
-            logger.error(f"Error calling Claude API: {str(e)}")
-            return create_response(
-                500,
-                {"status": "error", "message": f"Error calling Claude API: {str(e)}"},
-            )
-
-        # Return success response
-        return create_response(200, response_body)
-
-    except json.JSONDecodeError:
-        return create_response(
-            400, {"status": "error", "message": "Invalid JSON in request body"}
-        )
-    except Exception as e:
-        return handle_error(e, is_internal=True)
+    # Construct the response with usage and cost information
+    response_body = {
+        "status": "success",
+        "explanation": explanation,
+        "model": MODEL,
+        "usage": {
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
+            "total_tokens": total_tokens,
+        },
+        "cost": {
+            "input_cost": round(input_cost, 6),
+            "output_cost": round(output_cost, 6),
+            "total_cost": round(total_cost, 6),
+        },
+    }
+    return response_body
 
 
+# TODO - figure out metrics
 @aws_embedded_metrics.metric_scope
 def lambda_handler(event: Dict, context: object, metrics: MetricsLogger = None) -> Dict:
     """Handle Lambda invocation from API Gateway."""
