@@ -14,3 +14,10 @@ node_modules
 /.venv
 .pytest_cache
 /.env
+
+# Prompt testing outputs
+/prompt_testing/results/
+*.jsonl
+
+# Package build artifacts
+*.egg-info/

@@ -1,0 +1,116 @@
+description: "Edge cases and problematic scenarios"
+
+cases:
+  - id: edge_empty_001
+    category: empty_function
+    quality: bad_example
+    description: "Empty function that should result in minimal explanation"
+    input:
+      language: C
+      compiler: "gcc 13.1"
+      compilationOptions: ["-O0"]
+      instructionSet: x86_64
+      code: "void empty_function() {}"
+      asm:
+        - text: "empty_function:"
+          address: 0
+        - text: "  push rbp"
+          address: 1
+          source:
+            line: 1
+        - text: "  mov rbp, rsp"
+          address: 2
+          source:
+            line: 1
+        - text: "  nop"
+          address: 3
+          source:
+            line: 1
+        - text: "  pop rbp"
+          address: 4
+          source:
+            line: 1
+        - text: "  ret"
+          address: 5
+    expected_topics: [function_prologue, function_epilogue, no_optimization]
+    difficulty: beginner
+    notes: "Should generate minimal explanation focusing on calling convention"
+
+  - id: edge_undefined_001
+    category: undefined_behavior
+    quality: challenging_example
+    description: "Code with undefined behavior leading to unexpected assembly"
+    input:
+      language: C++
+      compiler: "clang 16.0"
+      compilationOptions: ["-O2"]
+      instructionSet: x86_64
+      code: |
+        int undefined_increment(int* p) {
+            return ++(*p) + (*p)++;
+        }
+      asm:
+        - text: "undefined_increment:"
+          address: 0
+        - text: "  mov eax, DWORD PTR [rdi]"
+          address: 1
+          source:
+            line: 2
+        - text: "  lea edx, [rax+2]"
+          address: 2
+          source:
+            line: 2
+        - text: "  mov DWORD PTR [rdi], edx"
+          address: 3
+          source:
+            line: 2
+        - text: "  add eax, eax"
+          address: 4
+          source:
+            line: 2
+        - text: "  inc eax"
+          address: 5
+          source:
+            line: 2
+        - text: "  ret"
+          address: 6
+    expected_topics: [undefined_behavior, sequence_points, compiler_assumptions]
+    difficulty: advanced
+    notes: "Should explain that this is undefined behavior and compiler can assume anything"
+
+  - id: edge_long_asm_001
+    category: truncated_assembly
+    quality: special_case
+    description: "Very long assembly that gets truncated"
+    input:
+      language: C++
+      compiler: "gcc 13.1"
+      compilationOptions: ["-O0"]
+      instructionSet: x86_64
+      code: |
+        void large_function() {
+            // This would generate 500+ lines of assembly
+            for (int i = 0; i < 100; i++) {
+                printf("Line %d\n", i);
+            }
+        }
+      asm:
+        - text: "large_function:"
+          address: 0
+        - text: "  push rbp"
+          address: 1
+        - text: "... (250 lines omitted) ..."
+          isOmissionMarker: true
+        - text: "  call printf"
+          address: 252
+          source:
+            line: 4
+        - text: "... (200 lines omitted) ..."
+          isOmissionMarker: true
+        - text: "  pop rbp"
+          address: 453
+        - text: "  ret"
+          address: 454
+    expected_topics: [assembly_truncation, loop_unoptimized, function_calls]
+    difficulty: intermediate
+    notes: "Should handle truncated assembly gracefully and explain omission markers"

@@ -61,6 +61,7 @@ The service processes compiler output through a pipeline: input validation → s
 
 - Prefer using modern Python 3.13+ type syntax. Good: `a: list[str] | None`. Bad: `a: Optional[List[str]]`
 - Use ruff for linting and formatting with line length of 120 characters
+- Prefer pathlib.Path over old-fashioned io like naked `open` and `glob` calls. Always supply an encoding
 
 ## Development Workflow Notes
 

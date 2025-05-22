@@ -11,6 +11,7 @@ dependencies = [
     "mangum",
     "pydantic-settings>=2.9.1",
     "python-dotenv>=1.1.0",
+    "pyyaml>=6.0",
 ]
 
 [dependency-groups]
@@ -81,3 +82,18 @@ convention = "google"
 "app/explain_api.py" = [
     "N815", # Allow camelCase field names for API compatibility
 ]
+"prompt_testing/*.py" = [
+    "D", # Don't require docstrings in prompt testing modules for now
+]
+"prompt_testing/evaluation/reviewer.py" = [
+    "E501", # Ignore line length for HTML template strings
+]
+
+[tool.uv]
+package = true
+
+[tool.setuptools.packages.find]
+include = ["app*", "prompt_testing*"]
+
+[project.scripts]
+prompt-test = "prompt_testing.cli:main"
