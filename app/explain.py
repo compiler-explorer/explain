@@ -1,53 +1,13 @@
 import json
 import logging
-from abc import ABC, abstractmethod
-from typing import Dict, List, Optional, Tuple, Union
 
 from anthropic import Anthropic
-from app.explain_api import ExplainRequest, ExplainResponse
-import aws_embedded_metrics
-from aws_embedded_metrics.logger.metrics_logger import MetricsLogger
-
-
-class MetricsProvider(ABC):
-    """Abstract base class for metrics providers."""
-
-    @abstractmethod
-    def put_metric(self, name: str, value: Union[int, float]) -> None:
-        """Record a metric with the given name and value."""
-        pass
-
-    @abstractmethod
-    def set_property(self, name: str, value: str) -> None:
-        """Set a property/dimension for metrics."""
-        pass
-
-
-class CloudWatchMetricsProvider(MetricsProvider):
-    """Implementation that uses CloudWatch metrics via aws_embedded_metrics."""
-
-    def __init__(self, metrics_logger: MetricsLogger):
-        self.metrics = metrics_logger
-
-    def put_metric(self, name: str, value: Union[int, float]) -> None:
-        self.metrics.put_metric(name, value)
-
-    def set_property(self, name: str, value: str) -> None:
-        self.metrics.set_property(name, value)
-
-
-class NoopMetricsProvider(MetricsProvider):
-    """Metrics provider that does nothing - for testing."""
-
-    def put_metric(self, name: str, value: Union[int, float]) -> None:
-        pass
-
-    def set_property(self, name: str, value: str) -> None:
-        pass
+from app.explain_api import ExplainRequest, ExplainResponse, TokenUsage, CostBreakdown
+from app.metrics import MetricsProvider
 
 
 # Configure logging
-logger = logging.getLogger("explain")
+LOGGER = logging.getLogger("explain")
 
 
 # Constants
@@ -65,8 +25,8 @@ COST_PER_OUTPUT_TOKEN = 0.000004  # $4.00/1M tokens
 
 
 def select_important_assembly(
-    asm_array: List[Dict], label_definitions: Dict, max_lines: int = MAX_ASSEMBLY_LINES
-) -> List[Dict]:
+    asm_array: list[dict], label_definitions: dict, max_lines: int = MAX_ASSEMBLY_LINES
+) -> list[dict]:
     """Select the most important assembly lines if the output is too large.
 
     This function identifies and preserves:
@@ -163,49 +123,36 @@ def prepare_structured_data(body: ExplainRequest) -> dict:
     """Prepare a structured JSON object for Claude's consumption."""
     # Extract and validate basic fields
     structured_data = {
-        "language": body["language"],
-        "compiler": body["compiler"],
-        "sourceCode": body["code"],
-        "instructionSet": body.get("instructionSet", "unknown"),
+        "language": body.language,
+        "compiler": body.compiler,
+        "sourceCode": body.code,
+        "instructionSet": body.instructionSet or "unknown",
     }
 
     # Format compilation options
-    comp_options = body.get("compilationOptions", [])
-    if isinstance(comp_options, list):
-        structured_data["compilationOptions"] = comp_options
-    else:
-        structured_data["compilationOptions"] = [str(comp_options)]
+    structured_data["compilationOptions"] = body.compilationOptions
 
-    # Process assembly array
-    asm_array = body.get("asm", [])
-    if len(asm_array) > MAX_ASSEMBLY_LINES:
+    # Convert assembly array to dict format for JSON serialization
+    asm_dicts = [item.model_dump() for item in body.asm]
+
+    if len(asm_dicts) > MAX_ASSEMBLY_LINES:
         # If assembly is too large, we need smart truncation
         structured_data["assembly"] = select_important_assembly(
-            asm_array, body.get("labelDefinitions", {})
+            asm_dicts, body.labelDefinitions or {}
         )
         structured_data["truncated"] = True
-        structured_data["originalLength"] = len(asm_array)
+        structured_data["originalLength"] = len(asm_dicts)
     else:
         # Use the full assembly if it's within limits
-        structured_data["assembly"] = asm_array
+        structured_data["assembly"] = asm_dicts
         structured_data["truncated"] = False
 
     # Include label definitions
-    structured_data["labelDefinitions"] = body.get("labelDefinitions", {})
+    structured_data["labelDefinitions"] = body.labelDefinitions or {}
 
-    # Add compiler messages if available
-    stderr = body.get("stderr", [])
-    if stderr and isinstance(stderr, list):
-        structured_data["compilerMessages"] = stderr
-    else:
-        structured_data["compilerMessages"] = []
-
-    # Add optimization remarks if available
-    opt_output = body.get("optimizationOutput", [])
-    if opt_output and isinstance(opt_output, list):
-        structured_data["optimizationRemarks"] = opt_output
-    else:
-        structured_data["optimizationRemarks"] = []
+    # For now, these fields are not in the Pydantic model but kept for compatibility
+    structured_data["compilerMessages"] = []
+    structured_data["optimizationRemarks"] = []
 
     return structured_data
 
@@ -213,7 +160,7 @@ def prepare_structured_data(body: ExplainRequest) -> dict:
 def process_request(
     body: ExplainRequest,
     client: Anthropic,
-    metrics_provider: Optional[MetricsProvider] = None,
+    metrics_provider: MetricsProvider,
 ) -> ExplainResponse:
     """Process a request and return the response.
 
@@ -221,15 +168,15 @@ def process_request(
     to allow for reuse in the local server mode.
 
     Args:
-        body: The request body as a dictionary
-        api_key: Optional API key for local development mode
-        metrics_provider: Optional metrics provider for tracking stats
+        body: The request body as a Pydantic model
+        client: Anthropic client instance
+        metrics_provider: metrics provider for tracking stats
 
     Returns:
-        A response dictionary with status and explanation
+        An ExplainResponse Pydantic model
     """
     language = body.language
-    arch = body.instructionSet
+    arch = body.instructionSet or "unknown"
 
     structured_data = prepare_structured_data(body)
 
@@ -244,7 +191,7 @@ Do not give an overall conclusion.
 Be precise and accurate about CPU features and optimizations - avoid making incorrect claims about branch prediction or other hardware details."""
 
     # Call Claude API with JSON structure
-    logger.info(f"Using Anthropic client with model: {MODEL}")
+    LOGGER.info(f"Using Anthropic client with model: {MODEL}")
 
     message = client.messages.create(
         model=MODEL,
@@ -286,63 +233,30 @@ Be precise and accurate about CPU features and optimizations - avoid making inco
     output_cost = output_tokens * COST_PER_OUTPUT_TOKEN
     total_cost = input_cost + output_cost
 
-    # Record metrics if metrics provider is available
-    if metrics_provider:
-        # Add metrics with properties/dimensions
-        metrics_provider.set_property("language", language)
-        metrics_provider.set_property("compiler", body["compiler"])
-        metrics_provider.set_property("instructionSet", arch)
-        metrics_provider.put_metric("ClaudeExplainRequest", 1)
+    # Add metrics with properties/dimensions
+    metrics_provider.set_property("language", language)
+    metrics_provider.set_property("compiler", body.compiler)
+    metrics_provider.set_property("instructionSet", arch)
+    metrics_provider.put_metric("ClaudeExplainRequest", 1)
 
-        # Track token usage
-        metrics_provider.put_metric("ClaudeExplainInputTokens", input_tokens)
-        metrics_provider.put_metric("ClaudeExplainOutputTokens", output_tokens)
-        metrics_provider.put_metric("ClaudeExplainCost", total_cost)
+    # Track token usage
+    metrics_provider.put_metric("ClaudeExplainInputTokens", input_tokens)
+    metrics_provider.put_metric("ClaudeExplainOutputTokens", output_tokens)
+    metrics_provider.put_metric("ClaudeExplainCost", total_cost)
 
-    # Construct the response with usage and cost information
-    response_body = {
-        "status": "success",
-        "explanation": explanation,
-        "model": MODEL,
-        "usage": {
-            "input_tokens": input_tokens,
-            "output_tokens": output_tokens,
-            "total_tokens": total_tokens,
-        },
-        "cost": {
-            "input_cost": round(input_cost, 6),
-            "output_cost": round(output_cost, 6),
-            "total_cost": round(total_cost, 6),
-        },
-    }
-    return response_body
-
-
-# TODO - figure out metrics
-@aws_embedded_metrics.metric_scope
-def lambda_handler(event: Dict, context: object, metrics: MetricsLogger = None) -> Dict:
-    """Handle Lambda invocation from API Gateway."""
-    # Set up metrics provider - either use CloudWatch metrics or a no-op for testing
-    metrics_provider: MetricsProvider
-    if metrics:
-        # Set metrics namespace for CloudWatch when running in AWS
-        metrics.set_namespace("CompilerExplorer")
-        metrics_provider = CloudWatchMetricsProvider(metrics)
-    else:
-        # Use no-op metrics for testing
-        metrics_provider = NoopMetricsProvider()
-
-    # Handle OPTIONS request (CORS preflight)
-    if event.get("httpMethod") == "OPTIONS":
-        return create_response(status_code=200, body={})
-
-    try:
-        # Parse request body
-        body = json.loads(event.get("body", "{}"))
-        return process_request(body, metrics_provider=metrics_provider)
-    except json.JSONDecodeError:
-        return create_response(
-            400, {"status": "error", "message": "Invalid JSON in request body"}
-        )
-    except Exception as e:
-        return handle_error(e, is_internal=True)
+    # Create and return ExplainResponse object
+    return ExplainResponse(
+        status="success",
+        explanation=explanation,
+        model=MODEL,
+        usage=TokenUsage(
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            total_tokens=total_tokens,
+        ),
+        cost=CostBreakdown(
+            input_cost=round(input_cost, 6),
+            output_cost=round(output_cost, 6),
+            total_cost=round(total_cost, 6),
+        ),
+    )
