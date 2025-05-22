@@ -52,7 +52,7 @@ The service will accept POST requests with JSON bodies containing a subset of th
       "text": "        cmp     edi, 1",
       "source": {
         "line": 2,                  // Source line number
-        "column": 6                 // Source column number
+        "column": 6                 // Source column number (optional)
       },
       "labels": []
     },

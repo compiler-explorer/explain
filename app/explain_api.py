@@ -10,8 +10,9 @@ from pydantic import BaseModel, Field
 class SourceMapping(BaseModel):
     """Source code mapping for assembly lines."""
 
+    file: str | None = None
     line: int
-    column: int
+    column: int | None = None
 
 
 class LabelRange(BaseModel):

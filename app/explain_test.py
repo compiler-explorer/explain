@@ -349,3 +349,80 @@ class TestValidation:
 
         with pytest.raises(ValueError):
             ExplainRequest.model_validate(request_data)
+
+    def test_source_mapping_optional_fields(self):
+        """Test that SourceMapping handles optional file and column fields."""
+        # Test with all fields present
+        source_full = SourceMapping(file="test.c", line=10, column=5)
+        assert source_full.file == "test.c"
+        assert source_full.line == 10
+        assert source_full.column == 5
+
+        # Test with only required line field
+        source_minimal = SourceMapping(line=10)
+        assert source_minimal.file is None
+        assert source_minimal.line == 10
+        assert source_minimal.column is None
+
+        # Test with file but no column (like in your legitimate document)
+        source_no_column = SourceMapping(file=None, line=0)
+        assert source_no_column.file is None
+        assert source_no_column.line == 0
+        assert source_no_column.column is None
+
+    def test_assembly_item_with_source_variations(self):
+        """Test AssemblyItem with different source mapping variations."""
+        # Assembly with full source info
+        asm_full = AssemblyItem(text="mov eax, edi", source=SourceMapping(file="test.c", line=5, column=10))
+        assert asm_full.source.file == "test.c"
+        assert asm_full.source.line == 5
+        assert asm_full.source.column == 10
+
+        # Assembly with minimal source info (just line)
+        asm_minimal = AssemblyItem(text="ret", source=SourceMapping(line=0))
+        assert asm_minimal.source.file is None
+        assert asm_minimal.source.line == 0
+        assert asm_minimal.source.column is None
+
+        # Assembly with no source info
+        asm_no_source = AssemblyItem(text="label:")
+        assert asm_no_source.source is None
+
+    def test_legitimate_document_validation(self):
+        """Test validation with the legitimate document structure that was failing."""
+        # This represents the structure from your legitimate document
+        request_data = {
+            "language": "ispc",
+            "compiler": "ispc 1.25.3",
+            "code": "// Test code",
+            "compilationOptions": ["--target=avx2-i32x8", "-g"],
+            "instructionSet": "amd64",
+            "asm": [
+                {"text": "square_even___vyi:", "source": None, "labels": []},
+                {
+                    "text": "        vblendvps       ymm0, ymm0, ymm2, ymm3",
+                    "source": {"file": None, "line": 6, "column": 16},
+                    "labels": [],
+                },
+                {
+                    "text": "        ret",
+                    "source": {"file": None, "line": 0},  # Missing column field
+                    "labels": [],
+                },
+            ],
+        }
+
+        # This should not raise a validation error
+        request = ExplainRequest.model_validate(request_data)
+        assert request.language == "ispc"
+        assert request.compiler == "ispc 1.25.3"
+        assert len(request.asm) == 3
+
+        # Check the source mappings
+        assert request.asm[0].source is None
+        assert request.asm[1].source.file is None
+        assert request.asm[1].source.line == 6
+        assert request.asm[1].source.column == 16
+        assert request.asm[2].source.file is None
+        assert request.asm[2].source.line == 0
+        assert request.asm[2].source.column is None  # This was the missing field
