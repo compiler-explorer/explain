@@ -1,6 +1,5 @@
 import logging
 
-import aws_embedded_metrics
 from anthropic import Anthropic
 from anthropic import __version__ as anthropic_version
 from fastapi import FastAPI
@@ -9,9 +8,14 @@ from mangum import Mangum
 
 from app.config import settings
 from app.explain import process_request
-from app.explain_api import AvailableOptions, ExplainRequest, ExplainResponse, OptionDescription
+from app.explain_api import (
+    AvailableOptions,
+    ExplainRequest,
+    ExplainResponse,
+    OptionDescription,
+)
 from app.explanation_types import AudienceLevel, ExplanationType
-from app.metrics import NoopMetricsProvider
+from app.metrics import get_metrics_provider
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger()
@@ -33,36 +37,32 @@ handler = Mangum(app)
 anthropic_client = Anthropic(api_key=settings.anthropic_api_key)
 logger.info(f"Anthropic SDK version: {anthropic_version}")
 
-metrics_provider = NoopMetricsProvider()
-#    if metrics:
-#        # Set metrics namespace for CloudWatch when running in AWS
-#        metrics.set_namespace("CompilerExplorer")
-#        metrics_provider = CloudWatchMetricsProvider(metrics)
-
 
 @app.get("/", response_model=AvailableOptions)
 async def get_options() -> AvailableOptions:
     """Get available options for the explain API."""
-    return AvailableOptions(
-        audience=[
-            OptionDescription(
-                value=level.value,
-                description=level.description,
-            )
-            for level in AudienceLevel
-        ],
-        explanation=[
-            OptionDescription(
-                value=exp_type.value,
-                description=exp_type.description,
-            )
-            for exp_type in ExplanationType
-        ],
-    )
+    async with get_metrics_provider() as metrics_provider:
+        metrics_provider.put_metric("ClaudeExplainOptionsRequest", 1)
+        return AvailableOptions(
+            audience=[
+                OptionDescription(
+                    value=level.value,
+                    description=level.description,
+                )
+                for level in AudienceLevel
+            ],
+            explanation=[
+                OptionDescription(
+                    value=exp_type.value,
+                    description=exp_type.description,
+                )
+                for exp_type in ExplanationType
+            ],
+        )
 
 
-@aws_embedded_metrics.metric_scope
 @app.post("/")
 async def explain(request: ExplainRequest) -> ExplainResponse:
     """Explain a Compiler Explorer compilation from its source and output assembly."""
-    return process_request(request, anthropic_client, metrics_provider)
+    async with get_metrics_provider() as metrics_provider:
+        return process_request(request, anthropic_client, metrics_provider)

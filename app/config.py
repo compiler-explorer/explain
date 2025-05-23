@@ -6,6 +6,7 @@ class Settings(BaseSettings):
 
     anthropic_api_key: str
     root_path: str = ""
+    metrics_enabled: bool = False
     model_config = SettingsConfigDict(env_file=".env")
 
 
