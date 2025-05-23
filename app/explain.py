@@ -182,30 +182,16 @@ def process_request(
     # TODO: consider not baking the language and arch here for system prompt caching later on.
     #  We'll need to hit minimum token lengths.
 
-    # Adjust explanation style based on audience
-    audience_guidance = {
-        "beginner": "Use simple, clear language. Define technical terms. Explain concepts step-by-step.",
-        "intermediate": "Assume familiarity with basic assembly concepts. Focus on the 'why' behind compiler choices.",
-        "expert": "Use technical terminology freely. Focus on advanced optimizations and architectural details.",
-    }
-
-    # Adjust focus based on explanation type
-    explanation_focus = {
-        "assembly": "Focus on explaining the assembly instructions and their purpose.",
-        "source": "Focus on how source code constructs map to assembly instructions.",
-        "optimization": "Focus on compiler optimizations and transformations applied to the code.",
-    }
-
     system_prompt = f"""You are an expert in {arch} assembly code and {language}, helping users of the
 Compiler Explorer website understand how their code compiles to assembly.
 The request will be in the form of a JSON document, which explains a source program and how it was compiled,
 and the resulting assembly code that was generated.
 
 Target audience: {body.audience.value}
-{audience_guidance.get(body.audience.value, audience_guidance["beginner"])}
+{body.audience.guidance}
 
 Explanation type: {body.explanation.value}
-{explanation_focus.get(body.explanation.value, explanation_focus["assembly"])}
+{body.explanation.focus}
 
 Provide clear, concise explanations. Explanations should be educational and highlight
 why certain code constructs generate specific assembly instructions.
@@ -229,17 +215,7 @@ prediction or other hardware details."""
                 "content": [
                     {
                         "type": "text",
-                        "text": (
-                            f"Explain the {arch} "
-                            + (
-                                "assembly output"
-                                if body.explanation.value == "assembly"
-                                else "code transformations"
-                                if body.explanation.value == "source"
-                                else "optimizations"
-                            )
-                            + "."
-                        ),
+                        "text": f"Explain the {arch} {body.explanation.user_prompt_phrase}.",
                     },
                     {"type": "text", "text": json.dumps(structured_data)},
                 ],

@@ -9,14 +9,8 @@ from mangum import Mangum
 
 from app.config import settings
 from app.explain import process_request
-from app.explain_api import (
-    AudienceLevel,
-    AvailableOptions,
-    ExplainRequest,
-    ExplainResponse,
-    ExplanationType,
-    OptionDescription,
-)
+from app.explain_api import AvailableOptions, ExplainRequest, ExplainResponse, OptionDescription
+from app.explanation_types import AudienceLevel, ExplanationType
 from app.metrics import NoopMetricsProvider
 
 logging.basicConfig(level=logging.INFO)
@@ -52,35 +46,17 @@ async def get_options() -> AvailableOptions:
     return AvailableOptions(
         audience=[
             OptionDescription(
-                value=AudienceLevel.BEGINNER.value,
-                description=(
-                    "For beginners learning assembly language. Uses simple language and explains technical terms."
-                ),
-            ),
-            OptionDescription(
-                value=AudienceLevel.INTERMEDIATE.value,
-                description=(
-                    "For users familiar with basic assembly concepts. Focuses on compiler behavior and choices."
-                ),
-            ),
-            OptionDescription(
-                value=AudienceLevel.EXPERT.value,
-                description="For advanced users. Uses technical terminology and covers advanced optimizations.",
-            ),
+                value=level.value,
+                description=level.description,
+            )
+            for level in AudienceLevel
         ],
         explanation=[
             OptionDescription(
-                value=ExplanationType.ASSEMBLY.value,
-                description="Explains the assembly instructions and their purpose.",
-            ),
-            OptionDescription(
-                value=ExplanationType.SOURCE.value,
-                description="Explains how source code constructs map to assembly instructions.",
-            ),
-            OptionDescription(
-                value=ExplanationType.OPTIMIZATION.value,
-                description="Explains compiler optimizations and transformations applied to the code.",
-            ),
+                value=exp_type.value,
+                description=exp_type.description,
+            )
+            for exp_type in ExplanationType
         ],
     )
 

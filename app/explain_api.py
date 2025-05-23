@@ -4,25 +4,9 @@ Defines request and response types based on the API specification
 in claude_explain.md.
 """
 
-from enum import Enum
-
 from pydantic import BaseModel, Field
 
-
-class AudienceLevel(str, Enum):
-    """Target audience for the explanation."""
-
-    BEGINNER = "beginner"
-    INTERMEDIATE = "intermediate"
-    EXPERT = "expert"
-
-
-class ExplanationType(str, Enum):
-    """Type of explanation to generate."""
-
-    ASSEMBLY = "assembly"
-    SOURCE = "source"
-    OPTIMIZATION = "optimization"
+from app.explanation_types import AudienceLevel, ExplanationType
 
 
 class SourceMapping(BaseModel):

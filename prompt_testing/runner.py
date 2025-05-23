@@ -13,7 +13,8 @@ from anthropic import Anthropic
 from dotenv import load_dotenv
 
 from app.explain import MAX_TOKENS, MODEL, prepare_structured_data
-from app.explain_api import AssemblyItem, AudienceLevel, ExplainRequest, ExplanationType
+from app.explain_api import AssemblyItem, ExplainRequest
+from app.explanation_types import AudienceLevel, ExplanationType
 from app.metrics import NoopMetricsProvider
 from prompt_testing.evaluation.claude_reviewer import ClaudeReviewer, HybridScorer
 from prompt_testing.evaluation.scorer import AutomaticScorer, load_all_test_cases
@@ -118,31 +119,10 @@ class PromptTester:
         # Include boolean indicating if labels are present (from labelDefinitions field)
         context["has_labels"] = bool(request.labelDefinitions and request.labelDefinitions)
 
-        # Add audience guidance
-        audience_guidance = {
-            "beginner": "Use simple, clear language. Define technical terms. Explain concepts step-by-step.",
-            "intermediate": (
-                "Assume familiarity with basic assembly concepts. Focus on the 'why' behind compiler choices."
-            ),
-            "expert": "Use technical terminology freely. Focus on advanced optimizations and architectural details.",
-        }
-        context["audience_guidance"] = audience_guidance.get(request.audience.value, audience_guidance["beginner"])
-
-        # Add explanation focus
-        explanation_focus = {
-            "assembly": "Focus on explaining the assembly instructions and their purpose.",
-            "source": "Focus on how source code constructs map to assembly instructions.",
-            "optimization": "Focus on compiler optimizations and transformations applied to the code.",
-        }
-        context["explanation_focus"] = explanation_focus.get(request.explanation.value, explanation_focus["assembly"])
-
-        # Add explanation type phrase for user prompt
-        explanation_type_phrase = {
-            "assembly": "assembly output",
-            "source": "code transformations",
-            "optimization": "optimizations",
-        }
-        context["explanation_type_phrase"] = explanation_type_phrase.get(request.explanation.value, "assembly output")
+        # Get audience and explanation info from centralized definitions
+        context["audience_guidance"] = request.audience.guidance
+        context["explanation_focus"] = request.explanation.focus
+        context["explanation_type_phrase"] = request.explanation.user_prompt_phrase
 
         return context
 
