@@ -1,3 +1,5 @@
+from functools import lru_cache
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -10,4 +12,11 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env")
 
 
-settings = Settings()
+@lru_cache
+def get_settings():
+    """Return the application settings.
+
+    A function so the actual construction is deferred until needed (avoiding test issues), and
+    lru_cached for efficiency.
+    """
+    return Settings()

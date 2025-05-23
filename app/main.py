@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from mangum import Mangum
 
-from app.config import settings
+from app.config import get_settings
 from app.explain import process_request
 from app.explain_api import (
     AvailableOptions,
@@ -21,7 +21,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-app = FastAPI(root_path=settings.root_path)
+app = FastAPI(root_path=get_settings().root_path)
 
 # Configure CORS - allows all origins for public API
 app.add_middleware(
@@ -34,7 +34,7 @@ app.add_middleware(
 )
 handler = Mangum(app)
 
-anthropic_client = Anthropic(api_key=settings.anthropic_api_key)
+anthropic_client = Anthropic(api_key=get_settings().anthropic_api_key)
 logger.info(f"Anthropic SDK version: {anthropic_version}")
 
 

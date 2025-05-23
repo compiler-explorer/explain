@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from aws_embedded_metrics.logger.metrics_logger import MetricsLogger
 from aws_embedded_metrics.logger.metrics_logger_factory import create_metrics_logger
 
-from app.config import settings
+from app.config import get_settings
 
 
 class MetricsProvider(ABC):
@@ -52,7 +52,7 @@ async def get_metrics_provider() -> AsyncGenerator[MetricsProvider]:
     When metrics are enabled, creates a CloudWatch metrics provider and ensures
     proper flushing. When disabled, provides a no-op implementation.
     """
-    if settings.metrics_enabled:
+    if get_settings().metrics_enabled:
         metrics_logger = create_metrics_logger()
         metrics_logger.set_namespace("CompilerExplorer")
         provider = CloudWatchMetricsProvider(metrics_logger)
