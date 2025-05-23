@@ -13,7 +13,7 @@ from anthropic import Anthropic
 from dotenv import load_dotenv
 
 from app.explain import MAX_TOKENS, MODEL, prepare_structured_data
-from app.explain_api import AssemblyItem, ExplainRequest
+from app.explain_api import AssemblyItem, AudienceLevel, ExplainRequest, ExplanationType
 from app.metrics import NoopMetricsProvider
 from prompt_testing.evaluation.claude_reviewer import ClaudeReviewer, HybridScorer
 from prompt_testing.evaluation.scorer import AutomaticScorer, load_all_test_cases
@@ -77,6 +77,15 @@ class PromptTester:
         for asm_dict in input_data["asm"]:
             asm_items.append(AssemblyItem(**asm_dict))
 
+        # Get audience and explanation type from test case, with defaults
+        audience = test_case.get("audience", "beginner")
+        if isinstance(audience, str):
+            audience = AudienceLevel(audience)
+
+        explanation = test_case.get("explanation_type", "assembly")
+        if isinstance(explanation, str):
+            explanation = ExplanationType(explanation)
+
         return ExplainRequest(
             language=input_data["language"],
             compiler=input_data["compiler"],
@@ -85,15 +94,19 @@ class PromptTester:
             code=input_data["code"],
             asm=asm_items,
             labelDefinitions=input_data.get("labelDefinitions", {}),
+            audience=audience,
+            explanation=explanation,
         )
 
     def _build_template_context(self, request: ExplainRequest) -> dict[str, Any]:
         """Build template context dictionary from request data for prompt formatting."""
-        # Only include variables that come directly from the ExplainRequest
+        # Include variables that come directly from the ExplainRequest
         context = {
             "language": request.language,
             "arch": request.instructionSet or "unknown",
             "compiler": request.compiler,
+            "audience": request.audience.value,
+            "explanation_type": request.explanation.value,
         }
 
         # Add compilation options as a formatted string (directly from request)
@@ -104,6 +117,32 @@ class PromptTester:
 
         # Include boolean indicating if labels are present (from labelDefinitions field)
         context["has_labels"] = bool(request.labelDefinitions and request.labelDefinitions)
+
+        # Add audience guidance
+        audience_guidance = {
+            "beginner": "Use simple, clear language. Define technical terms. Explain concepts step-by-step.",
+            "intermediate": (
+                "Assume familiarity with basic assembly concepts. Focus on the 'why' behind compiler choices."
+            ),
+            "expert": "Use technical terminology freely. Focus on advanced optimizations and architectural details.",
+        }
+        context["audience_guidance"] = audience_guidance.get(request.audience.value, audience_guidance["beginner"])
+
+        # Add explanation focus
+        explanation_focus = {
+            "assembly": "Focus on explaining the assembly instructions and their purpose.",
+            "source": "Focus on how source code constructs map to assembly instructions.",
+            "optimization": "Focus on compiler optimizations and transformations applied to the code.",
+        }
+        context["explanation_focus"] = explanation_focus.get(request.explanation.value, explanation_focus["assembly"])
+
+        # Add explanation type phrase for user prompt
+        explanation_type_phrase = {
+            "assembly": "assembly output",
+            "source": "code transformations",
+            "optimization": "optimizations",
+        }
+        context["explanation_type_phrase"] = explanation_type_phrase.get(request.explanation.value, "assembly output")
 
         return context
 
@@ -181,13 +220,26 @@ class PromptTester:
 
         # Evaluate response
         if success:
-            expected_topics = test_case.get("expected_topics", [])
+            # Handle audience-specific expected topics
+            expected_topics_by_audience = test_case.get("expected_topics_by_audience", {})
+            if expected_topics_by_audience and request.audience.value in expected_topics_by_audience:
+                expected_topics = expected_topics_by_audience[request.audience.value]
+            else:
+                # Fall back to general expected topics
+                expected_topics = test_case.get("expected_topics", [])
+
+            # Get difficulty for Claude reviewer (still uses it)
             difficulty = test_case.get("difficulty", "intermediate")
 
             # Different evaluation based on scorer type
             if self.scorer_type == "automatic":
                 metrics = self.scorer.evaluate_response(
-                    explanation, expected_topics, difficulty, output_tokens, response_time_ms
+                    explanation,
+                    expected_topics,
+                    output_tokens,
+                    response_time_ms,
+                    audience=request.audience.value,
+                    explanation_type=request.explanation.value,
                 )
                 scorer_method = "automatic"
             elif self.scorer_type == "claude":
@@ -237,7 +289,12 @@ class PromptTester:
         }
 
     def run_test_suite(
-        self, prompt_version: str, test_cases: list[str] | None = None, categories: list[str] | None = None
+        self,
+        prompt_version: str,
+        test_cases: list[str] | None = None,
+        categories: list[str] | None = None,
+        audience: str | None = None,
+        explanation_type: str | None = None,
     ) -> dict[str, Any]:
         """Run a full test suite with the specified prompt version."""
 
@@ -250,6 +307,12 @@ class PromptTester:
 
         if categories:
             all_cases = [case for case in all_cases if case["category"] in categories]
+
+        if audience:
+            all_cases = [case for case in all_cases if case.get("audience") == audience]
+
+        if explanation_type:
+            all_cases = [case for case in all_cases if case.get("explanation_type") == explanation_type]
 
         if not all_cases:
             raise ValueError("No test cases found matching the specified criteria")

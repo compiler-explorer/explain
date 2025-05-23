@@ -32,7 +32,9 @@ def cmd_run(args):
         results = tester.compare_prompt_versions(args.prompt, args.compare, args.cases)
         output_file = args.output or f"comparison_{args.prompt}_vs_{args.compare}.json"
     else:
-        results = tester.run_test_suite(args.prompt, args.cases, args.categories)
+        results = tester.run_test_suite(
+            args.prompt, args.cases, args.categories, audience=args.audience, explanation_type=args.explanation_type
+        )
         output_file = args.output
 
     output_path = tester.save_results(results, output_file)
@@ -304,6 +306,16 @@ Examples:
     run_parser.add_argument("--categories", nargs="*", help="Test case categories to run")
     run_parser.add_argument("--compare", help="Compare with another prompt version")
     run_parser.add_argument("--output", help="Output file name (auto-generated if not specified)")
+
+    # Audience and explanation type filtering
+    run_parser.add_argument(
+        "--audience", choices=["beginner", "intermediate", "expert"], help="Filter test cases by target audience"
+    )
+    run_parser.add_argument(
+        "--explanation-type",
+        choices=["assembly", "source", "optimization"],
+        help="Filter test cases by explanation type",
+    )
 
     # Scorer configuration
     run_parser.add_argument(

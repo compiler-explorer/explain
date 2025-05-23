@@ -4,7 +4,25 @@ Defines request and response types based on the API specification
 in claude_explain.md.
 """
 
+from enum import Enum
+
 from pydantic import BaseModel, Field
+
+
+class AudienceLevel(str, Enum):
+    """Target audience for the explanation."""
+
+    BEGINNER = "beginner"
+    INTERMEDIATE = "intermediate"
+    EXPERT = "expert"
+
+
+class ExplanationType(str, Enum):
+    """Type of explanation to generate."""
+
+    ASSEMBLY = "assembly"
+    SOURCE = "source"
+    OPTIMIZATION = "optimization"
 
 
 class SourceMapping(BaseModel):
@@ -48,6 +66,12 @@ class ExplainRequest(BaseModel):
     instructionSet: str | None = Field(None, description="Target architecture (e.g., 'amd64', 'arm64')")
     asm: list[AssemblyItem] = Field(..., description="Array of assembly objects")
     labelDefinitions: dict[str, int] | None = Field(None, description="Optional map of label names to line numbers")
+    audience: AudienceLevel = Field(
+        default=AudienceLevel.BEGINNER, description="Target audience level for the explanation"
+    )
+    explanation: ExplanationType = Field(
+        default=ExplanationType.ASSEMBLY, description="Type of explanation to generate"
+    )
 
 
 class TokenUsage(BaseModel):
@@ -92,3 +116,17 @@ class ExplainSuccessResponse(BaseModel):
     model: str = Field(..., description="The Claude model used")
     usage: TokenUsage = Field(..., description="Token usage information")
     cost: CostBreakdown = Field(..., description="Cost breakdown")
+
+
+class OptionDescription(BaseModel):
+    """Description of an available option."""
+
+    value: str = Field(..., description="The option value to use in requests")
+    description: str = Field(..., description="Human-readable description of the option")
+
+
+class AvailableOptions(BaseModel):
+    """Available options for the explain API."""
+
+    audience: list[OptionDescription] = Field(..., description="Available audience levels")
+    explanation: list[OptionDescription] = Field(..., description="Available explanation types")

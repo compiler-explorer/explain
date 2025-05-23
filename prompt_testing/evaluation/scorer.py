@@ -143,7 +143,7 @@ class AutomaticScorer:
         penalty = min(0.5, excess / max_length)
         return max(0.0, 1.0 - penalty)
 
-    def score_clarity(self, response: str) -> float:
+    def score_clarity(self, response: str, audience: str = "intermediate") -> float:
         """Heuristic scoring for clarity based on sentence structure and readability."""
         sentences = re.split(r"[.!?]+", response)
         sentences = [s.strip() for s in sentences if s.strip()]
@@ -151,26 +151,52 @@ class AutomaticScorer:
         if not sentences:
             return 0.0
 
-        # Check average sentence length (sweet spot: 15-25 words)
+        # Check average sentence length (adjust based on audience)
         avg_sentence_length = sum(len(s.split()) for s in sentences) / len(sentences)
-        length_score = 1.0
-        if avg_sentence_length < 10:
-            length_score = avg_sentence_length / 10
-        elif avg_sentence_length > 30:
-            length_score = max(0.5, 1.0 - (avg_sentence_length - 30) / 20)
 
-        # Check for technical jargon balance
-        pattern = r"\b(?:register|instruction|optimization|assembly|compiler|CPU)\b"
+        # Beginners prefer shorter sentences, experts can handle longer ones
+        audience_ranges = {"beginner": (10, 20), "intermediate": (15, 25), "expert": (15, 30)}
+        min_len, max_len = audience_ranges.get(audience, (15, 25))
+
+        length_score = 1.0
+        if avg_sentence_length < min_len:
+            length_score = avg_sentence_length / min_len
+        elif avg_sentence_length > max_len:
+            length_score = max(0.5, 1.0 - (avg_sentence_length - max_len) / 20)
+
+        # Check for technical jargon balance (adjust based on audience)
+        pattern = r"\b(?:register|instruction|optimization|assembly|compiler|CPU|cache|pipeline|vector|SIMD|branch)\b"
         technical_terms = len(re.findall(pattern, response, re.IGNORECASE))
         total_words = len(response.split())
         tech_ratio = technical_terms / max(total_words, 1)
 
-        # Sweet spot: 5-15% technical terms
+        # Adjust technical term expectations by audience
+        audience_tech_ranges = {
+            "beginner": (0.02, 0.10),  # 2-10% technical terms
+            "intermediate": (0.05, 0.15),  # 5-15% technical terms
+            "expert": (0.08, 0.25),  # 8-25% technical terms
+        }
+        min_tech, max_tech = audience_tech_ranges.get(audience, (0.05, 0.15))
+
         tech_score = 1.0
-        if tech_ratio < 0.05:
-            tech_score = tech_ratio / 0.05
-        elif tech_ratio > 0.20:
-            tech_score = max(0.5, 1.0 - (tech_ratio - 0.20) / 0.10)
+        if tech_ratio < min_tech:
+            tech_score = tech_ratio / min_tech
+        elif tech_ratio > max_tech:
+            tech_score = max(0.5, 1.0 - (tech_ratio - max_tech) / 0.10)
+
+        # Check for explanatory language (important for beginners)
+        if audience == "beginner":
+            explanatory_patterns = [
+                r"\bmeans?\b",
+                r"\bwhich\s+is\b",
+                r"\bin\s+other\s+words\b",
+                r"\bthis\s+tells\b",
+                r"\bbasically\b",
+                r"\bsimply\s+put\b",
+            ]
+            explanatory_count = sum(len(re.findall(p, response, re.IGNORECASE)) for p in explanatory_patterns)
+            explanation_score = min(1.0, explanatory_count / 3)  # Expect at least 3 explanatory phrases
+            return (length_score + tech_score + explanation_score) / 3
 
         return (length_score + tech_score) / 2
 
@@ -178,20 +204,36 @@ class AutomaticScorer:
         self,
         response: str,
         expected_topics: list[str],
-        difficulty: str,
         token_count: int,
         response_time_ms: int | None = None,
+        audience: str = "intermediate",
+        explanation_type: str = "assembly",
     ) -> EvaluationMetrics:
         """Perform complete automatic evaluation of a response."""
 
         # Score individual dimensions
         accuracy_score, missing_topics = self.score_topic_coverage(response, expected_topics)
         technical_accuracy, incorrect_claims = self.score_technical_accuracy(response)
-        clarity_score = self.score_clarity(response)
+        clarity_score = self.score_clarity(response, audience)
 
-        # Adjust target length based on difficulty
-        length_ranges = {"beginner": (80, 300), "intermediate": (150, 500), "advanced": (200, 800)}
-        target_range = length_ranges.get(difficulty, (100, 400))
+        # Adjust target length based on audience and explanation type
+        # Beginners need more explanation, experts prefer conciseness
+        # Source mapping explanations tend to be longer than pure assembly
+        base_ranges = {"beginner": (100, 400), "intermediate": (150, 500), "expert": (120, 400)}
+
+        # Adjust for explanation type
+        if explanation_type == "source":
+            # Source mapping explanations need more space
+            base_min, base_max = base_ranges.get(audience, (150, 500))
+            target_range = (int(base_min * 1.2), int(base_max * 1.2))
+        elif explanation_type == "optimization":
+            # Optimization explanations can be quite detailed
+            base_min, base_max = base_ranges.get(audience, (150, 500))
+            target_range = (int(base_min * 1.1), int(base_max * 1.3))
+        else:
+            # Assembly explanations
+            target_range = base_ranges.get(audience, (150, 500))
+
         length_score = self.score_length_appropriateness(response, target_range)
 
         # For now, use accuracy as proxy for completeness and consistency

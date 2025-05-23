@@ -1,0 +1,221 @@
+description: "Test cases demonstrating audience and explanation type variations"
+
+cases:
+  - id: factorial_beginner_assembly
+    category: recursion
+    quality: good_example
+    description: "Factorial function for beginner audience with assembly focus"
+    audience: beginner
+    explanation_type: assembly
+    input:
+      language: C++
+      compiler: "gcc 12.2"
+      compilationOptions: ["-O2"]
+      instructionSet: x86_64
+      code: |
+        int factorial(int n) {
+            if (n <= 1) return 1;
+            return n * factorial(n - 1);
+        }
+      asm:
+        - text: "factorial:"
+          address: 0
+        - text: "  cmp edi, 1"
+          address: 1
+          source:
+            line: 2
+        - text: "  jle .L4"
+          address: 2
+        - text: "  push rbx"
+          address: 3
+        - text: "  mov ebx, edi"
+          address: 4
+        - text: "  lea edi, [rdi-1]"
+          address: 5
+          source:
+            line: 3
+        - text: "  call factorial"
+          address: 6
+          source:
+            line: 3
+        - text: "  imul eax, ebx"
+          address: 7
+          source:
+            line: 3
+        - text: "  pop rbx"
+          address: 8
+        - text: "  ret"
+          address: 9
+        - text: ".L4:"
+          address: 10
+        - text: "  mov eax, 1"
+          address: 11
+          source:
+            line: 2
+        - text: "  ret"
+          address: 12
+    expected_topics_by_audience:
+      beginner: [recursion, base_case, stack_usage, registers]
+      intermediate: [tail_recursion_missed, stack_frame_optimization, calling_convention]
+      expert: [branch_prediction, instruction_scheduling, register_allocation_strategy]
+    difficulty: beginner
+
+  - id: factorial_expert_optimization
+    category: recursion
+    quality: good_example
+    description: "Same factorial function for expert audience with optimization focus"
+    audience: expert
+    explanation_type: optimization
+    input:
+      language: C++
+      compiler: "gcc 12.2"
+      compilationOptions: ["-O2"]
+      instructionSet: x86_64
+      code: |
+        int factorial(int n) {
+            if (n <= 1) return 1;
+            return n * factorial(n - 1);
+        }
+      asm:
+        - text: "factorial:"
+          address: 0
+        - text: "  cmp edi, 1"
+          address: 1
+          source:
+            line: 2
+        - text: "  jle .L4"
+          address: 2
+        - text: "  push rbx"
+          address: 3
+        - text: "  mov ebx, edi"
+          address: 4
+        - text: "  lea edi, [rdi-1]"
+          address: 5
+          source:
+            line: 3
+        - text: "  call factorial"
+          address: 6
+          source:
+            line: 3
+        - text: "  imul eax, ebx"
+          address: 7
+          source:
+            line: 3
+        - text: "  pop rbx"
+          address: 8
+        - text: "  ret"
+          address: 9
+        - text: ".L4:"
+          address: 10
+        - text: "  mov eax, 1"
+          address: 11
+          source:
+            line: 2
+        - text: "  ret"
+          address: 12
+    expected_topics_by_audience:
+      beginner: [recursion, base_case]
+      intermediate: [stack_optimization, function_calls]
+      expert: [tail_call_optimization_missed, register_pressure, branch_layout, microarchitecture_implications]
+    difficulty: expert
+
+  - id: loop_intermediate_source
+    category: loop_optimization
+    quality: good_example
+    description: "Loop optimization for intermediate audience with source mapping focus"
+    audience: intermediate
+    explanation_type: source
+    input:
+      language: C++
+      compiler: "clang 15.0"
+      compilationOptions: ["-O3", "-march=native"]
+      instructionSet: x86_64
+      code: |
+        void add_arrays(float* a, const float* b, const float* c, int n) {
+            for (int i = 0; i < n; i++) {
+                a[i] = b[i] + c[i];
+            }
+        }
+      asm:
+        - text: "add_arrays:"
+          address: 0
+        - text: "  test ecx, ecx"
+          address: 1
+        - text: "  jle .L1"
+          address: 2
+        - text: "  mov eax, ecx"
+          address: 3
+        - text: "  cmp ecx, 8"
+          address: 4
+        - text: "  jae .L3"
+          address: 5
+        - text: "  xor r8d, r8d"
+          address: 6
+        - text: ".L4:"
+          address: 7
+        - text: "  movss xmm0, DWORD PTR [rsi+r8*4]"
+          address: 8
+          source:
+            line: 3
+        - text: "  addss xmm0, DWORD PTR [rdx+r8*4]"
+          address: 9
+          source:
+            line: 3
+        - text: "  movss DWORD PTR [rdi+r8*4], xmm0"
+          address: 10
+          source:
+            line: 3
+        - text: "  inc r8"
+          address: 11
+        - text: "  cmp r8, rax"
+          address: 12
+        - text: "  jl .L4"
+          address: 13
+        - text: ".L1:"
+          address: 14
+        - text: "  ret"
+          address: 15
+        - text: ".L3:"
+          address: 16
+        - text: "  ; Vectorized loop code omitted for brevity"
+          address: 17
+    expected_topics_by_audience:
+      beginner: [loops, array_access, floating_point]
+      intermediate: [vectorization_check, loop_peeling, source_to_assembly_mapping, sse_instructions]
+      expert: [vectorization_strategy, prefetching, alignment_considerations, simd_efficiency]
+    difficulty: intermediate
+
+  - id: struct_beginner_source
+    category: data_structures
+    quality: good_example
+    description: "Struct manipulation for beginners with source mapping"
+    audience: beginner
+    explanation_type: source
+    input:
+      language: C
+      compiler: "gcc 11.0"
+      compilationOptions: ["-O1"]
+      instructionSet: x86_64
+      code: |
+        struct Point {
+            int x;
+            int y;
+        };
+
+        int manhattan_distance(struct Point p) {
+            return p.x + p.y;
+        }
+      asm:
+        - text: "manhattan_distance:"
+          address: 0
+        - text: "  lea eax, [rdi+rsi]"
+          address: 1
+          source:
+            line: 7
+        - text: "  ret"
+          address: 2
+    expected_topics_by_audience:
+      beginner: [struct_passing, parameter_registers, addition_optimization, source_mapping]
+      intermediate: [abi_conventions, register_parameter_passing, lea_instruction]
+      expert: [struct_decomposition, calling_convention_optimization]
+    difficulty: beginner
