@@ -72,3 +72,8 @@ Based on the PR review, here are the unresolved items that need follow-up work:
 - The Claude-based scoring system added after the initial review addresses some concerns about automatic scoring
 - The error propagation changes ensure failures are visible immediately
 - The prompt improvement advisor provides data-driven refinement capabilities
+- We need to consider how best to integrate the prompt aspects of the various types and levels: do we consider
+  that part of the prompt? Or should we have a single system prompt and then only "pick" what types in the "user" part?
+  Either way we need to think about isolating the review system from the description text and making it possible to feed the
+  improver back into the text.
+- TODOs from Jason Turner - feed it the warnings too
