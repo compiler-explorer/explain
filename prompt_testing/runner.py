@@ -210,10 +210,8 @@ class PromptTester:
                 token_count=output_tokens,
                 response_time_ms=response_time_ms,
             )
-            scorer_method = "claude"
         else:
             metrics = None
-            scorer_method = "none"
 
         return {
             "case_id": case_id,
@@ -226,7 +224,6 @@ class PromptTester:
             "output_tokens": output_tokens,
             "response_time_ms": response_time_ms,
             "metrics": metrics.__dict__ if metrics else None,
-            "scorer_method": scorer_method,
             "timestamp": datetime.now().isoformat(),
         }
 
@@ -368,69 +365,3 @@ class PromptTester:
             comparison["case_comparisons"].append(case_comparison)
 
         return comparison
-
-
-def main():
-    """Simple CLI interface for running tests."""
-    import argparse
-
-    parser = argparse.ArgumentParser(description="Run prompt tests")
-    parser.add_argument("--prompt", required=True, help="Prompt version to test")
-    parser.add_argument("--cases", nargs="*", help="Specific test case IDs to run")
-    parser.add_argument("--categories", nargs="*", help="Test case categories to run")
-    parser.add_argument("--compare", help="Compare with another prompt version")
-    parser.add_argument("--output", help="Output file name")
-
-    # Scorer configuration
-    parser.add_argument(
-        "--scorer",
-        choices=["automatic", "claude", "hybrid"],
-        default="automatic",
-        help="Scoring method: automatic (regex), claude (AI review), or hybrid",
-    )
-    parser.add_argument(
-        "--claude-sample-rate",
-        type=float,
-        default=0.2,
-        help="For hybrid scorer: fraction of cases to evaluate with Claude (0.0-1.0)",
-    )
-    parser.add_argument(
-        "--reviewer-model",
-        default="claude-3-sonnet-20241022",
-        help="Claude model to use for reviewing (e.g., claude-3-opus-20240229)",
-    )
-
-    args = parser.parse_args()
-
-    # Get project root (assuming script is run from project root)
-    project_root = str(Path.cwd())
-
-    tester = PromptTester(
-        project_root,
-        scorer_type=args.scorer,
-        claude_sample_rate=args.claude_sample_rate,
-        reviewer_model=args.reviewer_model,
-    )
-
-    if args.compare:
-        results = tester.compare_prompt_versions(args.prompt, args.compare, args.cases)
-        output_file = args.output or f"comparison_{args.prompt}_vs_{args.compare}.json"
-    else:
-        results = tester.run_test_suite(args.prompt, args.cases, args.categories)
-        output_file = args.output
-
-    tester.save_results(results, output_file)
-
-    # Print summary
-    if "summary" in results:
-        summary = results["summary"]
-        print("\nSummary:")
-        print(f"  Success rate: {summary['success_rate']:.1%}")
-        if "average_metrics" in summary:
-            avg = summary["average_metrics"]
-            print(f"  Average score: {avg['overall_score']:.2f}")
-            print(f"  Average tokens: {avg['average_tokens']:.0f}")
-
-
-if __name__ == "__main__":
-    main()

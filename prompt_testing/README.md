@@ -347,7 +347,7 @@ The framework uses **fail-fast error propagation**:
 - Errors immediately bubble up rather than being caught and logged
 - This ensures you always know when something goes wrong
 
-Example: If Claude API fails during scoring, the entire test run stops with a clear error rather than falling back to automatic scoring.
+Example: If Claude API fails during scoring, the entire test run stops with a clear error.
 
 For more help, check the CLI help:
 ```bash
