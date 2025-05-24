@@ -2,897 +2,273 @@
 
 ## Overview
 
-The Claude Explain service will provide AI-powered explanations of compiler output for Compiler Explorer users. This service will receive compiled code and its resulting assembly, then use Claude 3.5 Haiku to generate explanations that help users understand the relationship between their source code and the generated assembly.
+The Claude Explain service provides AI-powered explanations of compiler output for Compiler Explorer users. The service receives compiled code and its resulting assembly, then uses Claude 3.5 Haiku to generate explanations that help users understand the relationship between their source code and the generated assembly.
 
 ## Architecture
 
-### Service Components
+### Service Design
 
-1. **Lambda Function**: A Python-based AWS Lambda function that will:
-   - Receive requests through API Gateway
-   - Validate input data
-   - Process and prepare structured JSON for Claude
-   - Call Claude Haiku with the structured data
-   - Return Claude's response to the client
+The service is built with **FastAPI** and can run in two modes:
+- **Development**: Standalone FastAPI server for local testing
+- **Production**: AWS Lambda function via Mangum adapter
 
-2. **API Gateway**: HTTP API Gateway to:
-   - Expose the root path `/` endpoint
-   - Handle request routing
-   - Provide CORS support
-   - Enable rate limiting
+This dual-mode design provides excellent developer experience while maintaining serverless scalability for production.
 
-3. **Infrastructure**: Terraform configuration to:
-   - Define the lambda function with appropriate permissions
-   - Configure API Gateway routes and integrations
-   - Set up CloudWatch logging
-   - Implement rate limiting and security measures
+### Core Components
 
-### Input Format
+1. **API Layer** (FastAPI)
+   - Single POST endpoint at `/` for explanation requests
+   - Pydantic models for request/response validation
+   - CORS support for browser integration
+   - Built-in OpenAPI documentation
 
-The service will accept POST requests with JSON bodies containing a subset of the Compiler Explorer API's `/api/compiler/<compiler-id>/compile` response, focusing on the most relevant information for assembly explanation:
+2. **Processing Pipeline**
+   - Input validation (size limits, required fields)
+   - Smart assembly filtering for large outputs (>300 lines)
+   - Structured JSON preparation for Claude
+   - Cost and token tracking
 
-```json
-{
-  "language": "string",               // Programming language (e.g., "c++", "rust")
-  "compiler": "string",              // Compiler identifier (e.g., "g112", "clang1500")
-  "code": "string",                  // Original source code
-  "compilationOptions": [            // Array of compiler flags/options
-    "-O2",
-    "-g",
-    "-Wall"
-  ],
-  "instructionSet": "string",        // Target architecture (e.g., "amd64", "arm64")
-  "asm": [                          // Array of assembly objects from compile response
-    {
-      "text": "factorial(int):",     // Assembly text
-      "source": null,               // Optional source mapping
-      "labels": []                  // Array of label references with positioning
-    },
-    {
-      "text": "        cmp     edi, 1",
-      "source": {
-        "line": 2,                  // Source line number
-        "column": 6                 // Source column number (optional)
-      },
-      "labels": []
-    },
-    {
-      "text": "        jle     .L4",
-      "source": {
-        "line": 2,
-        "column": 6
-      },
-      "labels": [
-        {
-          "name": ".L4",            // Label name
-          "range": {                // Position range in assembly text
-            "startCol": 13,
-            "endCol": 16
-          }
-        }
-      ]
-    }
-  ],
-  "labelDefinitions": {             // Optional map of label names to line numbers
-    "factorial(int)": 0,
-    ".L4": 10
-  }
-}
-```
+3. **Claude Integration**
+   - Uses Claude 3.5 Haiku model for improved accuracy
+   - Structured JSON input preserving source-to-assembly mappings
+   - Configurable audience levels and explanation types
+   - Token usage and cost metrics
 
-### Output Format
+4. **Infrastructure** (when deployed to AWS)
+   - Lambda function with Python 3.13 runtime
+   - API Gateway for HTTP routing
+   - CloudWatch for metrics and monitoring
+   - Docker container for consistent deployment
 
-The service will return a JSON response with:
+### Input/Output Contract
 
-```json
-{
-  "explanation": "string",    // The generated explanation
-  "status": "success" | "error",
-  "message": "string",        // Only present on error
-  "model": "string",          // The Claude model used (e.g., "claude-3-5-haiku-20241022")
-  "usage": {
-    "input_tokens": 123,      // Number of input tokens used in the request
-    "output_tokens": 456,     // Number of output tokens generated
-    "total_tokens": 579       // Total tokens used (input + output)
-  },
-  "cost": {
-    "input_cost": 0.000123,   // Cost in USD for input tokens
-    "output_cost": 0.000456,  // Cost in USD for output tokens
-    "total_cost": 0.000579    // Total cost in USD
-  }
-}
-```
+**Input**: JSON matching the Compiler Explorer compile API response format
+- Source code, compiler details, compilation options
+- Assembly output with source line mappings
+- Label definitions for function boundaries
 
-## Implementation Details
+**Output**: JSON with explanation and metadata
+- Generated explanation text
+- Token usage statistics
+- Cost breakdown
+- Model information
 
-### Lambda Function
+## Prompt Testing Framework
 
-1. **Input Validation and Sanitization**:
-   - ✓ Validate required fields (`language`, `compiler`, `code`, `asm`)
-   - ✓ Ensure the `asm` array is correctly formatted
-   - ✓ Validate input size against defined limits
-   - ✓ Check for malformed JSON structures
+A comprehensive prompt testing system has been developed to:
 
-2. **Claude Integration**:
-   - ✓ Use Anthropic Python client to interact with Claude 3 Haiku
-   - ✓ Provide structured JSON data as a string to Claude
-   - ✓ Use system prompt to establish the compiler analyst role
-   - ✓ Set appropriate max_tokens for response generation
+### Purpose
+- Evaluate and improve prompt quality systematically
+- Test different audiences (beginner/intermediate/expert) and explanation types
+- Compare prompt versions and track improvements
+- Ensure consistent quality across various code examples
 
-3. **Processing Pipeline**:
-   - ✓ Extract relevant data from Compiler Explorer's compile response
-   - ✓ Prepare structured JSON for Claude:
-     - ✓ Preserve the original assembly structure with source mappings
-     - ✓ Keep the raw asm array with all its details intact
-     - ✓ Use labelDefinitions to identify function boundaries
-   - ✓ Handle large assembly outputs:
-     - ✓ Set a maximum line limit (300 lines) for the assembly
-     - ✓ For outputs exceeding the limit, implement intelligent selection:
-       - ✓ Always include function entry points and prologue/epilogue code
-       - ✓ Preserve assembly with source line mappings
-       - ✓ Maintain context by including surrounding instructions
-       - ✓ Add special marker objects to indicate omitted sections
-       - ✓ Include metadata about truncation (original length, truncation status)
-     - ✓ This approach allows Claude to understand both the content and structure
-   - ✓ Process input intelligently:
-     - ✓ Keep assembly grouped by function for better analysis
-     - ✓ Preserve original source-to-assembly mappings
-     - ✓ Identify important patterns like function boundaries and loops
-     - ✓ Use structured format to highlight relationships between code and assembly
+### Architecture
+- **Test Cases**: YAML-based test scenarios with expected topics
+- **Prompts**: Versioned prompt templates with variable substitution
+- **Scoring**: Multiple evaluation methods:
+  - Automatic scoring based on heuristics
+  - Claude-based evaluation for accuracy and clarity
+  - Human review interface for manual assessment
+- **Enrichment**: Integration with Compiler Explorer API to fetch real assembly data
 
-4. **Error Handling**:
-   - ✓ Handle malformed requests
-   - ✓ Handle Claude API errors
-   - ✓ Handle HTTP connection issues
-   - ✓ Provide meaningful error messages
+### Integration
+The prompt testing framework feeds back into the main service by:
+- Validating prompt changes before deployment
+- Identifying edge cases and improving coverage
+- Providing data-driven prompt refinement
+- Ensuring prompts work well across different compiler outputs
 
-5. **Security Measures**:
-   - ✓ API key storage in AWS Parameter Store/Secrets Manager
-   - ✓ Input validation and sanitization
-   - ✓ Local file-based API key for development
-   - ✓ Request logging
+## Implementation Status
 
-### Claude Prompt Strategy
+### ✅ Completed
+- Core FastAPI service with all endpoints
+- Claude 3.5 Haiku integration
+- Smart assembly filtering for large inputs
+- Comprehensive test suite
+- Docker containerization
+- Local development environment
+- Cost and token tracking
+- Prompt testing framework with CE API integration
+- Pre-commit hooks and code quality tools
+- AWS deployment (handled by Compiler Explorer infrastructure)
 
-Instead of flattening the structured assembly data into plain text, we'll provide the structured JSON data as a string. While the Anthropic API doesn't support direct JSON objects with "type": "json" content blocks (as initially thought), sending the JSON as a string with "type": "text" is effective. Claude is still able to understand and process the structured format, allowing us to provide the full richness of the source-to-assembly mapping.
+### 🔄 In Progress
+- Production API key management
+- Rate limiting implementation
+- Compiler Explorer UI integration
 
-The prompt will consist of:
+### 📋 TODO
+- S3 caching for responses
+- Prompt caching for cost optimization
+- Production monitoring dashboards
+- User feedback collection mechanism
 
-1. **System Prompt**: Setting the expert compiler analyst role
-2. **User Message**: A JSON object containing all relevant data
+## Design Decisions
 
-Here's an example structure:
+### Model Selection
+**Claude 3.5 Haiku** was chosen for:
+- Improved accuracy over earlier models
+- Reduced hallucinations about technical details
+- Cost-effective for high-volume usage
+- Fast response times suitable for interactive use
 
-```json
-{
-  "task": "Explain the relationship between source code and assembly output",
-  "language": "c++",
-  "compiler": "g++",
-  "compilationOptions": ["-O2"],
-  "instructionSet": "amd64",
-  "sourceCode": "int factorial(int n) {\n  if (n <= 1) return 1;\n  return n * factorial(n-1);\n}",
-  "assembly": [
-    {
-      "text": "factorial(int):",
-      "source": null,
-      "labels": []
-    },
-    {
-      "text": "        cmp     edi, 1",
-      "source": {
-        "line": 2,
-        "column": 6
-      },
-      "labels": []
-    },
-    {
-      "text": "        jle     .L4",
-      "source": {
-        "line": 2,
-        "column": 6
-      },
-      "labels": [
-        {
-          "name": ".L4",
-          "range": {
-            "startCol": 13,
-            "endCol": 16
-          }
-        }
-      ]
-    }
-    // Additional assembly items...
-  ],
-  "labelDefinitions": {
-    "factorial(int)": 0,
-    ".L4": 10
-  }
-}
-```
+### Assembly Processing
+Smart filtering algorithm prioritizes:
+- Function boundaries and entry points
+- Instructions with source mappings
+- Important control flow instructions
+- Context around key operations
 
-For the Claude Messages API, this would look like:
-
-```python
-message = client.messages.create(
-    model=MODEL,
-    max_tokens=MAX_TOKENS,
-    system="""You are an expert in assembly code and programming languages, helping users of the Compiler Explorer website understand how their code compiles to assembly.
-    Provide clear, concise explanations. Focus on key transformations, optimizations, and important assembly patterns.
-    Explanations should be educational and highlight why certain code constructs generate specific assembly instructions.
-    Give no commentary on the original source: it is expected the user already understands their input, and is only looking for guidance on the assembly output.
-    If it makes it easiest to explain, note the corresponding parts of the source code, but do not focus on this.
-    Do not give an overall conclusion.
-    Be precise and accurate about CPU features and optimizations - avoid making incorrect claims about branch prediction or other hardware details.""",
-    messages=[
-        {
-            "role": "user",
-            "content": [
-                {
-                    "type": "text",
-                    "text": "Explain the relationship between this source code and its assembly output."
-                },
-                {
-                    "type": "text",
-                    "text": json.dumps(structured_data)  # The JSON object serialized as a string
-                }
-            ]
-        }
-    ]
-)
-```
-
-This approach has several advantages:
-- Preserves the complete structure of the data
-- Allows Claude to access the source-to-assembly mapping in a structured way
-- Sends data in a format Claude can parse and understand
-- Makes it easier to handle large assembly outputs without losing context
-- Enables more precise analysis of the relationship between source and assembly
-- Works correctly with the Anthropic API which requires using "type": "text" rather than "type": "json"
-
-### Terraform Configuration
-
-1. **Lambda Resource**:
-   - Python 3.13 runtime
-   - Memory allocation based on expected workload
-   - Timeout appropriate for Claude API interaction
-   - Environment variables for configuration (API keys retrieved from Parameter Store)
-
-2. **API Gateway Configuration**:
-   - HTTP API with CORS support
-   - POST route for root path `/` endpoint
-   - Integration with Lambda function
-   - API Gateway integration handles path mapping
-
-3. **IAM Permissions**:
-   - Lambda execution role
-   - Access to Parameter Store/Secrets Manager for API keys
-   - CloudWatch logging permissions
-
-4. **Rate Limiting and Quotas**:
-   - API Gateway usage plans
-   - Throttling rules to prevent abuse
-   - Consider token bucket algorithm for more sophisticated rate limiting
-
-## Implementation Dependencies
-
-The implementation follows these dependency chains:
-
-1. **Infrastructure Dependencies**:
-   - Parameter Store setup → Lambda function deployment
-   - IAM Roles/Policies → Lambda function deployment
-   - Lambda deployment → API Gateway integration
-   - API Gateway setup → CORS configuration
-
-2. **Implementation Dependencies**:
-   - Input validation → Claude integration
-   - Structured data preparation → Claude prompt design
-   - Lambda handler → Error handling implementation
-   - API Gateway configuration → Rate limiting setup
+### Prompt Strategy
+- Structured JSON input preserves rich metadata
+- System prompt establishes expert compiler analyst role
+- Explicit instructions to avoid speculation about hardware features
+- Focus on educational value without patronizing explanations
 
 ## Security Considerations
 
-1. **API Key Management**:
-   - Store Claude API key in AWS Secrets Manager or Parameter Store
-   - Rotate keys periodically
+### Input Validation
+- Size limits prevent resource exhaustion
+- JSON structure validation prevents parsing errors
+- No execution of user code
 
-2. **Input Sanitization**:
-   - Validate and sanitize all inputs
-   - Limit input size for source code and assembly
-   - **Note on Prompt Injection**:
-     - As an open-source project, typical prompt injection concerns are minimal:
-       - System details are already public in the repository
-       - The technical nature of compiler explanations limits content misuse
-       - Users getting misleading explanations primarily affects only themselves
-     - Basic mitigation is still reasonable:
-       - Validate JSON structure for proper parsing
-       - Simple size limits to prevent resource abuse
-       - Basic system prompt that focuses the model on compiler explanation
+### API Security
+- API key stored securely (environment variable in dev, AWS Secrets Manager in prod)
+- CORS configuration for authorized domains
+- Rate limiting to prevent abuse
 
-3. **Rate Limiting**:
-   - Implement request throttling at API Gateway level
-   - Consider IP-based rate limiting
-   - Consider user authentication for higher rate limits
+### Privacy
+- Compiler Explorer will display consent before sending code to Anthropic
+- No persistent storage of user code or explanations (except potential S3 cache)
+- Compliance with CE privacy policy
 
-4. **Resource Protection**:
-   - Implement strict timeouts for request processing
-   - Add circuit breakers to detect and prevent abuse
-   - Set hard limits on output token generation
+## Cost Management
 
-5. **Privacy**:
-   - **Note on Data Handling**:
-     - Compiler Explorer's UI will display a consent form before sending code to Anthropic
-     - The existing CE privacy policy will be updated to mention this feature specifically
-     - No need for additional PII protection beyond what's already in CE
-   - Implement appropriate logging controls for operational needs
+### Current Pricing (Claude 3.5 Haiku)
+- Input: $0.80 per million tokens
+- Output: $4.00 per million tokens
 
-6. **Monitoring**:
-   - Set up alarms for unusual usage patterns
-   - Monitor costs and usage
-   - Create alerting for suspicious request patterns
-
-## Cost Considerations
-
-1. **Claude API Costs**:
-   - Claude pricing varies by model - see Anthropic's current pricing
-   - Monitor token usage
-   - Consider implementing a token budget per request
-   - Set up cost alerting
-
-2. **AWS Infrastructure Costs**:
-   - Lambda execution costs
-   - API Gateway request costs
-   - CloudWatch logging costs
-
-3. **Optimization Strategies**:
-   - Cache common explanations
-   - Implement token usage quotas
-   - Consider pre-warming for high-traffic periods
-
-## Testing Strategy
-
-1. **Unit Tests**:
-   - Test input validation
-   - Test sanitization functions
-   - Test prompt formatting
-   - Mock Claude API responses
-
-2. **Integration Tests**:
-   - Test full request/response flow
-   - Test error handling
-   - Test rate limiting
-
-3. **Load Testing**:
-   - Verify performance under load
-   - Test concurrency limits
-   - Ensure rate limiting works correctly
-
-## Deployment and Operations
-
-1. **CI/CD Pipeline**:
-   - Automated tests
-   - Separate staging/production environments
-   - Blue/green deployment strategy
-
-2. **Monitoring**:
-   - CloudWatch metrics and dashboards
-   - Error rate alerting
-   - Cost monitoring
-
-3. **Logging**:
-   - Request/response logging
-   - Error logging
-   - Usage statistics
+### Optimization Strategies
+- Smart assembly filtering reduces input tokens
+- Response length limits (1024 tokens max)
+- Future: Implement response caching
+- Future: Prompt caching for system prompts
 
 ## Future Enhancements
 
-1. **Model Improvements**:
-   - Tune prompts based on user feedback
-   - Consider specialized models for different languages
-   - Explore finer-grained explanations
+### Near Term
+1. **Caching Layer**
+   - S3-based response caching
+   - Cache key based on request hash
+   - TTL and cache busting mechanisms
 
-2. **Feature Enhancements**:
-   - Support for more detailed assembly analysis
-   - Interactive explanations
-   - Explanation of specific sections of code/assembly
-   - Highlighting optimizations based on compilation flags
-   - Comparing multiple compiler outputs for the same code
-   - Adding community feedback to improve explanations over time
+2. **Enhanced Explanations**
+   - Compiler warning integration
+   - Optimization remarks from compiler
+   - Diff explanations for multiple compiler outputs
 
-3. **Integration Options**:
-   - Direct integration with Compiler Explorer UI
-   - API keys for third-party integrations
-   - Batch processing capabilities
+3. **UI Integration**
+   - "Explain" button in CE interface
+   - Inline explanations in assembly view
+   - User feedback collection
 
-## Sample Implementation
+### Long Term
+1. **Advanced Features**
+   - Interactive Q&A about specific assembly sections
+   - Explanation history and favorites
+   - Community-contributed explanation improvements
 
-### Lambda Handler (Python)
+2. **Model Improvements**
+   - Fine-tuning for compiler-specific outputs
+   - Support for more architectures and languages
+   - Multi-model ensemble for complex cases
 
-```python
-import json
-import os
-import re
-import boto3
-from anthropic import Anthropic
-from botocore.exceptions import ClientError
+## Operational Considerations
 
-# Initialize clients
-ssm = boto3.client('ssm')
-anthropic_client = None  # Initialized lazily
+### Monitoring
+- Request volume and latency metrics
+- Token usage and cost tracking
+- Error rates and types
+- Model performance metrics
 
-# Configuration (see app/explain.py for current values)
-# - MAX_CODE_LENGTH: Maximum source code length
-# - MAX_ASM_LENGTH: Maximum assembly output length
-# - MODEL: Claude model identifier
-# - MAX_TOKENS: Response length limit
-# - PARAM_NAME: Parameter Store key for API key
+### Scaling
+- Lambda auto-scaling for traffic spikes
+- Consider reserved concurrency for consistent performance
+- Cache hit rate optimization
 
-def get_anthropic_client():
-    """Get or initialize Anthropic client with API key from Parameter Store."""
-    global anthropic_client
-    if anthropic_client is None:
-        try:
-            response = ssm.get_parameter(Name=PARAM_NAME, WithDecryption=True)
-            api_key = response['Parameter']['Value']
-            anthropic_client = Anthropic(api_key=api_key)
-        except ClientError as e:
-            print(f"Error retrieving API key: {e}")
-            raise
-    return anthropic_client
+### Maintenance
+- Regular prompt testing and refinement
+- Model version updates
+- Security patching
+- Cost optimization reviews
 
-def validate_input(body):
-    """Validate the input request body."""
-    required_fields = ['language', 'compiler', 'code', 'asm']
-    for field in required_fields:
-        if field not in body:
-            return False, f"Missing required field: {field}"
+## Development Workflow
 
-    # Validate code length
-    if len(body['code']) > MAX_CODE_LENGTH:
-        return False, f"Source code exceeds maximum length of {MAX_CODE_LENGTH} characters"
+### Local Development
+```bash
+# Install dependencies
+uv sync --group dev
 
-    # Validate assembly format
-    if not isinstance(body['asm'], list):
-        return False, "Assembly must be an array"
+# Run local server
+uv run fastapi dev
 
-    return True, ""
-
-# We use prepare_structured_data to process the input for Claude
-
-def prepare_structured_data(body):
-    """Prepare a structured JSON object for Claude's consumption."""
-    # Use configured assembly line limit from constants
-
-    # Extract and validate basic fields
-    structured_data = {
-        "task": "Explain the relationship between source code and assembly output",
-        "language": body.get('language', 'unknown'),
-        "compiler": body.get('compiler', 'unknown'),
-        "sourceCode": body.get('code', ''),
-        "instructionSet": body.get('instructionSet', 'unknown'),
-    }
-
-    # Format compilation options
-    comp_options = body.get('compilationOptions', [])
-    if isinstance(comp_options, list):
-        structured_data["compilationOptions"] = comp_options
-    else:
-        structured_data["compilationOptions"] = [str(comp_options)]
-
-    # Process assembly array
-    asm_array = body.get('asm', [])
-    if len(asm_array) > MAX_ASSEMBLY_LINES:
-        # If assembly is too large, we need smart truncation
-        structured_data["assembly"] = select_important_assembly(asm_array, body.get('labelDefinitions', {}))
-        structured_data["truncated"] = True
-        structured_data["originalLength"] = len(asm_array)
-    else:
-        # Use the full assembly if it's within limits
-        structured_data["assembly"] = asm_array
-        structured_data["truncated"] = False
-
-    # Include label definitions
-    structured_data["labelDefinitions"] = body.get('labelDefinitions', {})
-
-    # Add compiler messages if available
-    stderr = body.get('stderr', [])
-    if stderr and isinstance(stderr, list):
-        structured_data["compilerMessages"] = stderr
-    else:
-        structured_data["compilerMessages"] = []
-
-    # Add optimization remarks if available
-    opt_output = body.get('optimizationOutput', [])
-    if opt_output and isinstance(opt_output, list):
-        structured_data["optimizationRemarks"] = opt_output
-    else:
-        structured_data["optimizationRemarks"] = []
-
-    return structured_data
-
-def select_important_assembly(asm_array, label_definitions, max_lines=MAX_ASSEMBLY_LINES):
-    """Select the most important assembly lines if the output is too large.
-
-    This function identifies and preserves:
-    1. Function boundaries (entry points and returns)
-    2. Instructions with source mappings
-    3. Important contextual instructions
-    """
-    if len(asm_array) <= max_lines:
-        return asm_array
-
-    # Identify important blocks (function boundaries, etc.)
-    important_indices = set()
-
-    # Mark label definitions as important
-    for label, line_idx in label_definitions.items():
-        if 0 <= line_idx < len(asm_array):
-            # Add the label line and a few lines after it (function prologue)
-            for i in range(line_idx, min(line_idx + 5, len(asm_array))):
-                important_indices.add(i)
-
-    # Mark function epilogues and lines with source mappings
-    for idx, asm_item in enumerate(asm_array):
-        if not isinstance(asm_item, dict) or 'text' not in asm_item:
-            continue
-
-        # Source mapping makes this important
-        if asm_item.get('source') and asm_item['source'].get('line') is not None:
-            important_indices.add(idx)
-
-        # Function returns and epilogues are important
-        text = asm_item.get('text', '').strip()
-        if text in ('ret', 'leave', 'pop rbp') or text.startswith('ret '):
-            # Add the return line and a few lines before it
-            for i in range(max(0, idx - 3), idx + 1):
-                important_indices.add(i)
-
-    # Also include context around important lines
-    context_indices = set()
-    for idx in important_indices:
-        # Add a few lines before and after for context
-        for i in range(max(0, idx - 2), min(len(asm_array), idx + 3)):
-            context_indices.add(i)
-
-    # Combine all important indices
-    all_indices = important_indices.union(context_indices)
-
-    # If we still have too many lines, prioritize
-    if len(all_indices) > max_lines:
-        # Prioritize function boundaries and source mappings over context
-        all_indices = list(important_indices)
-        all_indices.sort()
-        all_indices = all_indices[:max_lines]
-
-    # Collect selected assembly items
-    selected_assembly = []
-
-    # Sort indices to maintain original order
-    sorted_indices = sorted(all_indices)
-
-    # Find gaps and add "omitted" markers
-    last_idx = -2
-    for idx in sorted_indices:
-        if idx > last_idx + 1:
-            # There's a gap, add a special marker
-            selected_assembly.append({
-                "text": f"... ({idx - last_idx - 1} lines omitted) ...",
-                "isOmissionMarker": True
-            })
-
-        # Add the actual assembly item
-        if 0 <= idx < len(asm_array):
-            selected_assembly.append(asm_array[idx])
-
-        last_idx = idx
-
-    # Add a final omission marker if needed
-    if last_idx < len(asm_array) - 1:
-        selected_assembly.append({
-            "text": f"... ({len(asm_array) - last_idx - 1} lines omitted) ...",
-            "isOmissionMarker": True
-        })
-
-    return selected_assembly
-
-# We use structured JSON content instead of text-based prompts
-
-def create_response(status_code, body):
-    """Create API Gateway response."""
-    return {
-        'statusCode': status_code,
-        'headers': {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'POST, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key',
-        },
-        'body': json.dumps(body)
-    }
-
-def lambda_handler(event, context):
-    """Lambda handler function."""
-    # Handle OPTIONS request (CORS preflight)
-    if event.get('httpMethod') == 'OPTIONS':
-        return create_response(200, {})
-
-    try:
-        # Parse request body
-        body = json.loads(event.get('body', '{}'))
-
-        # Validate input
-        valid, error_message = validate_input(body)
-        if not valid:
-            return create_response(400, {'status': 'error', 'message': error_message})
-
-        # Prepare structured data for Claude
-        structured_data = prepare_structured_data(body)
-
-        # Call Claude API with JSON structure
-        client = get_anthropic_client()
-        message = client.messages.create(
-            model=MODEL,
-            max_tokens=MAX_TOKENS,
-            system="""You are an expert compiler analyst who explains the relationship between source code and assembly output.
-    Provide clear, concise explanations that help programmers understand how their code translates to assembly.
-    Focus on key transformations, optimizations, and important assembly patterns.
-    Explanations should be educational and highlight why certain code constructs generate specific assembly instructions.""",
-            messages=[
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": "Explain the relationship between this source code and its assembly output."
-                        },
-                        {
-                            "type": "text",
-                            "text": json.dumps(structured_data)
-                        }
-                    ]
-                }
-            ]
-        )
-
-        explanation = message.content[0].text
-
-        # Return success response
-        return create_response(200, {
-            'status': 'success',
-            'explanation': explanation
-        })
-
-    except json.JSONDecodeError:
-        return create_response(400, {'status': 'error', 'message': 'Invalid JSON in request body'})
-    except Exception as e:
-        print(f"Error: {str(e)}")
-        return create_response(500, {'status': 'error', 'message': 'Internal server error'})
+# Test the service
+./test-explain.sh
 ```
-
-### Terraform Configuration (Sample)
-
-```hcl
-# IAM Role for Lambda
-resource "aws_iam_role" "explain_lambda_role" {
-  name = "explain_lambda_execution_role"
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Action = "sts:AssumeRole"
-      Effect = "Allow"
-      Principal = {
-        Service = "lambda.amazonaws.com"
-      }
-    }]
-  })
-}
-
-# SSM Parameter Store access policy
-resource "aws_iam_policy" "explain_ssm_policy" {
-  name = "explain_ssm_access"
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Action = [
-        "ssm:GetParameter",
-      ]
-      Effect = "Allow"
-      Resource = "arn:aws:ssm:${local.region}:${data.aws_caller_identity.current.account_id}:parameter/ce/claude/api-key"
-    }]
-  })
-}
-
-# Logging policy
-resource "aws_iam_policy" "explain_logging_policy" {
-  name = "explain_lambda_logging"
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Action = [
-        "logs:CreateLogGroup",
-        "logs:CreateLogStream",
-        "logs:PutLogEvents"
-      ]
-      Effect = "Allow"
-      Resource = "arn:aws:logs:*:*:*"
-    }]
-  })
-}
-
-# Attach policies to role
-resource "aws_iam_role_policy_attachment" "explain_ssm_attach" {
-  role = aws_iam_role.explain_lambda_role.name
-  policy_arn = aws_iam_policy.explain_ssm_policy.arn
-}
-
-resource "aws_iam_role_policy_attachment" "explain_logging_attach" {
-  role = aws_iam_role.explain_lambda_role.name
-  policy_arn = aws_iam_policy.explain_logging_policy.arn
-}
-
-# Lambda function
-resource "aws_lambda_function" "explain" {
-  function_name = "explain"
-  description = "Explain compiler assembly output using Claude"
-  s3_bucket = aws_s3_bucket.compiler-explorer.bucket
-  s3_key = "lambdas/lambda-package.zip"
-  source_code_hash = filebase64sha256("${path.module}/../lambda/lambda-package.zip")
-  role = aws_iam_role.explain_lambda_role.arn
-  handler = "explain.lambda_handler"
-  runtime = "python3.13"
-  timeout = 30
-  memory_size = 256
-
-  environment {
-    variables = {
-      # Additional environment variables if needed
-    }
-  }
-}
-
-# API Gateway Integration
-resource "aws_apigatewayv2_integration" "explain" {
-  api_id = aws_apigatewayv2_api.ce_pub_api.id
-  integration_uri = aws_lambda_function.explain.invoke_arn
-  integration_type = "AWS_PROXY"
-  integration_method = "POST"
-}
-
-# API Gateway Route
-resource "aws_apigatewayv2_route" "explain" {
-  api_id = aws_apigatewayv2_api.ce_pub_api.id
-  route_key = "POST /"
-  target = "integrations/${aws_apigatewayv2_integration.explain.id}"
-}
-
-# Lambda Permission for API Gateway
-resource "aws_lambda_permission" "explain_api" {
-  statement_id = "AllowAPIGatewayInvoke"
-  action = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.explain.function_name
-  principal = "apigateway.amazonaws.com"
-  source_arn = "${aws_apigatewayv2_api.ce_pub_api.execution_arn}/*/*"
-}
-```
-
-## Implementation Checklist
-
-### Infrastructure Setup
-
-- [x] Create Terraform configuration for Lambda function
-- [x] Create Terraform configuration for API Gateway
-- [ ] Set up API key storage in Parameter Store/Secrets Manager
-- [x] Configure CloudWatch logging
-- [ ] Implement rate limiting
-
-### Lambda Implementation
-
-- [x] Set up Python project structure
-- [x] Implement input validation and sanitization
-- [x] Create Claude prompt template
-- [x] Implement Claude API integration
-- [x] Add error handling and logging
-- [x] Write unit tests
-
-### API Configuration
-
-- [x] Configure API Gateway routes
-- [x] Set up CORS
-- [x] Configure request/response mapping
-- [ ] Implement rate limiting
-- [ ] Set up custom domain
 
 ### Testing
+```bash
+# Run tests
+uv run pytest
 
-- [x] Write unit tests for validation and sanitization
-- [x] Create integration tests
-- [ ] Perform security testing
-- [ ] Test rate limiting and quotas
-- [ ] Load testing
+# Run prompt testing
+uv run prompt-test run --prompt current
 
-### Documentation
+# Enrich test cases with real CE data
+uv run prompt-test enrich --input test_cases.yaml
+```
 
-- [x] Update API documentation
-- [x] Add usage examples
-- [ ] Document rate limits and quotas
-- [x] Create operational runbook
+## Key Learnings and Notes
 
-### Deployment
+### Prompt Engineering
+- Explicit instructions about not speculating on hardware features are crucial
+- Structured JSON input works better than flattened text
+- Audience-specific prompts may need architectural decisions
 
-- [ ] Deploy to staging environment
-- [ ] Validate functionality and performance
-- [ ] Deploy to production
-- [ ] Set up monitoring and alerting
+### Model Observations
+- Claude 3.5 Haiku shows significant improvement over earlier versions
+- Still requires careful prompting to avoid confident mistakes
+- Benefits from explicit examples in test cases
 
-### Compiler Explorer Integration
+### Implementation Notes
+- FastAPI + Mangum provides excellent flexibility
+- Pydantic validation catches many issues early
+- Comprehensive testing is essential for prompt quality
 
-- [ ] Implement consent UI before sending code to Anthropic
-- [ ] Update CE privacy policy to mention this feature specifically
-- [ ] Add "Explain" button/option in the compiler output UI
-- [ ] Implement API client in CE frontend
-- [ ] Handle and display explanations in the CE UI
-- [ ] Add explanations to compiler tooltip options
-- [ ] Support markdown formatting in explanations
-- [ ] Add user feedback mechanism for explanation quality
-- [ ] Create fallback behavior for rate limiting or service unavailability
+## Next Steps
 
-## Current Implementation Status
+1. **Production Configuration**
+   - Set up production API key in AWS Secrets Manager
+   - Configure rate limiting at API Gateway
+   - Set up monitoring dashboards and alerts
 
-The core Claude Explain service has been implemented with the following features:
+2. **Implement Caching**
+   - Design S3 caching strategy
+   - Implement cache key generation
+   - Add cache metrics and TTL management
 
-- ✅ FastAPI service with Python 3.13 runtime (can run as Lambda or standalone)
-- ✅ Input validation and smart assembly processing
-- ✅ Integration with Anthropic API (Claude 3.5 Haiku model)
-- ✅ Error handling and response formatting
-- ✅ Comprehensive unit tests with pytest
-- ✅ Local development HTTP server with uv and FastAPI dev server
-- ✅ Docker containerization support
-- ✅ Pre-commit hooks with ruff linting and formatting
-- ✅ Documentation for developers and users
+3. **UI Integration**
+   - Complete CE frontend integration
+   - Implement user consent flow
+   - Add "Explain" button to compiler output
+   - Support markdown rendering for explanations
 
-Key features ready for deployment:
+4. **Launch Preparation**
+   - Load testing and capacity planning
+   - Update CE privacy policy
+   - User communication and documentation
 
-- ✅ Local development server with secure file-based API key handling
-- ✅ Smart assembly truncation for large inputs with configurable limits
-- ✅ Input size validation with configurable limits
-- ✅ CORS support for browser integration
-- ✅ Test script for local verification with `./test-explain.sh`
-- ✅ Error handling for various API failure modes
-- ✅ Structured API models with Pydantic validation
-- ✅ Metrics providers for monitoring (AWS CloudWatch when deployed, no-op locally)
+---
 
-Remaining tasks before production release:
-
-- 🟡 Deploy to AWS staging environment (infrastructure code ready)
-- 🟡 Set up production API key and parameter store
-- 🟡 Implement rate limiting at API Gateway level
-- 🟡 Configure domain and DNS
-- 🟡 Create monitoring and alerting
-- 🟡 Integrate with Compiler Explorer UI
-
-**Current Status**: The service is feature-complete and ready for deployment. All core functionality has been implemented and tested locally. The service can run both as a standalone FastAPI application for development and as an AWS Lambda function for production deployment.
-
-### Key Implementation Achievements
-
-- **Modern FastAPI Architecture**: Migrated from pure Lambda to FastAPI with Mangum adapter for flexibility
-- **Enhanced Type Safety**: Full Pydantic models for request/response validation
-- **Improved Model**: Upgraded to Claude 3.5 Haiku for better accuracy and reduced hallucinations
-- **Robust Testing**: Comprehensive test suite covering edge cases and error conditions
-- **Developer Experience**: Local development server, hot reload, and integration test script
-- **Production Ready**: Docker support, pre-commit hooks, and proper error handling
-
-## Conclusion
-
-The Claude Explain service will provide valuable insights into compiler behavior for Compiler Explorer users. By leveraging Claude Haiku's AI capabilities, we can offer explanations that help users understand the relationship between their source code and the resulting assembly.
-
-This service is designed to be maintainable, secure, and cost-effective, with room for future enhancements based on user feedback and evolving requirements.
-
-## Notes from Matt on prompt stuff
-
-- Need to stop claude confidently talking about branch prediction, e.g. "Branch Prediction: The code includes branch prediction hints (endbr64) to help the CPU predict the control flow and improve performance." - These are _not_ branch prediction hints. Now updated the prompt a bit.
-- Consider using a more expensive model to avoid this? Now using Haiku 3.5
-- it's not good things like counting...so yeah maybe a better model: e.g. "Scalar Fallback: If the array length is small (less than or equal to 6), the compiler falls back to a scalar implementation that processes the elements one by one." when in fact it was looking at: "  lea eax, -1[rsi] |   cmp eax, 6 | jbe ..."
-- should consider prompt caching
-
-
-## more notes
-- should do server-side caching on S3 a la the rest of the CE project. will need a cache busting flag to force
+*This document represents the current design and implementation status of the Claude Explain service. For implementation details, see the source code and API documentation.*
