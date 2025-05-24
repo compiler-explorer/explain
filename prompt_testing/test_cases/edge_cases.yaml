@@ -1,116 +1,237 @@
 description: "Edge cases and problematic scenarios"
 
 cases:
-  - id: edge_empty_001
-    category: empty_function
-    quality: bad_example
-    description: "Empty function that should result in minimal explanation"
-    input:
-      language: C
-      compiler: "gcc 13.1"
-      compilationOptions: ["-O0"]
-      instructionSet: x86_64
-      code: "void empty_function() {}"
-      asm:
-        - text: "empty_function:"
-          address: 0
-        - text: "  push rbp"
-          address: 1
-          source:
-            line: 1
-        - text: "  mov rbp, rsp"
-          address: 2
-          source:
-            line: 1
-        - text: "  nop"
-          address: 3
-          source:
-            line: 1
-        - text: "  pop rbp"
-          address: 4
-          source:
-            line: 1
-        - text: "  ret"
-          address: 5
-    expected_topics: [function_prologue, function_epilogue, no_optimization]
-    difficulty: beginner
-    notes: "Should generate minimal explanation focusing on calling convention"
+- id: edge_empty_001
+  category: empty_function
+  quality: bad_example
+  description: "Empty function that should result in minimal explanation"
+  input:
+    language: C
+    compiler: "x86-64 gcc 13.1"
+    compilationOptions: ["-O0"]
+    instructionSet: x86_64
+    code: "void empty_function() {}"
+    asm:
+    - text: 'empty_function:'
+    - text: '        push    rbp'
+      source:
+        line: 1
+    - text: '        mov     rbp, rsp'
+      source:
+        line: 1
+    - text: '        nop'
+      source:
+        line: 1
+    - text: '        pop     rbp'
+      source:
+        line: 1
+    - text: '        ret'
+      source:
+        line: 1
+    labelDefinitions: {}
+  expected_topics: [function_prologue, function_epilogue, no_optimization]
+  difficulty: beginner
+  notes: "Should generate minimal explanation focusing on calling convention"
 
-  - id: edge_undefined_001
-    category: undefined_behavior
-    quality: challenging_example
-    description: "Code with undefined behavior leading to unexpected assembly"
-    input:
-      language: C++
-      compiler: "clang 16.0"
-      compilationOptions: ["-O2"]
-      instructionSet: x86_64
-      code: |
-        int undefined_increment(int* p) {
-            return ++(*p) + (*p)++;
-        }
-      asm:
-        - text: "undefined_increment:"
-          address: 0
-        - text: "  mov eax, DWORD PTR [rdi]"
-          address: 1
-          source:
-            line: 2
-        - text: "  lea edx, [rax+2]"
-          address: 2
-          source:
-            line: 2
-        - text: "  mov DWORD PTR [rdi], edx"
-          address: 3
-          source:
-            line: 2
-        - text: "  add eax, eax"
-          address: 4
-          source:
-            line: 2
-        - text: "  inc eax"
-          address: 5
-          source:
-            line: 2
-        - text: "  ret"
-          address: 6
-    expected_topics: [undefined_behavior, sequence_points, compiler_assumptions]
-    difficulty: advanced
-    notes: "Should explain that this is undefined behavior and compiler can assume anything"
+- id: edge_undefined_001
+  category: undefined_behavior
+  quality: challenging_example
+  description: "Code with undefined behavior leading to unexpected assembly"
+  input:
+    language: C++
+    compiler: "x86-64 clang 16.0.0"
+    compilationOptions: ["-O2"]
+    instructionSet: x86_64
+    code: |
+      int undefined_increment(int* p) {
+          return ++(*p) + (*p)++;
+      }
+    asm:
+    - text: 'undefined_increment(int*):'
+    - text: '        mov     eax, dword ptr [rdi]'
+      source:
+        line: 2
+    - text: '        lea     ecx, [rax + 2]'
+      source:
+        line: 2
+    - text: '        mov     dword ptr [rdi], ecx'
+      source:
+        line: 2
+    - text: '        add     eax, eax'
+      source:
+        line: 2
+    - text: '        add     eax, 2'
+      source:
+        line: 2
+    - text: '        ret'
+      source:
+        line: 2
+    - text: ''
+    labelDefinitions: {}
+  expected_topics: [undefined_behavior, sequence_points, compiler_assumptions]
+  difficulty: advanced
+  notes: "Should explain that this is undefined behavior and compiler can assume anything"
 
-  - id: edge_long_asm_001
-    category: truncated_assembly
-    quality: special_case
-    description: "Very long assembly that gets truncated"
-    input:
-      language: C++
-      compiler: "gcc 13.1"
-      compilationOptions: ["-O0"]
-      instructionSet: x86_64
-      code: |
-        void large_function() {
-            // This would generate 500+ lines of assembly
-            for (int i = 0; i < 100; i++) {
-                printf("Line %d\n", i);
-            }
-        }
-      asm:
-        - text: "large_function:"
-          address: 0
-        - text: "  push rbp"
-          address: 1
-        - text: "... (250 lines omitted) ..."
-          isOmissionMarker: true
-        - text: "  call printf"
-          address: 252
-          source:
-            line: 4
-        - text: "... (200 lines omitted) ..."
-          isOmissionMarker: true
-        - text: "  pop rbp"
-          address: 453
-        - text: "  ret"
-          address: 454
-    expected_topics: [assembly_truncation, loop_unoptimized, function_calls]
-    difficulty: intermediate
-    notes: "Should handle truncated assembly gracefully and explain omission markers"
+- id: edge_long_asm_001
+  category: truncated_assembly
+  quality: special_case
+  description: "Very long assembly that gets truncated"
+  input:
+    language: C++
+    compiler: "x86-64 gcc 13.1"
+    compilationOptions: ["-O0"]
+    instructionSet: x86_64
+    code: |
+      int large_function() {
+          int sum = 0;
+          // This would generate lots of assembly
+          for (int i = 0; i < 20; i++) {
+              sum += i * i + i;
+              sum -= i / 2;
+              sum *= (i % 3) + 1;
+          }
+          return sum;
+      }
+    asm:
+    - text: 'large_function():'
+    - text: '        push    rbp'
+      source:
+        line: 1
+    - text: '        mov     rbp, rsp'
+      source:
+        line: 1
+    - text: '        mov     DWORD PTR [rbp-4], 0'
+      source:
+        line: 2
+    - text: '        mov     DWORD PTR [rbp-8], 0'
+      source:
+        line: 4
+    - text: '        jmp     .L2'
+      source:
+        line: 4
+      labels:
+      - name: .L2
+        range:
+          startCol: 17
+          endCol: 20
+    - text: '.L3:'
+    - text: '        mov     eax, DWORD PTR [rbp-8]'
+      source:
+        line: 5
+    - text: '        imul    eax, eax'
+      source:
+        line: 5
+    - text: '        mov     edx, eax'
+      source:
+        line: 5
+    - text: '        mov     eax, DWORD PTR [rbp-8]'
+      source:
+        line: 5
+    - text: '        add     eax, edx'
+      source:
+        line: 5
+    - text: '        add     DWORD PTR [rbp-4], eax'
+      source:
+        line: 5
+    - text: '        mov     eax, DWORD PTR [rbp-8]'
+      source:
+        line: 6
+    - text: '        mov     edx, eax'
+      source:
+        line: 6
+    - text: '        shr     edx, 31'
+      source:
+        line: 6
+    - text: '        add     eax, edx'
+      source:
+        line: 6
+    - text: '        sar     eax'
+      source:
+        line: 6
+    - text: '        neg     eax'
+      source:
+        line: 6
+    - text: '        add     DWORD PTR [rbp-4], eax'
+      source:
+        line: 6
+    - text: '        mov     ecx, DWORD PTR [rbp-8]'
+      source:
+        line: 7
+    - text: '        movsx   rax, ecx'
+      source:
+        line: 7
+    - text: '        imul    rax, rax, 1431655766'
+      source:
+        line: 7
+    - text: '        shr     rax, 32'
+      source:
+        line: 7
+    - text: '        mov     rdx, rax'
+      source:
+        line: 7
+    - text: '        mov     eax, ecx'
+      source:
+        line: 7
+    - text: '        sar     eax, 31'
+      source:
+        line: 7
+    - text: '        sub     edx, eax'
+      source:
+        line: 7
+    - text: '        mov     eax, edx'
+      source:
+        line: 7
+    - text: '        add     eax, eax'
+      source:
+        line: 7
+    - text: '        add     eax, edx'
+      source:
+        line: 7
+    - text: '        sub     ecx, eax'
+      source:
+        line: 7
+    - text: '        mov     edx, ecx'
+      source:
+        line: 7
+    - text: '        add     edx, 1'
+      source:
+        line: 7
+    - text: '        mov     eax, DWORD PTR [rbp-4]'
+      source:
+        line: 7
+    - text: '        imul    eax, edx'
+      source:
+        line: 7
+    - text: '        mov     DWORD PTR [rbp-4], eax'
+      source:
+        line: 7
+    - text: '        add     DWORD PTR [rbp-8], 1'
+      source:
+        line: 4
+    - text: '.L2:'
+    - text: '        cmp     DWORD PTR [rbp-8], 19'
+      source:
+        line: 4
+    - text: '        jle     .L3'
+      source:
+        line: 4
+      labels:
+      - name: .L3
+        range:
+          startCol: 17
+          endCol: 20
+    - text: '        mov     eax, DWORD PTR [rbp-4]'
+      source:
+        line: 9
+    - text: '        pop     rbp'
+      source:
+        line: 10
+    - text: '        ret'
+      source:
+        line: 10
+    labelDefinitions:
+      .L2: 5
+      .L3: 40
+  expected_topics: [assembly_truncation, loop_unoptimized, function_calls]
+  difficulty: intermediate
+  notes: "Should handle truncated assembly gracefully and explain omission markers"

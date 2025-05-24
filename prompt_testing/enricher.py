@@ -4,7 +4,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-import yaml
+from ruamel.yaml import YAML
 
 from prompt_testing.ce_api import CompilationError, CompileRequest, CompilerExplorerClient
 
@@ -32,11 +32,6 @@ class TestCaseEnricher:
             Enriched test case with assembly data
         """
         input_data = test_case.get("input", {})
-
-        # Skip if already has assembly data
-        if input_data.get("asm"):
-            print(f"  Skipping {test_case['id']} - already has assembly data")
-            return test_case
 
         # Get compiler ID
         compiler_name = input_data.get("compiler")
@@ -100,16 +95,22 @@ class TestCaseEnricher:
 
         Args:
             input_file: Input YAML file with test cases
-            output_file: Output file path. If None, adds .enriched before extension
+            output_file: Output file path. If None, enriches in place
             compiler_map: Optional mapping from test compiler names to CE compiler IDs
             delay: Delay between API calls in seconds
 
         Returns:
             Path to enriched output file
         """
+        # Initialize YAML handler with round-trip mode to preserve formatting
+        yaml = YAML()
+        yaml.preserve_quotes = True
+        yaml.width = 120
+        yaml.default_flow_style = False
+
         # Load input file
         with input_file.open(encoding="utf-8") as f:
-            data = yaml.safe_load(f)
+            data = yaml.load(f)
 
         if "cases" not in data:
             raise ValueError("Input file missing 'cases' field")
@@ -134,16 +135,15 @@ class TestCaseEnricher:
                 enriched_cases.append(case)
 
         # Prepare output
-        output_data = data.copy()
-        output_data["cases"] = enriched_cases
+        data["cases"] = enriched_cases
 
         # Determine output file
         if output_file is None:
-            output_file = input_file.with_stem(input_file.stem + ".enriched")
+            output_file = input_file
 
         # Write output
         with output_file.open("w", encoding="utf-8") as f:
-            yaml.dump(output_data, f, default_flow_style=False, sort_keys=False, width=120)
+            yaml.dump(data, f)
 
         print(f"\nEnriched test cases written to: {output_file}")
         return output_file

@@ -8,9 +8,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-import yaml
 from anthropic import Anthropic
 from dotenv import load_dotenv
+from ruamel.yaml import YAML
 
 from app.explain import MAX_TOKENS, MODEL, prepare_structured_data
 from app.explain_api import AssemblyItem, ExplainRequest
@@ -66,8 +66,9 @@ class PromptTester:
         if not prompt_file.exists():
             raise FileNotFoundError(f"Prompt file not found: {prompt_file}")
 
+        yaml = YAML(typ="safe")
         with prompt_file.open(encoding="utf-8") as f:
-            return yaml.safe_load(f)
+            return yaml.load(f)
 
     def convert_test_case_to_request(self, test_case: dict[str, Any]) -> ExplainRequest:
         """Convert a test case to an ExplainRequest object."""

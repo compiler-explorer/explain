@@ -1,221 +1,648 @@
 description: "Test cases demonstrating audience and explanation type variations"
 
 cases:
-  - id: factorial_beginner_assembly
-    category: recursion
-    quality: good_example
-    description: "Factorial function for beginner audience with assembly focus"
-    audience: beginner
-    explanation_type: assembly
-    input:
-      language: C++
-      compiler: "gcc 12.2"
-      compilationOptions: ["-O2"]
-      instructionSet: x86_64
-      code: |
-        int factorial(int n) {
-            if (n <= 1) return 1;
-            return n * factorial(n - 1);
-        }
-      asm:
-        - text: "factorial:"
-          address: 0
-        - text: "  cmp edi, 1"
-          address: 1
-          source:
-            line: 2
-        - text: "  jle .L4"
-          address: 2
-        - text: "  push rbx"
-          address: 3
-        - text: "  mov ebx, edi"
-          address: 4
-        - text: "  lea edi, [rdi-1]"
-          address: 5
-          source:
-            line: 3
-        - text: "  call factorial"
-          address: 6
-          source:
-            line: 3
-        - text: "  imul eax, ebx"
-          address: 7
-          source:
-            line: 3
-        - text: "  pop rbx"
-          address: 8
-        - text: "  ret"
-          address: 9
-        - text: ".L4:"
-          address: 10
-        - text: "  mov eax, 1"
-          address: 11
-          source:
-            line: 2
-        - text: "  ret"
-          address: 12
-    expected_topics_by_audience:
-      beginner: [recursion, base_case, stack_usage, registers]
-      intermediate: [tail_recursion_missed, stack_frame_optimization, calling_convention]
-      expert: [branch_prediction, instruction_scheduling, register_allocation_strategy]
-    difficulty: beginner
+- id: factorial_beginner_assembly
+  category: recursion
+  quality: good_example
+  description: "Factorial function for beginner audience with assembly focus"
+  audience: beginner
+  explanation_type: assembly
+  input:
+    language: C++
+    compiler: "x86-64 gcc 12.2"
+    compilationOptions: ["-O2"]
+    instructionSet: x86_64
+    code: |
+      int factorial(int n) {
+          if (n <= 1) return 1;
+          return n * factorial(n - 1);
+      }
+    asm:
+    - text: 'factorial(int):'
+    - text: '        mov     eax, 1'
+      source:
+        line: 2
+    - text: '        cmp     edi, 1'
+      source:
+        line: 2
+    - text: '        jle     .L1'
+      source:
+        line: 2
+      labels:
+      - name: .L1
+        range:
+          startCol: 17
+          endCol: 20
+    - text: '.L2:'
+    - text: '        mov     edx, edi'
+      source:
+        line: 3
+    - text: '        sub     edi, 1'
+      source:
+        line: 3
+    - text: '        imul    eax, edx'
+      source:
+        line: 3
+    - text: '        cmp     edi, 1'
+      source:
+        line: 2
+    - text: '        jne     .L2'
+      source:
+        line: 2
+      labels:
+      - name: .L2
+        range:
+          startCol: 17
+          endCol: 20
+    - text: '.L1:'
+    - text: '        ret'
+      source:
+        line: 4
+    labelDefinitions:
+      .L1: 3
+      .L2: 9
+  expected_topics_by_audience:
+    beginner: [recursion, base_case, stack_usage, registers]
+    intermediate: [tail_recursion_missed, stack_frame_optimization, calling_convention]
+    expert: [branch_prediction, instruction_scheduling, register_allocation_strategy]
+  difficulty: beginner
 
-  - id: factorial_expert_optimization
-    category: recursion
-    quality: good_example
-    description: "Same factorial function for expert audience with optimization focus"
-    audience: expert
-    explanation_type: optimization
-    input:
-      language: C++
-      compiler: "gcc 12.2"
-      compilationOptions: ["-O2"]
-      instructionSet: x86_64
-      code: |
-        int factorial(int n) {
-            if (n <= 1) return 1;
-            return n * factorial(n - 1);
-        }
-      asm:
-        - text: "factorial:"
-          address: 0
-        - text: "  cmp edi, 1"
-          address: 1
-          source:
-            line: 2
-        - text: "  jle .L4"
-          address: 2
-        - text: "  push rbx"
-          address: 3
-        - text: "  mov ebx, edi"
-          address: 4
-        - text: "  lea edi, [rdi-1]"
-          address: 5
-          source:
-            line: 3
-        - text: "  call factorial"
-          address: 6
-          source:
-            line: 3
-        - text: "  imul eax, ebx"
-          address: 7
-          source:
-            line: 3
-        - text: "  pop rbx"
-          address: 8
-        - text: "  ret"
-          address: 9
-        - text: ".L4:"
-          address: 10
-        - text: "  mov eax, 1"
-          address: 11
-          source:
-            line: 2
-        - text: "  ret"
-          address: 12
-    expected_topics_by_audience:
-      beginner: [recursion, base_case]
-      intermediate: [stack_optimization, function_calls]
-      expert: [tail_call_optimization_missed, register_pressure, branch_layout, microarchitecture_implications]
-    difficulty: expert
+- id: factorial_expert_optimization
+  category: recursion
+  quality: good_example
+  description: "Same factorial function for expert audience with optimization focus"
+  audience: expert
+  explanation_type: optimization
+  input:
+    language: C++
+    compiler: "x86-64 gcc 12.2"
+    compilationOptions: ["-O2"]
+    instructionSet: x86_64
+    code: |
+      int factorial(int n) {
+          if (n <= 1) return 1;
+          return n * factorial(n - 1);
+      }
+    asm:
+    - text: 'factorial(int):'
+    - text: '        mov     eax, 1'
+      source:
+        line: 2
+    - text: '        cmp     edi, 1'
+      source:
+        line: 2
+    - text: '        jle     .L1'
+      source:
+        line: 2
+      labels:
+      - name: .L1
+        range:
+          startCol: 17
+          endCol: 20
+    - text: '.L2:'
+    - text: '        mov     edx, edi'
+      source:
+        line: 3
+    - text: '        sub     edi, 1'
+      source:
+        line: 3
+    - text: '        imul    eax, edx'
+      source:
+        line: 3
+    - text: '        cmp     edi, 1'
+      source:
+        line: 2
+    - text: '        jne     .L2'
+      source:
+        line: 2
+      labels:
+      - name: .L2
+        range:
+          startCol: 17
+          endCol: 20
+    - text: '.L1:'
+    - text: '        ret'
+      source:
+        line: 4
+    labelDefinitions:
+      .L1: 3
+      .L2: 9
+  expected_topics_by_audience:
+    beginner: [recursion, base_case]
+    intermediate: [stack_optimization, function_calls]
+    expert: [tail_call_optimization_missed, register_pressure, branch_layout, microarchitecture_implications]
+  difficulty: expert
 
-  - id: loop_intermediate_source
-    category: loop_optimization
-    quality: good_example
-    description: "Loop optimization for intermediate audience with source mapping focus"
-    audience: intermediate
-    explanation_type: source
-    input:
-      language: C++
-      compiler: "clang 15.0"
-      compilationOptions: ["-O3", "-march=native"]
-      instructionSet: x86_64
-      code: |
-        void add_arrays(float* a, const float* b, const float* c, int n) {
-            for (int i = 0; i < n; i++) {
-                a[i] = b[i] + c[i];
-            }
-        }
-      asm:
-        - text: "add_arrays:"
-          address: 0
-        - text: "  test ecx, ecx"
-          address: 1
-        - text: "  jle .L1"
-          address: 2
-        - text: "  mov eax, ecx"
-          address: 3
-        - text: "  cmp ecx, 8"
-          address: 4
-        - text: "  jae .L3"
-          address: 5
-        - text: "  xor r8d, r8d"
-          address: 6
-        - text: ".L4:"
-          address: 7
-        - text: "  movss xmm0, DWORD PTR [rsi+r8*4]"
-          address: 8
-          source:
-            line: 3
-        - text: "  addss xmm0, DWORD PTR [rdx+r8*4]"
-          address: 9
-          source:
-            line: 3
-        - text: "  movss DWORD PTR [rdi+r8*4], xmm0"
-          address: 10
-          source:
-            line: 3
-        - text: "  inc r8"
-          address: 11
-        - text: "  cmp r8, rax"
-          address: 12
-        - text: "  jl .L4"
-          address: 13
-        - text: ".L1:"
-          address: 14
-        - text: "  ret"
-          address: 15
-        - text: ".L3:"
-          address: 16
-        - text: "  ; Vectorized loop code omitted for brevity"
-          address: 17
-    expected_topics_by_audience:
-      beginner: [loops, array_access, floating_point]
-      intermediate: [vectorization_check, loop_peeling, source_to_assembly_mapping, sse_instructions]
-      expert: [vectorization_strategy, prefetching, alignment_considerations, simd_efficiency]
-    difficulty: intermediate
+- id: loop_intermediate_source
+  category: loop_optimization
+  quality: good_example
+  description: "Loop optimization for intermediate audience with source mapping focus"
+  audience: intermediate
+  explanation_type: source
+  input:
+    language: C++
+    compiler: "x86-64 clang 15.0.0"
+    compilationOptions: ["-O3", "-march=native"]
+    instructionSet: x86_64
+    code: |
+      void add_arrays(float* a, const float* b, const float* c, int n) {
+          for (int i = 0; i < n; i++) {
+              a[i] = b[i] + c[i];
+          }
+      }
+    asm:
+    - text: 'add_arrays(float*, float const*, float const*, int):'
+    - text: '        test    ecx, ecx'
+      source:
+        line: 2
+    - text: '        jle     .LBB0_16'
+      source:
+        line: 2
+      labels:
+      - name: .LBB0_16
+        range:
+          startCol: 17
+          endCol: 25
+    - text: '        mov     r8d, ecx'
+      source:
+        line: 2
+    - text: '        cmp     ecx, 32'
+      source:
+        line: 2
+    - text: '        jae     .LBB0_3'
+      source:
+        line: 2
+      labels:
+      - name: .LBB0_3
+        range:
+          startCol: 17
+          endCol: 24
+    - text: '        xor     ecx, ecx'
+      source:
+        line: 0
+    - text: '.LBB0_12:'
+    - text: '        mov     r9, rcx'
+      source:
+        line: 2
+    - text: '        not     r9'
+      source:
+        line: 2
+    - text: '        add     r9, r8'
+      source:
+        line: 2
+    - text: '        mov     rax, r8'
+      source:
+        line: 2
+    - text: '        and     rax, 7'
+      source:
+        line: 2
+    - text: '        je      .LBB0_14'
+      source:
+        line: 2
+      labels:
+      - name: .LBB0_14
+        range:
+          startCol: 17
+          endCol: 25
+    - text: '.LBB0_13:'
+    - text: '        vmovss  xmm0, dword ptr [rsi + 4*rcx]'
+      source:
+        line: 3
+    - text: '        vaddss  xmm0, xmm0, dword ptr [rdx + 4*rcx]'
+      source:
+        line: 3
+    - text: '        vmovss  dword ptr [rdi + 4*rcx], xmm0'
+      source:
+        line: 3
+    - text: '        inc     rcx'
+      source:
+        line: 2
+    - text: '        dec     rax'
+      source:
+        line: 2
+    - text: '        jne     .LBB0_13'
+      source:
+        line: 2
+      labels:
+      - name: .LBB0_13
+        range:
+          startCol: 17
+          endCol: 25
+    - text: '.LBB0_14:'
+    - text: '        cmp     r9, 7'
+      source:
+        line: 2
+    - text: '        jb      .LBB0_16'
+      source:
+        line: 2
+      labels:
+      - name: .LBB0_16
+        range:
+          startCol: 17
+          endCol: 25
+    - text: '.LBB0_15:'
+    - text: '        vmovss  xmm0, dword ptr [rsi + 4*rcx]'
+      source:
+        line: 3
+    - text: '        vaddss  xmm0, xmm0, dword ptr [rdx + 4*rcx]'
+      source:
+        line: 3
+    - text: '        vmovss  dword ptr [rdi + 4*rcx], xmm0'
+      source:
+        line: 3
+    - text: '        vmovss  xmm0, dword ptr [rsi + 4*rcx + 4]'
+      source:
+        line: 3
+    - text: '        vaddss  xmm0, xmm0, dword ptr [rdx + 4*rcx + 4]'
+      source:
+        line: 3
+    - text: '        vmovss  dword ptr [rdi + 4*rcx + 4], xmm0'
+      source:
+        line: 3
+    - text: '        vmovss  xmm0, dword ptr [rsi + 4*rcx + 8]'
+      source:
+        line: 3
+    - text: '        vaddss  xmm0, xmm0, dword ptr [rdx + 4*rcx + 8]'
+      source:
+        line: 3
+    - text: '        vmovss  dword ptr [rdi + 4*rcx + 8], xmm0'
+      source:
+        line: 3
+    - text: '        vmovss  xmm0, dword ptr [rsi + 4*rcx + 12]'
+      source:
+        line: 3
+    - text: '        vaddss  xmm0, xmm0, dword ptr [rdx + 4*rcx + 12]'
+      source:
+        line: 3
+    - text: '        vmovss  dword ptr [rdi + 4*rcx + 12], xmm0'
+      source:
+        line: 3
+    - text: '        vmovss  xmm0, dword ptr [rsi + 4*rcx + 16]'
+      source:
+        line: 3
+    - text: '        vaddss  xmm0, xmm0, dword ptr [rdx + 4*rcx + 16]'
+      source:
+        line: 3
+    - text: '        vmovss  dword ptr [rdi + 4*rcx + 16], xmm0'
+      source:
+        line: 3
+    - text: '        vmovss  xmm0, dword ptr [rsi + 4*rcx + 20]'
+      source:
+        line: 3
+    - text: '        vaddss  xmm0, xmm0, dword ptr [rdx + 4*rcx + 20]'
+      source:
+        line: 3
+    - text: '        vmovss  dword ptr [rdi + 4*rcx + 20], xmm0'
+      source:
+        line: 3
+    - text: '        vmovss  xmm0, dword ptr [rsi + 4*rcx + 24]'
+      source:
+        line: 3
+    - text: '        vaddss  xmm0, xmm0, dword ptr [rdx + 4*rcx + 24]'
+      source:
+        line: 3
+    - text: '        vmovss  dword ptr [rdi + 4*rcx + 24], xmm0'
+      source:
+        line: 3
+    - text: '        vmovss  xmm0, dword ptr [rsi + 4*rcx + 28]'
+      source:
+        line: 3
+    - text: '        vaddss  xmm0, xmm0, dword ptr [rdx + 4*rcx + 28]'
+      source:
+        line: 3
+    - text: '        vmovss  dword ptr [rdi + 4*rcx + 28], xmm0'
+      source:
+        line: 3
+    - text: '        add     rcx, 8'
+      source:
+        line: 2
+    - text: '        cmp     r8, rcx'
+      source:
+        line: 2
+    - text: '        jne     .LBB0_15'
+      source:
+        line: 2
+      labels:
+      - name: .LBB0_15
+        range:
+          startCol: 17
+          endCol: 25
+    - text: '        jmp     .LBB0_16'
+      source:
+        line: 2
+      labels:
+      - name: .LBB0_16
+        range:
+          startCol: 17
+          endCol: 25
+    - text: '.LBB0_3:'
+    - text: '        mov     rax, rdi'
+      source:
+        line: 2
+    - text: '        sub     rax, rsi'
+      source:
+        line: 2
+    - text: '        xor     ecx, ecx'
+      source:
+        line: 2
+    - text: '        cmp     rax, 128'
+      source:
+        line: 2
+    - text: '        jb      .LBB0_12'
+      source:
+        line: 2
+      labels:
+      - name: .LBB0_12
+        range:
+          startCol: 17
+          endCol: 25
+    - text: '        mov     rax, rdi'
+      source:
+        line: 2
+    - text: '        sub     rax, rdx'
+      source:
+        line: 2
+    - text: '        cmp     rax, 128'
+      source:
+        line: 2
+    - text: '        jb      .LBB0_12'
+      source:
+        line: 2
+      labels:
+      - name: .LBB0_12
+        range:
+          startCol: 17
+          endCol: 25
+    - text: '        mov     ecx, r8d'
+      source:
+        line: 2
+    - text: '        and     ecx, -32'
+      source:
+        line: 2
+    - text: '        lea     rax, [rcx - 32]'
+      source:
+        line: 2
+    - text: '        mov     r9, rax'
+      source:
+        line: 2
+    - text: '        shr     r9, 5'
+      source:
+        line: 2
+    - text: '        inc     r9'
+      source:
+        line: 2
+    - text: '        test    rax, rax'
+      source:
+        line: 2
+    - text: '        je      .LBB0_6'
+      source:
+        line: 2
+      labels:
+      - name: .LBB0_6
+        range:
+          startCol: 17
+          endCol: 24
+    - text: '        mov     r10, r9'
+      source:
+        line: 2
+    - text: '        and     r10, -2'
+      source:
+        line: 2
+    - text: '        xor     eax, eax'
+      source:
+        line: 2
+    - text: '.LBB0_8:'
+    - text: '        vmovups ymm0, ymmword ptr [rsi + 4*rax]'
+      source:
+        line: 3
+    - text: '        vmovups ymm1, ymmword ptr [rsi + 4*rax + 32]'
+      source:
+        line: 3
+    - text: '        vmovups ymm2, ymmword ptr [rsi + 4*rax + 64]'
+      source:
+        line: 3
+    - text: '        vmovups ymm3, ymmword ptr [rsi + 4*rax + 96]'
+      source:
+        line: 3
+    - text: '        vaddps  ymm0, ymm0, ymmword ptr [rdx + 4*rax]'
+      source:
+        line: 3
+    - text: '        vaddps  ymm1, ymm1, ymmword ptr [rdx + 4*rax + 32]'
+      source:
+        line: 3
+    - text: '        vaddps  ymm2, ymm2, ymmword ptr [rdx + 4*rax + 64]'
+      source:
+        line: 3
+    - text: '        vaddps  ymm3, ymm3, ymmword ptr [rdx + 4*rax + 96]'
+      source:
+        line: 3
+    - text: '        vmovups ymmword ptr [rdi + 4*rax], ymm0'
+      source:
+        line: 3
+    - text: '        vmovups ymmword ptr [rdi + 4*rax + 32], ymm1'
+      source:
+        line: 3
+    - text: '        vmovups ymmword ptr [rdi + 4*rax + 64], ymm2'
+      source:
+        line: 3
+    - text: '        vmovups ymmword ptr [rdi + 4*rax + 96], ymm3'
+      source:
+        line: 3
+    - text: '        vmovups ymm0, ymmword ptr [rsi + 4*rax + 128]'
+      source:
+        line: 3
+    - text: '        vmovups ymm1, ymmword ptr [rsi + 4*rax + 160]'
+      source:
+        line: 3
+    - text: '        vmovups ymm2, ymmword ptr [rsi + 4*rax + 192]'
+      source:
+        line: 3
+    - text: '        vmovups ymm3, ymmword ptr [rsi + 4*rax + 224]'
+      source:
+        line: 3
+    - text: '        vaddps  ymm0, ymm0, ymmword ptr [rdx + 4*rax + 128]'
+      source:
+        line: 3
+    - text: '        vaddps  ymm1, ymm1, ymmword ptr [rdx + 4*rax + 160]'
+      source:
+        line: 3
+    - text: '        vaddps  ymm2, ymm2, ymmword ptr [rdx + 4*rax + 192]'
+      source:
+        line: 3
+    - text: '        vaddps  ymm3, ymm3, ymmword ptr [rdx + 4*rax + 224]'
+      source:
+        line: 3
+    - text: '        vmovups ymmword ptr [rdi + 4*rax + 128], ymm0'
+      source:
+        line: 3
+    - text: '        vmovups ymmword ptr [rdi + 4*rax + 160], ymm1'
+      source:
+        line: 3
+    - text: '        vmovups ymmword ptr [rdi + 4*rax + 192], ymm2'
+      source:
+        line: 3
+    - text: '        vmovups ymmword ptr [rdi + 4*rax + 224], ymm3'
+      source:
+        line: 3
+    - text: '        add     rax, 64'
+      source:
+        line: 2
+    - text: '        add     r10, -2'
+      source:
+        line: 2
+    - text: '        jne     .LBB0_8'
+      source:
+        line: 2
+      labels:
+      - name: .LBB0_8
+        range:
+          startCol: 17
+          endCol: 24
+    - text: '        test    r9b, 1'
+      source:
+        line: 2
+    - text: '        je      .LBB0_11'
+      source:
+        line: 2
+      labels:
+      - name: .LBB0_11
+        range:
+          startCol: 17
+          endCol: 25
+    - text: '.LBB0_10:'
+    - text: '        vmovups ymm0, ymmword ptr [rsi + 4*rax]'
+      source:
+        line: 3
+    - text: '        vmovups ymm1, ymmword ptr [rsi + 4*rax + 32]'
+      source:
+        line: 3
+    - text: '        vmovups ymm2, ymmword ptr [rsi + 4*rax + 64]'
+      source:
+        line: 3
+    - text: '        vmovups ymm3, ymmword ptr [rsi + 4*rax + 96]'
+      source:
+        line: 3
+    - text: '        vaddps  ymm0, ymm0, ymmword ptr [rdx + 4*rax]'
+      source:
+        line: 3
+    - text: '        vaddps  ymm1, ymm1, ymmword ptr [rdx + 4*rax + 32]'
+      source:
+        line: 3
+    - text: '        vaddps  ymm2, ymm2, ymmword ptr [rdx + 4*rax + 64]'
+      source:
+        line: 3
+    - text: '        vaddps  ymm3, ymm3, ymmword ptr [rdx + 4*rax + 96]'
+      source:
+        line: 3
+    - text: '        vmovups ymmword ptr [rdi + 4*rax], ymm0'
+      source:
+        line: 3
+    - text: '        vmovups ymmword ptr [rdi + 4*rax + 32], ymm1'
+      source:
+        line: 3
+    - text: '        vmovups ymmword ptr [rdi + 4*rax + 64], ymm2'
+      source:
+        line: 3
+    - text: '        vmovups ymmword ptr [rdi + 4*rax + 96], ymm3'
+      source:
+        line: 3
+    - text: '.LBB0_11:'
+    - text: '        cmp     rcx, r8'
+      source:
+        line: 2
+    - text: '        jne     .LBB0_12'
+      source:
+        line: 2
+      labels:
+      - name: .LBB0_12
+        range:
+          startCol: 17
+          endCol: 25
+    - text: '.LBB0_16:'
+    - text: '        vzeroupper'
+      source:
+        line: 5
+    - text: '        ret'
+      source:
+        line: 5
+    - text: '.LBB0_6:'
+    - text: '        xor     eax, eax'
+      source:
+        line: 0
+    - text: '        test    r9b, 1'
+      source:
+        line: 2
+    - text: '        jne     .LBB0_10'
+      source:
+        line: 2
+      labels:
+      - name: .LBB0_10
+        range:
+          startCol: 17
+          endCol: 25
+    - text: '        jmp     .LBB0_11'
+      source:
+        line: 2
+      labels:
+      - name: .LBB0_11
+        range:
+          startCol: 17
+          endCol: 25
+    - text: ''
+    labelDefinitions:
+      .LBB0_16: 2
+      .LBB0_3: 5
+      .LBB0_14: 13
+      .LBB0_13: 20
+      .LBB0_15: 51
+      .LBB0_12: 58
+      .LBB0_6: 70
+      .LBB0_8: 101
+      .LBB0_11: 103
+      .LBB0_10: 126
+  expected_topics_by_audience:
+    beginner: [loops, array_access, floating_point]
+    intermediate: [vectorization_check, loop_peeling, source_to_assembly_mapping, sse_instructions]
+    expert: [vectorization_strategy, prefetching, alignment_considerations, simd_efficiency]
+  difficulty: intermediate
 
-  - id: struct_beginner_source
-    category: data_structures
-    quality: good_example
-    description: "Struct manipulation for beginners with source mapping"
-    audience: beginner
-    explanation_type: source
-    input:
-      language: C
-      compiler: "gcc 11.0"
-      compilationOptions: ["-O1"]
-      instructionSet: x86_64
-      code: |
-        struct Point {
-            int x;
-            int y;
-        };
+- id: struct_beginner_source
+  category: data_structures
+  quality: good_example
+  description: "Struct manipulation for beginners with source mapping"
+  audience: beginner
+  explanation_type: source
+  input:
+    language: C
+    compiler: "x86-64 gcc 11.2"
+    compilationOptions: ["-O1"]
+    instructionSet: x86_64
+    code: |
+      struct Point {
+          int x;
+          int y;
+      };
 
-        int manhattan_distance(struct Point p) {
-            return p.x + p.y;
-        }
-      asm:
-        - text: "manhattan_distance:"
-          address: 0
-        - text: "  lea eax, [rdi+rsi]"
-          address: 1
-          source:
-            line: 7
-        - text: "  ret"
-          address: 2
-    expected_topics_by_audience:
-      beginner: [struct_passing, parameter_registers, addition_optimization, source_mapping]
-      intermediate: [abi_conventions, register_parameter_passing, lea_instruction]
-      expert: [struct_decomposition, calling_convention_optimization]
-    difficulty: beginner
+      int manhattan_distance(struct Point p) {
+          return p.x + p.y;
+      }
+    asm:
+    - text: 'manhattan_distance:'
+    - text: '        mov     rax, rdi'
+      source:
+        line: 7
+    - text: '        shr     rax, 32'
+      source:
+        line: 7
+    - text: '        lea     eax, [rax+rdi]'
+      source:
+        line: 7
+    - text: '        ret'
+      source:
+        line: 8
+    labelDefinitions: {}
+  expected_topics_by_audience:
+    beginner: [struct_passing, parameter_registers, addition_optimization, source_mapping]
+    intermediate: [abi_conventions, register_parameter_passing, lea_instruction]
+    expert: [struct_decomposition, calling_convention_optimization]
+  difficulty: beginner

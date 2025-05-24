@@ -1,118 +1,128 @@
 description: "Basic compiler optimization scenarios"
 
 cases:
-  - id: basic_loop_001
-    category: loop_optimization
-    quality: good_example
-    description: "Simple loop with potential for vectorization"
-    input:
-      language: C++
-      compiler: "gcc 13.1"
-      compilationOptions: ["-O2"]
-      instructionSet: x86_64
-      code: |
-        int sum_array(int* arr, int n) {
-            int sum = 0;
-            for (int i = 0; i < n; i++) {
-                sum += arr[i];
-            }
-            return sum;
-        }
-      asm:
-        - text: "sum_array:"
-          address: 0
-        - text: "  push rbp"
-          address: 1
-        - text: "  mov rbp, rsp"
-          address: 2
-        - text: "  test esi, esi"
-          address: 3
-        - text: "  jle .L3"
-          address: 4
-        - text: "  lea eax, [rsi-1]"
-          address: 5
-        - text: "  lea rdx, [rdi+4+rax*4]"
-          address: 6
-        - text: "  xor eax, eax"
-          address: 7
-        - text: ".L2:"
-          address: 8
-        - text: "  add eax, DWORD PTR [rdi]"
-          address: 9
-          source:
-            line: 4
-        - text: "  add rdi, 4"
-          address: 10
-        - text: "  cmp rdi, rdx"
-          address: 11
-        - text: "  jne .L2"
-          address: 12
-        - text: "  pop rbp"
-          address: 13
-        - text: "  ret"
-          address: 14
-        - text: ".L3:"
-          address: 15
-        - text: "  xor eax, eax"
-          address: 16
-        - text: "  pop rbp"
-          address: 17
-        - text: "  ret"
-          address: 18
-    expected_topics: [loop_optimization, pointer_arithmetic, early_termination]
-    difficulty: beginner
+- id: basic_loop_001
+  category: loop_optimization
+  quality: good_example
+  description: "Simple loop with potential for vectorization"
+  input:
+    language: C++
+    compiler: "x86-64 gcc 13.1"
+    compilationOptions: ["-O2"]
+    instructionSet: x86_64
+    code: |
+      int sum_array(int* arr, int n) {
+          int sum = 0;
+          for (int i = 0; i < n; i++) {
+              sum += arr[i];
+          }
+          return sum;
+      }
+    asm:
+    - text: 'sum_array(int*, int):'
+    - text: '        test    esi, esi'
+      source:
+        line: 3
+    - text: '        jle     .L4'
+      source:
+        line: 3
+      labels:
+      - name: .L4
+        range:
+          startCol: 17
+          endCol: 20
+    - text: '        movsx   rsi, esi'
+      source:
+        line: 3
+    - text: '        xor     eax, eax'
+      source:
+        line: 2
+    - text: '        lea     rdx, [rdi+rsi*4]'
+      source:
+        line: 2
+    - text: '.L3:'
+    - text: '        add     eax, DWORD PTR [rdi]'
+      source:
+        line: 4
+    - text: '        add     rdi, 4'
+      source:
+        line: 3
+    - text: '        cmp     rdi, rdx'
+      source:
+        line: 3
+    - text: '        jne     .L3'
+      source:
+        line: 3
+      labels:
+      - name: .L3
+        range:
+          startCol: 17
+          endCol: 20
+    - text: '        ret'
+      source:
+        line: 3
+    - text: '.L4:'
+    - text: '        xor     eax, eax'
+      source:
+        line: 2
+    - text: '        ret'
+      source:
+        line: 7
+    labelDefinitions:
+      .L4: 2
+      .L3: 10
+  expected_topics: [loop_optimization, pointer_arithmetic, early_termination]
+  difficulty: beginner
 
-  - id: basic_inline_001
-    category: function_inlining
-    quality: good_example
-    description: "Simple function that gets inlined"
-    input:
-      language: C++
-      compiler: "clang 16.0"
-      compilationOptions: ["-O2"]
-      instructionSet: x86_64
-      code: |
-        inline int square(int x) { return x * x; }
-        int compute(int a) { return square(a) + 5; }
-      asm:
-        - text: "compute:"
-          address: 0
-        - text: "  mov eax, edi"
-          address: 1
-        - text: "  imul eax, edi"
-          address: 2
-          source:
-            line: 1
-        - text: "  add eax, 5"
-          address: 3
-          source:
-            line: 2
-        - text: "  ret"
-          address: 4
-    expected_topics: [function_inlining, arithmetic_optimization]
-    difficulty: beginner
+- id: basic_inline_001
+  category: function_inlining
+  quality: good_example
+  description: "Simple function that gets inlined"
+  input:
+    language: C++
+    compiler: "x86-64 clang 16.0.0"
+    compilationOptions: ["-O2"]
+    instructionSet: x86_64
+    code: |
+      inline int square(int x) { return x * x; }
+      int compute(int a) { return square(a) + 5; }
+    asm:
+    - text: 'compute(int):'
+    - text: '        imul    edi, edi'
+      source:
+        line: 1
+    - text: '        lea     eax, [rdi + 5]'
+      source:
+        line: 2
+    - text: '        ret'
+      source:
+        line: 2
+    - text: ''
+    labelDefinitions: {}
+  expected_topics: [function_inlining, arithmetic_optimization]
+  difficulty: beginner
 
-  - id: basic_const_001
-    category: constant_folding
-    quality: good_example
-    description: "Compile-time constant computation"
-    input:
-      language: C
-      compiler: "gcc 13.1"
-      compilationOptions: ["-O1"]
-      instructionSet: x86_64
-      code: |
-        int compute_constant() {
-            return 2 * 3 + 4 * 5;
-        }
-      asm:
-        - text: "compute_constant:"
-          address: 0
-        - text: "  mov eax, 26"
-          address: 1
-          source:
-            line: 2
-        - text: "  ret"
-          address: 2
-    expected_topics: [constant_folding, compile_time_evaluation]
-    difficulty: beginner
+- id: basic_const_001
+  category: constant_folding
+  quality: good_example
+  description: "Compile-time constant computation"
+  input:
+    language: C
+    compiler: "x86-64 gcc 13.1"
+    compilationOptions: ["-O1"]
+    instructionSet: x86_64
+    code: |
+      int compute_constant() {
+          return 2 * 3 + 4 * 5;
+      }
+    asm:
+    - text: 'compute_constant:'
+    - text: '        mov     eax, 26'
+      source:
+        line: 3
+    - text: '        ret'
+      source:
+        line: 3
+    labelDefinitions: {}
+  expected_topics: [constant_folding, compile_time_evaluation]
+  difficulty: beginner

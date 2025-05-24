@@ -297,10 +297,12 @@ class PromptOptimizer:
 
         # Load current prompt
         prompt_path = self.prompts_dir / f"{prompt_version}.yaml"
-        import yaml
+        from ruamel.yaml import YAML
+
+        yaml = YAML(typ="safe")
 
         with prompt_path.open() as f:
-            current_prompt = yaml.safe_load(f)
+            current_prompt = yaml.load(f)
 
         # Get improvement suggestions
         suggestions = self.advisor.analyze_results_and_suggest_improvements(
@@ -321,8 +323,10 @@ class PromptOptimizer:
             )
 
             new_prompt_path = self.prompts_dir / f"{output_name}.yaml"
+            yaml_out = YAML()
+            yaml_out.default_flow_style = False
             with new_prompt_path.open("w") as f:
-                yaml.dump(new_prompt, f, default_flow_style=False)
+                yaml_out.dump(new_prompt, f)
 
             print(f"Experimental prompt saved to: {new_prompt_path}")
             return new_prompt_path

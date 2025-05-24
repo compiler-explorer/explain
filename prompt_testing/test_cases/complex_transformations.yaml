@@ -1,111 +1,417 @@
 description: "Complex compiler transformations and advanced optimizations"
 
 cases:
-  - id: complex_vectorization_001
-    category: vectorization
-    quality: good_example
-    description: "Auto-vectorized loop with SIMD instructions"
-    input:
-      language: C++
-      compiler: "gcc 13.1"
-      compilationOptions: ["-O3", "-march=native"]
-      instructionSet: x86_64
-      code: |
-        void add_arrays(float* a, float* b, float* c, int n) {
-            for (int i = 0; i < n; i++) {
-                c[i] = a[i] + b[i];
-            }
-        }
-      asm:
-        - text: "add_arrays:"
-          address: 0
-        - text: "  test ecx, ecx"
-          address: 1
-        - text: "  jle .L1"
-          address: 2
-        - text: "  cmp ecx, 7"
-          address: 3
-        - text: "  jle .L6"
-          address: 4
-        - text: "  movdqa xmm0, XMMWORD PTR [rdi]"
-          address: 5
-          source:
-            line: 3
-        - text: "  addps xmm0, XMMWORD PTR [rsi]"
-          address: 6
-          source:
-            line: 3
-        - text: "  movups XMMWORD PTR [rdx], xmm0"
-          address: 7
-          source:
-            line: 3
-        - text: "  add rdi, 16"
-          address: 8
-        - text: "  add rsi, 16"
-          address: 9
-        - text: "  add rdx, 16"
-          address: 10
-        - text: "  sub ecx, 4"
-          address: 11
-        - text: "  cmp ecx, 3"
-          address: 12
-        - text: "  jg .L3"
-          address: 13
-        - text: ".L1:"
-          address: 14
-        - text: "  ret"
-          address: 15
-    expected_topics: [vectorization, simd, loop_unrolling, memory_alignment]
-    difficulty: advanced
+- id: complex_vectorization_001
+  category: vectorization
+  quality: good_example
+  description: "Auto-vectorized loop with SIMD instructions"
+  input:
+    language: C++
+    compiler: "x86-64 gcc 13.1"
+    compilationOptions: ["-O3", "-march=native"]
+    instructionSet: x86_64
+    code: |
+      void add_arrays(float* a, float* b, float* c, int n) {
+          for (int i = 0; i < n; i++) {
+              c[i] = a[i] + b[i];
+          }
+      }
+    asm:
+    - text: 'add_arrays(float*, float*, float*, int):'
+    - text: '        movsx   rax, ecx'
+      source:
+        line: 1
+    - text: '        mov     r8, rsi'
+      source:
+        line: 1
+    - text: '        mov     rsi, rdx'
+      source:
+        line: 1
+    - text: '        test    eax, eax'
+      source:
+        line: 2
+    - text: '        jle     .L25'
+      source:
+        line: 2
+      labels:
+      - name: .L25
+        range:
+          startCol: 17
+          endCol: 21
+    - text: '        lea     edx, [rax-1]'
+      source:
+        line: 2
+    - text: '        mov     r9d, eax'
+      source:
+        line: 2
+    - text: '        cmp     edx, 2'
+      source:
+        line: 2
+    - text: '        jbe     .L3'
+      source:
+        line: 2
+      labels:
+      - name: .L3
+        range:
+          startCol: 17
+          endCol: 20
+    - text: '        lea     r10, [rdi+4]'
+      source:
+        line: 2
+    - text: '        mov     rcx, rsi'
+      source:
+        line: 2
+    - text: '        sub     rcx, r10'
+      source:
+        line: 2
+    - text: '        cmp     rcx, 24'
+      source:
+        line: 2
+    - text: '        jbe     .L3'
+      source:
+        line: 2
+      labels:
+      - name: .L3
+        range:
+          startCol: 17
+          endCol: 20
+    - text: '        lea     r10, [r8+4]'
+      source:
+        line: 2
+    - text: '        mov     rcx, rsi'
+      source:
+        line: 2
+    - text: '        sub     rcx, r10'
+      source:
+        line: 2
+    - text: '        cmp     rcx, 24'
+      source:
+        line: 2
+    - text: '        jbe     .L3'
+      source:
+        line: 2
+      labels:
+      - name: .L3
+        range:
+          startCol: 17
+          endCol: 20
+    - text: '        cmp     edx, 6'
+      source:
+        line: 2
+    - text: '        jbe     .L11'
+      source:
+        line: 2
+      labels:
+      - name: .L11
+        range:
+          startCol: 17
+          endCol: 21
+    - text: '        mov     ecx, eax'
+      source:
+        line: 2
+    - text: '        xor     edx, edx'
+      source:
+        line: 2
+    - text: '        shr     ecx, 3'
+      source:
+        line: 2
+    - text: '        sal     rcx, 5'
+      source:
+        line: 2
+    - text: '.L5:'
+    - text: '        vmovups ymm1, YMMWORD PTR [rdi+rdx]'
+      source:
+        line: 3
+    - text: '        vaddps  ymm0, ymm1, YMMWORD PTR [r8+rdx]'
+      source:
+        line: 3
+    - text: '        vmovups YMMWORD PTR [rsi+rdx], ymm0'
+      source:
+        line: 3
+    - text: '        add     rdx, 32'
+      source:
+        line: 2
+    - text: '        cmp     rcx, rdx'
+      source:
+        line: 2
+    - text: '        jne     .L5'
+      source:
+        line: 2
+      labels:
+      - name: .L5
+        range:
+          startCol: 17
+          endCol: 20
+    - text: '        mov     edx, eax'
+      source:
+        line: 2
+    - text: '        and     edx, -8'
+      source:
+        line: 2
+    - text: '        mov     ecx, edx'
+      source:
+        line: 2
+    - text: '        cmp     eax, edx'
+      source:
+        line: 2
+    - text: '        je      .L23'
+      source:
+        line: 2
+      labels:
+      - name: .L23
+        range:
+          startCol: 17
+          endCol: 21
+    - text: '        mov     r9d, eax'
+      source:
+        line: 2
+    - text: '        sub     r9d, edx'
+      source:
+        line: 2
+    - text: '        lea     r10d, [r9-1]'
+      source:
+        line: 2
+    - text: '        cmp     r10d, 2'
+      source:
+        line: 2
+    - text: '        jbe     .L27'
+      source:
+        line: 2
+      labels:
+      - name: .L27
+        range:
+          startCol: 17
+          endCol: 21
+    - text: '        vzeroupper'
+      source:
+        line: 2
+    - text: '.L4:'
+    - text: '        vmovups xmm2, XMMWORD PTR [rdi+rcx*4]'
+      source:
+        line: 3
+    - text: '        vaddps  xmm0, xmm2, XMMWORD PTR [r8+rcx*4]'
+      source:
+        line: 3
+    - text: '        vmovups XMMWORD PTR [rsi+rcx*4], xmm0'
+      source:
+        line: 3
+    - text: '        mov     ecx, r9d'
+      source:
+        line: 2
+    - text: '        and     ecx, -4'
+      source:
+        line: 2
+    - text: '        add     edx, ecx'
+      source:
+        line: 2
+    - text: '        and     r9d, 3'
+      source:
+        line: 2
+    - text: '        je      .L25'
+      source:
+        line: 2
+      labels:
+      - name: .L25
+        range:
+          startCol: 17
+          endCol: 21
+    - text: '.L7:'
+    - text: '        movsx   r9, edx'
+      source:
+        line: 3
+    - text: '        vmovss  xmm0, DWORD PTR [rdi+r9*4]'
+      source:
+        line: 3
+    - text: '        vaddss  xmm0, xmm0, DWORD PTR [r8+r9*4]'
+      source:
+        line: 3
+    - text: '        lea     rcx, [0+r9*4]'
+      source:
+        line: 3
+    - text: '        vmovss  DWORD PTR [rsi+r9*4], xmm0'
+      source:
+        line: 3
+    - text: '        lea     r9d, [rdx+1]'
+      source:
+        line: 2
+    - text: '        cmp     eax, r9d'
+      source:
+        line: 2
+    - text: '        jle     .L25'
+      source:
+        line: 2
+      labels:
+      - name: .L25
+        range:
+          startCol: 17
+          endCol: 21
+    - text: '        vmovss  xmm0, DWORD PTR [rdi+4+rcx]'
+      source:
+        line: 3
+    - text: '        vaddss  xmm0, xmm0, DWORD PTR [r8+4+rcx]'
+      source:
+        line: 3
+    - text: '        add     edx, 2'
+      source:
+        line: 2
+    - text: '        vmovss  DWORD PTR [rsi+4+rcx], xmm0'
+      source:
+        line: 3
+    - text: '        cmp     eax, edx'
+      source:
+        line: 2
+    - text: '        jle     .L25'
+      source:
+        line: 2
+      labels:
+      - name: .L25
+        range:
+          startCol: 17
+          endCol: 21
+    - text: '        vmovss  xmm0, DWORD PTR [rdi+8+rcx]'
+      source:
+        line: 3
+    - text: '        vaddss  xmm0, xmm0, DWORD PTR [r8+8+rcx]'
+      source:
+        line: 3
+    - text: '        vmovss  DWORD PTR [rsi+8+rcx], xmm0'
+      source:
+        line: 3
+    - text: '        ret'
+      source:
+        line: 2
+    - text: '.L23:'
+    - text: '        vzeroupper'
+      source:
+        line: 2
+    - text: '.L25:'
+    - text: '        ret'
+      source:
+        line: 5
+    - text: '.L3:'
+    - text: '        lea     rdx, [0+rax*4]'
+      source:
+        line: 5
+    - text: '        xor     eax, eax'
+      source:
+        line: 2
+    - text: '.L9:'
+    - text: '        vmovss  xmm0, DWORD PTR [rdi+rax]'
+      source:
+        line: 3
+    - text: '        vaddss  xmm0, xmm0, DWORD PTR [r8+rax]'
+      source:
+        line: 3
+    - text: '        vmovss  DWORD PTR [rsi+rax], xmm0'
+      source:
+        line: 3
+    - text: '        add     rax, 4'
+      source:
+        line: 2
+    - text: '        cmp     rax, rdx'
+      source:
+        line: 2
+    - text: '        jne     .L9'
+      source:
+        line: 2
+      labels:
+      - name: .L9
+        range:
+          startCol: 17
+          endCol: 20
+    - text: '        ret'
+      source:
+        line: 2
+    - text: '.L11:'
+    - text: '        xor     ecx, ecx'
+      source:
+        line: 2
+    - text: '        xor     edx, edx'
+      source:
+        line: 2
+    - text: '        jmp     .L4'
+      source:
+        line: 2
+      labels:
+      - name: .L4
+        range:
+          startCol: 17
+          endCol: 20
+    - text: '.L27:'
+    - text: '        vzeroupper'
+      source:
+        line: 2
+    - text: '        jmp     .L7'
+      source:
+        line: 2
+      labels:
+      - name: .L7
+        range:
+          startCol: 17
+          endCol: 20
+    labelDefinitions:
+      .L25: 5
+      .L3: 9
+      .L11: 21
+      .L5: 32
+      .L23: 37
+      .L27: 42
+      .L9: 85
+      .L4: 90
+      .L7: 93
+  expected_topics: [vectorization, simd, loop_unrolling, memory_alignment]
+  difficulty: advanced
 
-  - id: complex_branch_001
-    category: branch_optimization
-    quality: challenging_example
-    description: "Complex branching with likely/unlikely hints"
-    input:
-      language: C++
-      compiler: "clang 16.0"
-      compilationOptions: ["-O2", "-fprofile-use"]
-      instructionSet: x86_64
-      code: |
-        int process_value(int x) {
-            if (__builtin_expect(x > 1000, 0)) {
-                return x * 2 + expensive_computation(x);
-            }
-            return x + 1;
-        }
-      asm:
-        - text: "process_value:"
-          address: 0
-        - text: "  cmp edi, 1000"
-          address: 1
-          source:
-            line: 2
-        - text: "  jle .L2"
-          address: 2
-        - text: "  push rbx"
-          address: 3
-        - text: "  mov ebx, edi"
-          address: 4
-        - text: "  call expensive_computation"
-          address: 5
-          source:
-            line: 3
-        - text: "  lea eax, [rax+rbx*2]"
-          address: 6
-          source:
-            line: 3
-        - text: "  pop rbx"
-          address: 7
-        - text: "  ret"
-          address: 8
-        - text: ".L2:"
-          address: 9
-        - text: "  lea eax, [rdi+1]"
-          address: 10
-          source:
-            line: 5
-        - text: "  ret"
-          address: 11
-    expected_topics: [branch_prediction, profile_guided_optimization, builtin_expect]
-    difficulty: advanced
+- id: complex_branch_001
+  category: branch_optimization
+  quality: challenging_example
+  description: "Complex branching with likely/unlikely hints"
+  input:
+    language: C++
+    compiler: "x86-64 clang 16.0.0"
+    compilationOptions: ["-O2"]
+    instructionSet: x86_64
+    code: |
+      int process_value(int x) {
+          if (__builtin_expect(x > 1000, 0)) {
+              return x * x + x * 2;  // expensive path
+          }
+          return x + 1;  // common path
+      }
+    asm:
+    - text: 'process_value(int):'
+    - text: '        cmp     edi, 1001'
+      source:
+        line: 2
+    - text: '        jge     .LBB0_1'
+      source:
+        line: 2
+      labels:
+      - name: .LBB0_1
+        range:
+          startCol: 17
+          endCol: 24
+    - text: '        inc     edi'
+      source:
+        line: 5
+    - text: '        mov     eax, edi'
+      source:
+        line: 0
+    - text: '        ret'
+      source:
+        line: 6
+    - text: '.LBB0_1:'
+    - text: '        lea     eax, [rdi + 2]'
+      source:
+        line: 3
+    - text: '        imul    eax, edi'
+      source:
+        line: 3
+    - text: '        ret'
+      source:
+        line: 6
+    - text: ''
+    labelDefinitions:
+      .LBB0_1: 2
+  expected_topics: [branch_prediction, profile_guided_optimization, builtin_expect]
+  difficulty: advanced
