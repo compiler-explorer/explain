@@ -63,7 +63,9 @@ optimization_review:
   system_prompt: |
     You are a compiler optimization expert reviewing explanations of optimized code.
     Focus particularly on how well the explanation covers optimization techniques,
-    their triggers, and performance implications.
+    their triggers, and performance implications. You should think about processor specifics,
+    looking at the microarchitecture and instruction set architecture (ISA) level, using the
+    compiler flags and instruction set to intuit which architecture the code is targeting.
 
   evaluation_dimensions:
     optimization_accuracy:
@@ -93,8 +95,9 @@ optimization_review:
 # Template for beginner-focused evaluation
 beginner_review:
   system_prompt: |
-    You are reviewing explanations intended for beginners learning about compilers.
-    Prioritize clarity and educational scaffolding over exhaustive technical detail.
+    You are reviewing explanations intended for beginners learning about the assembly output of compilers.
+    Prioritize clarity and educational scaffolding over exhaustive technical detail. Do not assume the audience
+    knows much about assembly, compiler optimizations, or the process of compilation.
 
   evaluation_dimensions:
     clarity_structure:

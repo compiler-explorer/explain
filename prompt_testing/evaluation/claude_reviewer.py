@@ -8,7 +8,28 @@ from dataclasses import dataclass
 
 from anthropic import Anthropic
 
-from prompt_testing.evaluation.scorer import EvaluationMetrics
+
+@dataclass
+class EvaluationMetrics:
+    """Metrics for evaluating a single response."""
+
+    accuracy_score: float  # 0-1, how well it covers expected topics
+    clarity_score: float  # 0-1, readability and educational value
+    completeness_score: float  # 0-1, covers all relevant aspects
+    consistency_score: float  # 0-1, consistent with similar cases
+    length_score: float  # 0-1, appropriate length (not too verbose/brief)
+    technical_accuracy: float  # 0-1, technical correctness
+
+    overall_score: float  # Weighted combination of above
+
+    # Additional metrics
+    token_count: int
+    response_time_ms: int | None = None
+
+    # Detailed feedback
+    missing_topics: list[str] | None = None
+    incorrect_claims: list[str] | None = None
+    notes: str | None = None
 
 
 @dataclass
@@ -231,55 +252,3 @@ Then provide your evaluation in this exact JSON format:
         if length < min_len:
             return max(0.3, length / min_len)
         return max(0.5, 1.0 - (length - max_len) / max_len)
-
-
-class HybridScorer:
-    """Combines regex-based and Claude-based scoring for efficiency."""
-
-    def __init__(
-        self, use_claude_for_all: bool = False, claude_sample_rate: float = 0.2, anthropic_api_key: str | None = None
-    ):
-        from prompt_testing.evaluation.scorer import AutomaticScorer
-
-        self.automatic_scorer = AutomaticScorer()
-        self.claude_reviewer = ClaudeReviewer(anthropic_api_key=anthropic_api_key)
-        self.use_claude_for_all = use_claude_for_all
-        self.claude_sample_rate = claude_sample_rate
-
-    def should_use_claude(self, case_id: str) -> bool:
-        """Determine if Claude should be used for this case."""
-        if self.use_claude_for_all:
-            return True
-
-        # Use hash of case_id for deterministic sampling
-        import hashlib
-
-        hash_val = int(hashlib.md5(case_id.encode()).hexdigest()[:8], 16)
-        return (hash_val % 100) < (self.claude_sample_rate * 100)
-
-    def evaluate_response(
-        self,
-        source_code: str,
-        assembly_code: str,
-        explanation: str,
-        expected_topics: list[str],
-        difficulty: str,
-        token_count: int,
-        response_time_ms: int | None = None,
-        case_id: str | None = None,
-    ) -> tuple[EvaluationMetrics, str]:
-        """
-        Evaluate using either automatic scorer or Claude reviewer.
-        Returns (metrics, method_used).
-        """
-        if case_id and self.should_use_claude(case_id):
-            metrics = self.claude_reviewer.evaluate_response(
-                source_code, assembly_code, explanation, expected_topics, difficulty, token_count, response_time_ms
-            )
-            return metrics, "claude"
-
-        # Use automatic scorer
-        metrics = self.automatic_scorer.evaluate_response(
-            explanation, expected_topics, difficulty, token_count, response_time_ms
-        )
-        return metrics, "automatic"

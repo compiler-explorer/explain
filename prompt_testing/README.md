@@ -7,7 +7,7 @@ A comprehensive framework for testing and iterating on prompts for the Claude ex
 This framework allows you to:
 - Test prompts against a curated set of assembly/source code examples
 - Compare different prompt versions automatically
-- Score responses using both automatic metrics and human review
+- Score responses using Claude's AI evaluation and human review
 - Track performance over time and identify regressions
 
 ## Quick Start
@@ -16,14 +16,11 @@ This framework allows you to:
 # List available test cases and prompts
 uv run prompt-test list
 
-# Run current prompt against basic optimization cases
+# Run all test cases with current prompt
+uv run prompt-test run --prompt current
+
+# Run specific category of tests
 uv run prompt-test run --prompt current --categories basic_optimizations
-
-# Use Claude-based AI scoring instead of regex patterns
-uv run prompt-test run --prompt current --scorer claude
-
-# Use hybrid scoring (20% of cases evaluated by Claude)
-uv run prompt-test run --prompt current --scorer hybrid --claude-sample-rate 0.2
 
 # Compare two prompt versions
 uv run prompt-test run --prompt current --compare v1_baseline
@@ -50,7 +47,7 @@ prompt_testing/
 ├── results/              # Test results and analysis
 │   └── [timestamp]_[prompt_version].json
 └── evaluation/           # Scoring and review tools
-    ├── scorer.py        # Automatic regex-based scoring
+    ├── scorer.py        # Test case loading utilities
     ├── claude_reviewer.py # Claude-based AI scoring
     ├── prompt_advisor.py # Prompt improvement suggestions
     ├── reviewer.py       # Human review tools
@@ -105,121 +102,92 @@ model_config:
 
 ## Evaluation Metrics
 
-The framework supports three scoring methods:
+The framework uses Claude-based AI scoring to provide comprehensive evaluation of prompt responses.
 
-### 1. Automatic Scoring (Default)
+### How Claude Scoring Works
 
-Fast regex-based pattern matching that scores responses on multiple dimensions:
+Claude evaluates each response on five key dimensions, as defined in `review_templates.yaml`:
 
-#### How It Works
+1. **Technical Accuracy** (30% weight):
+   - Are assembly instructions correctly explained?
+   - Are compiler optimizations accurately described?
+   - Are technical claims verifiable and correct?
+   - Does it avoid oversimplifications that lead to inaccuracy?
+   - Are register names, instruction mnemonics, and calling conventions correct?
 
-The automatic scorer (`evaluation/scorer.py`) uses predefined patterns to evaluate responses:
+2. **Educational Value** (25% weight):
+   - Is the explanation at an appropriate level for the target audience?
+   - Does it build understanding progressively?
+   - Are complex concepts explained clearly?
+   - Does it provide insight into why the compiler made certain choices?
+   - Would a reader gain actionable knowledge?
 
-1. **Topic Coverage Detection**:
-   - Maintains a dictionary of optimization topics with associated regex patterns
-   - Example: "loop_optimization" looks for patterns like `\bloop\s+optimization\b`, `\bvectorization\b`, `\bunrolling\b`
-   - Checks if expected topics from test cases are mentioned in the response
-   - Falls back to simple keyword matching if topic not in predefined patterns
+3. **Clarity & Structure** (20% weight):
+   - Is the explanation well-organized and easy to follow?
+   - Are technical terms properly introduced before use?
+   - Is the language clear and concise?
+   - Does it avoid unnecessary jargon while maintaining precision?
+   - Is there a logical flow from simple to complex concepts?
 
-2. **Technical Accuracy Check**:
-   - Searches for known incorrect claim patterns
-   - Examples: `\bbranch\s+predictor\s+will\s+always\b`, `\bcompiler\s+always\s+does\b`
-   - Deducts points for overly definitive claims about hardware behavior
+4. **Completeness** (15% weight):
+   - Does it address all significant transformations in the assembly?
+   - Are important optimizations explained?
+   - Does it cover the key differences between source and assembly?
+   - Is the scope appropriate (not too narrow or too broad)?
+   - Are edge cases or special behaviors noted where relevant?
 
-3. **Clarity Analysis**:
-   - Calculates average sentence length (optimal: 15-25 words)
-   - Measures technical term density (optimal: 5-15% of total words)
-   - Scores based on deviation from optimal ranges
+5. **Practical Insights** (10% weight):
+   - Does it help developers understand performance implications?
+   - Are there actionable insights about writing better code?
+   - Does it explain when/why certain optimizations occur?
+   - Does it connect assembly behavior to source code patterns?
 
-4. **Length Appropriateness**:
-   - Different target ranges by difficulty level:
-     - Beginner: 80-300 characters
-     - Intermediate: 150-500 characters
-     - Advanced: 200-800 characters
-   - Gradual penalty for being too short or too long
+### Benefits of Claude Scoring
 
-#### Scoring Dimensions
+- **Context-Aware**: Understands relationships between concepts and code
+- **Nuanced Evaluation**: Catches subtle technical errors that pattern matching would miss
+- **Educational Assessment**: Evaluates pedagogical effectiveness, not just correctness
+- **Detailed Feedback**: Provides specific strengths, weaknesses, and improvement suggestions
+- **Consistent Standards**: Uses the same high-quality evaluation criteria for all test cases
 
-- **Accuracy Score** (0-1): Percentage of expected topics covered
-- **Technical Accuracy** (0-1): 1.0 minus penalties for incorrect claims
-- **Clarity Score** (0-1): Average of sentence length and technical term density scores
-- **Completeness Score** (0-1): Currently uses accuracy score as proxy
-- **Length Score** (0-1): Based on response length vs. difficulty-appropriate range
-- **Overall Score**: Weighted combination:
-  - Accuracy: 25%
-  - Technical Accuracy: 25%
-  - Clarity: 20%
-  - Completeness: 15%
-  - Length: 10%
-  - Consistency: 5%
-
-### 2. Claude-Based AI Scoring
-
-Uses advanced Claude models to provide nuanced evaluation:
-
-- **Technical Accuracy**: Deep understanding of assembly correctness
-- **Educational Value**: Assessment of teaching effectiveness
-- **Clarity & Structure**: Analysis of explanation organization
-- **Completeness**: Context-aware coverage evaluation
-- **Practical Insights**: Value for real-world development
-
-Benefits over automatic scoring:
-- Understands context and relationships between concepts
-- Catches subtle technical errors regex patterns miss
-- Evaluates pedagogical effectiveness
-- Provides detailed feedback on strengths/weaknesses
-
-### 3. Hybrid Scoring
-
-Combines both methods for efficiency:
-- Uses automatic scoring for most cases
-- Samples a configurable percentage with Claude
-- Provides statistical validation of automatic scores
-- Balances cost/speed with accuracy
-
-### Scoring Method Selection
+### Configuring the Claude Reviewer
 
 ```bash
-# Use automatic scoring (fastest, default)
-uv run prompt-test run --prompt current --scorer automatic
+# Use the default Claude Sonnet model
+uv run prompt-test run --prompt current
 
-# Use Claude scoring (most accurate, slower)
-uv run prompt-test run --prompt current --scorer claude
-
-# Use hybrid (20% Claude sampling)
-uv run prompt-test run --prompt current --scorer hybrid --claude-sample-rate 0.2
-
-# Use different Claude model for review
-uv run prompt-test run --prompt current --scorer claude --reviewer-model claude-3-opus-20240229
+# Use a different Claude model for review
+uv run prompt-test run --prompt current --reviewer-model claude-3-5-sonnet-20241022
 ```
 
 ## Example Output
 
-### Automatic Scoring Output
+### Test Run Output
 ```
-Running 2 test cases with prompt version: current
-  ✓ basic_loop_001: 0.74
-  ✓ basic_inline_001: 0.86
+Running 3 test cases with prompt version: current
+  ✓ basic_loop_001: 0.85
+  ✓ basic_inline_001: 0.92
+  ✓ complex_vectorization_001: 0.78
 
 Summary for current:
   Success rate: 100.0%
-  Cases: 2/2
-  Average score: 0.80
-  Average accuracy: 0.81
-  Average clarity: 0.79
-  Average tokens: 290
+  Cases: 3/3
+  Average score: 0.85
+  Average accuracy: 0.87
+  Average clarity: 0.83
+  Average tokens: 420
+  Average response time: 2845ms
+
+Detailed results saved to: prompt_testing/results/20241201_120000_current.json
 ```
 
-### Claude Scoring Output
-```
-Running 1 test cases with prompt version: current
-  ✓ basic_loop_001: 0.85
-
-Detailed feedback includes:
-- Missing topics: ["Register calling conventions", "Performance implications"]
-- Incorrect claims: ["Loop unrolling optimization"]
-- Notes: "Good structure but needs more beginner-friendly explanation"
-```
+### Detailed Feedback Example
+When examining the results file, Claude's evaluation includes:
+- Missing topics: ["SIMD instruction specifics", "Memory alignment considerations"]
+- Incorrect claims: ["The compiler always unrolls this loop"]
+- Strengths: ["Clear explanation of function inlining", "Good use of beginner-friendly language"]
+- Weaknesses: ["Could explain register allocation choices", "Missing performance implications"]
+- Overall assessment: "Strong foundational explanation but lacks some advanced optimization details"
 
 ### Improvement Suggestions Output
 ```

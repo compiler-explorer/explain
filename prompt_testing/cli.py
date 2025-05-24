@@ -25,8 +25,6 @@ def cmd_run(args):
     """Run test suite command."""
     tester = PromptTester(
         args.project_root,
-        scorer_type=args.scorer,
-        claude_sample_rate=args.claude_sample_rate,
         reviewer_model=args.reviewer_model,
     )
 
@@ -399,20 +397,17 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Run basic optimization tests with current prompt (automatic scoring)
+  # Run basic optimization tests with current prompt
   uv run prompt-test run --prompt current --categories basic_optimizations
-
-  # Use Claude-based AI scoring for deeper evaluation
-  uv run prompt-test run --prompt current --scorer claude
-
-  # Use hybrid scoring (20% Claude sampling)
-  uv run prompt-test run --prompt current --scorer hybrid --claude-sample-rate 0.2
 
   # Compare two prompt versions
   uv run prompt-test run --prompt v1_baseline --compare current
 
-  # Run specific test cases with Claude scoring
-  uv run prompt-test run --prompt current --cases basic_loop_001 --scorer claude
+  # Run specific test cases
+  uv run prompt-test run --prompt current --cases basic_loop_001
+
+  # Use a different Claude model for evaluation
+  uv run prompt-test run --prompt current --reviewer-model claude-3-5-sonnet-20241022
 
   # List available test cases and prompts
   uv run prompt-test list
@@ -464,19 +459,7 @@ Examples:
         help="Filter test cases by explanation type",
     )
 
-    # Scorer configuration
-    run_parser.add_argument(
-        "--scorer",
-        choices=["automatic", "claude", "hybrid"],
-        default="automatic",
-        help="Scoring method: automatic (regex), claude (AI review), or hybrid",
-    )
-    run_parser.add_argument(
-        "--claude-sample-rate",
-        type=float,
-        default=0.2,
-        help="For hybrid scorer: fraction of cases to evaluate with Claude (0.0-1.0)",
-    )
+    # Claude reviewer configuration
     run_parser.add_argument(
         "--reviewer-model",
         default="claude-sonnet-4-0",

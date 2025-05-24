@@ -31,19 +31,21 @@ We need to decide on the fundamental architecture for how prompts handle audienc
 
 **Decision needed**: This affects how the prompt advisor can feed improvements back into the system.
 
-### 2. **Automatic Scorer Refinement**
-**Priority**: High - Core functionality
+### 2. **Transition to Claude-Only Scoring**
+**Priority**: High - Core functionality improvement
 
-Current issues:
-- The automatic scorer is "broad and unfocused"
-- Scoring rationale is not well documented
+Current state:
+- AutomaticScorer uses regex patterns and heuristics (not very effective)
+- ClaudeReviewer provides much better evaluation quality
+- HybridScorer was an attempt to balance cost and quality
 
 Actions needed:
-1. Document the rationale behind current scoring metrics
-2. Make scoring more configurable/pluggable
-3. Add ability to weight different metrics based on use case
-4. Consider domain-specific scoring patterns
-5. Add unit tests for scoring logic
+1. Remove AutomaticScorer and HybridScorer classes
+2. Make ClaudeReviewer the only scoring method
+3. Update CLI to remove scorer type options
+4. Add cost warnings and progress indicators
+5. Document the rationale for Claude-only scoring
+6. Consider adding parallel evaluation for performance
 
 ### 3. **HTML Review Interface**
 **Priority**: Medium - Quality of life improvement

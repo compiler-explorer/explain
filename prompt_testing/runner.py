@@ -16,8 +16,8 @@ from app.explain import MAX_TOKENS, MODEL, prepare_structured_data
 from app.explain_api import AssemblyItem, ExplainRequest
 from app.explanation_types import AudienceLevel, ExplanationType
 from app.metrics import NoopMetricsProvider
-from prompt_testing.evaluation.claude_reviewer import ClaudeReviewer, HybridScorer
-from prompt_testing.evaluation.scorer import AutomaticScorer, load_all_test_cases
+from prompt_testing.evaluation.claude_reviewer import ClaudeReviewer
+from prompt_testing.evaluation.scorer import load_all_test_cases
 
 # Load environment variables from .env file
 load_dotenv()
@@ -30,8 +30,6 @@ class PromptTester:
         self,
         project_root: str,
         anthropic_api_key: str | None = None,
-        scorer_type: str = "automatic",  # "automatic", "claude", or "hybrid"
-        claude_sample_rate: float = 0.2,
         reviewer_model: str = "claude-sonnet-4-0",
     ):
         self.project_root = Path(project_root)
@@ -45,18 +43,8 @@ class PromptTester:
         else:
             self.client = Anthropic()  # Will use ANTHROPIC_API_KEY env var
 
-        # Initialize scorer based on type
-        self.scorer_type = scorer_type
-        if scorer_type == "automatic":
-            self.scorer = AutomaticScorer()
-        elif scorer_type == "claude":
-            self.scorer = ClaudeReviewer(anthropic_api_key=anthropic_api_key, reviewer_model=reviewer_model)
-        elif scorer_type == "hybrid":
-            self.scorer = HybridScorer(
-                use_claude_for_all=False, claude_sample_rate=claude_sample_rate, anthropic_api_key=anthropic_api_key
-            )
-        else:
-            raise ValueError(f"Unknown scorer type: {scorer_type}")
+        # Initialize Claude reviewer
+        self.scorer = ClaudeReviewer(anthropic_api_key=anthropic_api_key, reviewer_model=reviewer_model)
 
         self.metrics_provider = NoopMetricsProvider()  # Use noop provider for testing
 
@@ -209,47 +197,20 @@ class PromptTester:
                 # Fall back to general expected topics
                 expected_topics = test_case.get("expected_topics", [])
 
-            # Get difficulty for Claude reviewer (still uses it)
+            # Get difficulty for Claude reviewer
             difficulty = test_case.get("difficulty", "intermediate")
 
-            # Different evaluation based on scorer type
-            if self.scorer_type == "automatic":
-                metrics = self.scorer.evaluate_response(
-                    explanation,
-                    expected_topics,
-                    output_tokens,
-                    response_time_ms,
-                    audience=request.audience.value,
-                    explanation_type=request.explanation.value,
-                )
-                scorer_method = "automatic"
-            elif self.scorer_type == "claude":
-                # Claude reviewer needs source and assembly code
-                metrics = self.scorer.evaluate_response(
-                    source_code=request.code,
-                    assembly_code=self._format_assembly(request.asm),
-                    explanation=explanation,
-                    expected_topics=expected_topics,
-                    difficulty=difficulty,
-                    token_count=output_tokens,
-                    response_time_ms=response_time_ms,
-                )
-                scorer_method = "claude"
-            elif self.scorer_type == "hybrid":
-                # Hybrid scorer decides which method to use
-                metrics, scorer_method = self.scorer.evaluate_response(
-                    source_code=request.code,
-                    assembly_code=self._format_assembly(request.asm),
-                    explanation=explanation,
-                    expected_topics=expected_topics,
-                    difficulty=difficulty,
-                    token_count=output_tokens,
-                    response_time_ms=response_time_ms,
-                    case_id=case_id,
-                )
-            else:
-                metrics = None
-                scorer_method = "none"
+            # Use Claude reviewer for evaluation
+            metrics = self.scorer.evaluate_response(
+                source_code=request.code,
+                assembly_code=self._format_assembly(request.asm),
+                explanation=explanation,
+                expected_topics=expected_topics,
+                difficulty=difficulty,
+                token_count=output_tokens,
+                response_time_ms=response_time_ms,
+            )
+            scorer_method = "claude"
         else:
             metrics = None
             scorer_method = "none"
