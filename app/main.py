@@ -1,4 +1,5 @@
 import logging
+from pathlib import Path
 
 from anthropic import Anthropic
 from anthropic import __version__ as anthropic_version
@@ -16,6 +17,7 @@ from app.explain_api import (
 )
 from app.explanation_types import AudienceLevel, ExplanationType
 from app.metrics import get_metrics_provider
+from app.prompt import Prompt
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger()
@@ -37,6 +39,11 @@ handler = Mangum(app)
 anthropic_client = Anthropic(api_key=get_settings().anthropic_api_key)
 logger.info(f"Anthropic SDK version: {anthropic_version}")
 
+# Load the prompt configuration
+prompt_config_path = Path(__file__).parent / "prompt.yaml"
+prompt = Prompt(prompt_config_path)
+logger.info(f"Loaded prompt configuration from {prompt_config_path}")
+
 
 @app.get("/", response_model=AvailableOptions)
 async def get_options() -> AvailableOptions:
@@ -47,14 +54,14 @@ async def get_options() -> AvailableOptions:
             audience=[
                 OptionDescription(
                     value=level.value,
-                    description=level.description,
+                    description=prompt.get_audience_metadata(level.value)["description"],
                 )
                 for level in AudienceLevel
             ],
             explanation=[
                 OptionDescription(
                     value=exp_type.value,
-                    description=exp_type.description,
+                    description=prompt.get_explanation_metadata(exp_type.value)["description"],
                 )
                 for exp_type in ExplanationType
             ],
@@ -65,4 +72,4 @@ async def get_options() -> AvailableOptions:
 async def explain(request: ExplainRequest) -> ExplainResponse:
     """Explain a Compiler Explorer compilation from its source and output assembly."""
     async with get_metrics_provider() as metrics_provider:
-        return process_request(request, anthropic_client, metrics_provider)
+        return process_request(request, anthropic_client, prompt, metrics_provider)

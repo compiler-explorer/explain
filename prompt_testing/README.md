@@ -42,8 +42,8 @@ prompt_testing/
 │   └── edge_cases.yaml
 ├── prompts/              # Prompt versions (YAML files)
 │   ├── v1_baseline.yaml
-│   ├── current.yaml
 │   └── v2_improved.yaml
+│   # Note: 'current' prompt is loaded from app/prompt.yaml
 ├── results/              # Test results and analysis
 │   └── [timestamp]_[prompt_version].json
 └── evaluation/           # Scoring and review tools
@@ -226,7 +226,7 @@ uv run prompt-test run --prompt v1_baseline --compare current --categories basic
 
 1. Create a new prompt version:
    ```bash
-   cp prompt_testing/prompts/current.yaml prompt_testing/prompts/v3_experiment.yaml
+   cp app/prompt.yaml prompt_testing/prompts/v3_experiment.yaml
    # Edit the new prompt
    ```
 
@@ -237,7 +237,7 @@ uv run prompt-test run --prompt v1_baseline --compare current --categories basic
 
 3. If it performs better, update current:
    ```bash
-   cp prompt_testing/prompts/v3_experiment.yaml prompt_testing/prompts/current.yaml
+   cp prompt_testing/prompts/v3_experiment.yaml app/prompt.yaml
    ```
 
 ### Adding Test Cases
@@ -271,7 +271,7 @@ uv run prompt-test run --prompt v1_baseline --compare current --categories basic
 
 5. If improved, adopt as new current version:
    ```bash
-   cp prompt_testing/prompts/current_v2.yaml prompt_testing/prompts/current.yaml
+   cp prompt_testing/prompts/current_v2.yaml app/prompt.yaml
    ```
 
 ### Human Review Workflow
