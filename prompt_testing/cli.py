@@ -10,6 +10,8 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+from prompt_testing.ce_api import CompilerExplorerClient
+from prompt_testing.enricher import TestCaseEnricher
 from prompt_testing.evaluation.prompt_advisor import PromptOptimizer
 from prompt_testing.evaluation.reviewer import ReviewManager, create_simple_review_cli
 from prompt_testing.evaluation.scorer import load_all_test_cases
@@ -254,6 +256,142 @@ def cmd_improve(args):
     return 0
 
 
+def cmd_enrich(args):
+    """Enrich test cases with CE API data."""
+    input_file = Path(args.input)
+    if not input_file.exists():
+        print(f"Input file not found: {input_file}")
+        return 1
+
+    # Load compiler map if provided
+    compiler_map = None
+    if args.compiler_map:
+        map_file = Path(args.compiler_map)
+        if map_file.exists():
+            with map_file.open(encoding="utf-8") as f:
+                compiler_map = json.load(f)
+            print(f"Loaded compiler map with {len(compiler_map)} entries")
+
+    # Create output path
+    output_file = None
+    if args.output:
+        output_file = Path(args.output)
+
+    # Enrich test cases
+    with TestCaseEnricher() as enricher:
+        try:
+            enricher.enrich_file(
+                input_file,
+                output_file,
+                compiler_map,
+                delay=args.delay,
+            )
+        except Exception as e:
+            print(f"Enrichment failed: {e}")
+            return 1
+
+    return 0
+
+
+def cmd_compilers(args):
+    """List available compilers from CE API."""
+    from collections import defaultdict
+
+    with CompilerExplorerClient() as client:
+        # Get compilers
+        print(f"Fetching compilers{f' for {args.language}' if args.language else ''}...")
+        compilers = client.get_compilers(args.language)
+        print(f"Found {len(compilers)} compilers\n")
+
+        # Filter by instruction set if requested
+        if args.instruction_set:
+            compilers = [c for c in compilers if c.instruction_set == args.instruction_set]
+            print(f"Filtered to {len(compilers)} compilers with instruction set '{args.instruction_set}'\n")
+
+        # Search if requested
+        if args.search:
+            search_lower = args.search.lower()
+            compilers = [c for c in compilers if search_lower in c.name.lower() or search_lower in c.id.lower()]
+            print(f"Found {len(compilers)} compilers matching '{args.search}'\n")
+
+        if not compilers:
+            print("No compilers found matching criteria")
+            return 0
+
+        # Generate mapping file if requested
+        if args.generate_map:
+            mapping = {}
+            for compiler in compilers:
+                # Use the full name as key
+                mapping[compiler.name] = compiler.id
+                # Also add common short versions
+                if "gcc" in compiler.name.lower():
+                    # Extract version like "gcc 13.1" from "x86-64 gcc 13.1"
+                    parts = compiler.name.split()
+                    for i, part in enumerate(parts):
+                        if part.lower() == "gcc" and i + 1 < len(parts):
+                            short_name = f"gcc {parts[i + 1]}"
+                            if short_name not in mapping:
+                                mapping[short_name] = compiler.id
+                            break
+
+            output_file = Path(args.generate_map)
+            with output_file.open("w", encoding="utf-8") as f:
+                json.dump(mapping, f, indent=2, sort_keys=True)
+            print(f"Generated compiler mapping file: {output_file}")
+            print(f"Contains {len(mapping)} mappings")
+            return 0
+
+        # Display compilers
+        if args.json:
+            # JSON output for scripting
+            output = []
+            for compiler in compilers:
+                output.append(
+                    {
+                        "id": compiler.id,
+                        "name": compiler.name,
+                        "version": compiler.version,
+                        "lang": compiler.lang,
+                        "instruction_set": compiler.instruction_set,
+                        "compiler_type": compiler.compiler_type,
+                    }
+                )
+            print(json.dumps(output, indent=2))
+        else:
+            # Human-readable output
+            if args.group:
+                # Group by compiler type
+                by_type = defaultdict(list)
+                for compiler in compilers:
+                    by_type[compiler.compiler_type or "unknown"].append(compiler)
+
+                for comp_type, comp_list in sorted(by_type.items()):
+                    print(f"\n{comp_type.upper()} ({len(comp_list)} compilers):")
+                    for compiler in sorted(comp_list, key=lambda c: c.name)[:20]:
+                        print(f"  {compiler.id:25} {compiler.name}")
+                    if len(comp_list) > 20:
+                        print(f"  ... and {len(comp_list) - 20} more")
+            else:
+                # List all (limited)
+                for compiler in sorted(compilers, key=lambda c: c.name)[: args.limit]:
+                    print(f"{compiler.id:25} {compiler.name}")
+                    if args.verbose:
+                        if compiler.version:
+                            print(f"  {'':25} Version: {compiler.version}")
+                        if compiler.instruction_set:
+                            print(f"  {'':25} Instruction set: {compiler.instruction_set}")
+                        if compiler.compiler_type:
+                            print(f"  {'':25} Type: {compiler.compiler_type}")
+                        print()
+
+                if len(compilers) > args.limit:
+                    print(f"\n... and {len(compilers) - args.limit} more compilers")
+                    print("Use --limit to show more")
+
+    return 0
+
+
 def main():
     """Main CLI entry point."""
     parser = argparse.ArgumentParser(
@@ -290,6 +428,15 @@ Examples:
 
   # Create an experimental improved version
   uv run prompt-test improve --prompt current --create-improved --output current_v2
+
+  # List available C++ compilers
+  uv run prompt-test compilers --language c++
+
+  # Search for GCC compilers and generate mapping file
+  uv run prompt-test compilers --search gcc --generate-map compiler_map.json
+
+  # Enrich test cases with real assembly from CE
+  uv run prompt-test enrich --input test_cases/new_tests.yaml --compiler-map compiler_map.json
         """,
     )
 
@@ -365,6 +512,38 @@ Examples:
     )
     improve_parser.add_argument("--output", help="Name for the improved prompt version")
     improve_parser.set_defaults(func=cmd_improve)
+
+    # Enrich command
+    enrich_parser = subparsers.add_parser("enrich", help="Enrich test cases with CE API assembly data")
+    enrich_parser.add_argument("--input", "-i", required=True, help="Input test case YAML file")
+    enrich_parser.add_argument("--output", "-o", help="Output file (defaults to input.enriched.yaml)")
+    enrich_parser.add_argument(
+        "--compiler-map",
+        "-m",
+        help="JSON file mapping test compiler names to CE compiler IDs",
+    )
+    enrich_parser.add_argument(
+        "--delay",
+        type=float,
+        default=0.5,
+        help="Delay between API calls in seconds (default: 0.5)",
+    )
+    enrich_parser.set_defaults(func=cmd_enrich)
+
+    # Compilers command
+    compilers_parser = subparsers.add_parser("compilers", help="List and explore CE compilers")
+    compilers_parser.add_argument("--language", "-l", help="Filter by language (e.g., c++, c, rust)")
+    compilers_parser.add_argument("--search", "-s", help="Search for compiler by name")
+    compilers_parser.add_argument("--instruction-set", "-i", help="Filter by instruction set")
+    compilers_parser.add_argument("--group", "-g", action="store_true", help="Group by compiler type")
+    compilers_parser.add_argument("--json", action="store_true", help="Output in JSON format")
+    compilers_parser.add_argument("--verbose", "-v", action="store_true", help="Show detailed compiler info")
+    compilers_parser.add_argument("--limit", type=int, default=50, help="Maximum compilers to show (default: 50)")
+    compilers_parser.add_argument(
+        "--generate-map",
+        help="Generate a compiler name to ID mapping file",
+    )
+    compilers_parser.set_defaults(func=cmd_compilers)
 
     args = parser.parse_args()
 
