@@ -11,10 +11,10 @@ from typing import Any
 from anthropic import Anthropic
 from dotenv import load_dotenv
 
-from app.explain import MAX_TOKENS, MODEL, prepare_structured_data
 from app.explain_api import AssemblyItem, ExplainRequest
 from app.explanation_types import AudienceLevel, ExplanationType
 from app.metrics import NoopMetricsProvider
+from app.prompt import Prompt
 from prompt_testing.evaluation.claude_reviewer import ClaudeReviewer
 from prompt_testing.evaluation.scorer import load_all_test_cases
 from prompt_testing.yaml_utils import load_yaml_file
@@ -94,33 +94,6 @@ class PromptTester:
             explanation=explanation,
         )
 
-    def _build_template_context(self, request: ExplainRequest) -> dict[str, Any]:
-        """Build template context dictionary from request data for prompt formatting."""
-        # Include variables that come directly from the ExplainRequest
-        context = {
-            "language": request.language,
-            "arch": request.instructionSet or "unknown",
-            "compiler": request.compiler,
-            "audience": request.audience.value,
-            "explanation_type": request.explanation.value,
-        }
-
-        # Add compilation options as a formatted string (directly from request)
-        if request.compilationOptions:
-            context["compilation_options"] = " ".join(request.compilationOptions)
-        else:
-            context["compilation_options"] = ""
-
-        # Include boolean indicating if labels are present (from labelDefinitions field)
-        context["has_labels"] = bool(request.labelDefinitions and request.labelDefinitions)
-
-        # Get audience and explanation info from centralized definitions
-        context["audience_guidance"] = request.audience.guidance
-        context["explanation_focus"] = request.explanation.focus
-        context["explanation_type_phrase"] = request.explanation.user_prompt_phrase
-
-        return context
-
     def _format_assembly(self, asm_items: list[AssemblyItem]) -> str:
         """Format assembly items into a readable string for Claude review."""
         lines = []
@@ -130,57 +103,37 @@ class PromptTester:
         return "\n".join(lines)
 
     def run_single_test(
-        self, test_case: dict[str, Any], prompt_version: str, model: str = MODEL, max_tokens: int = MAX_TOKENS
+        self, test_case: dict[str, Any], prompt_version: str, model: str | None = None, max_tokens: int | None = None
     ) -> dict[str, Any]:
         """Run a single test case with the specified prompt."""
 
         case_id = test_case["id"]
         print(f"Running test case: {case_id} with prompt: {prompt_version}")
 
-        # Load prompt configuration
+        # Load prompt configuration and create Prompt instance
         prompt_config = self.load_prompt(prompt_version)
+        prompt = Prompt(prompt_config)
 
         # Convert test case to request
         request = self.convert_test_case_to_request(test_case)
 
-        # Prepare structured data (same as in explain.py)
-        structured_data = prepare_structured_data(request)
+        # Generate messages using Prompt instance
+        prompt_data = prompt.generate_messages(request)
 
-        # Build template context from request data
-        template_context = self._build_template_context(request)
-
-        # Format prompts using template context
-        system_prompt = prompt_config["system_prompt"].format(**template_context)
-        user_prompt = prompt_config["user_prompt"].format(**template_context)
-        assistant_prefill = prompt_config["assistant_prefill"].format(**template_context)
+        # Use override model/max_tokens if provided, otherwise use prompt defaults
+        if model is not None:
+            prompt_data["model"] = model
+        if max_tokens is not None:
+            prompt_data["max_tokens"] = max_tokens
 
         # Call Claude API
         start_time = time.time()
         message = self.client.messages.create(
-            model=model,
-            max_tokens=max_tokens,
-            system=system_prompt,
-            messages=[
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": user_prompt,
-                        },
-                        {"type": "text", "text": json.dumps(structured_data)},
-                    ],
-                },
-                {
-                    "role": "assistant",
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": assistant_prefill,
-                        },
-                    ],
-                },
-            ],
+            model=prompt_data["model"],
+            max_tokens=prompt_data["max_tokens"],
+            temperature=prompt_data["temperature"],
+            system=prompt_data["system"],
+            messages=prompt_data["messages"],
         )
 
         response_time_ms = int((time.time() - start_time) * 1000)
@@ -222,7 +175,7 @@ class PromptTester:
         return {
             "case_id": case_id,
             "prompt_version": prompt_version,
-            "model": model,
+            "model": prompt_data["model"],
             "success": success,
             "error": error,
             "response": explanation,
