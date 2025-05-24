@@ -10,7 +10,6 @@ from typing import Any
 
 from anthropic import Anthropic
 from dotenv import load_dotenv
-from ruamel.yaml import YAML
 
 from app.explain import MAX_TOKENS, MODEL, prepare_structured_data
 from app.explain_api import AssemblyItem, ExplainRequest
@@ -18,6 +17,7 @@ from app.explanation_types import AudienceLevel, ExplanationType
 from app.metrics import NoopMetricsProvider
 from prompt_testing.evaluation.claude_reviewer import ClaudeReviewer
 from prompt_testing.evaluation.scorer import load_all_test_cases
+from prompt_testing.yaml_utils import load_yaml_file
 
 # Load environment variables from .env file
 load_dotenv()
@@ -54,9 +54,7 @@ class PromptTester:
         if not prompt_file.exists():
             raise FileNotFoundError(f"Prompt file not found: {prompt_file}")
 
-        yaml = YAML(typ="safe")
-        with prompt_file.open(encoding="utf-8") as f:
-            return yaml.load(f)
+        return load_yaml_file(prompt_file)
 
     def convert_test_case_to_request(self, test_case: dict[str, Any]) -> ExplainRequest:
         """Convert a test case to an ExplainRequest object."""

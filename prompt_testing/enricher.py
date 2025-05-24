@@ -4,9 +4,8 @@ import time
 from pathlib import Path
 from typing import Any
 
-from ruamel.yaml import YAML
-
 from prompt_testing.ce_api import CompilationError, CompileRequest, CompilerExplorerClient
+from prompt_testing.yaml_utils import create_yaml_dumper
 
 
 class TestCaseEnricher:
@@ -102,11 +101,8 @@ class TestCaseEnricher:
         Returns:
             Path to enriched output file
         """
-        # Initialize YAML handler with round-trip mode to preserve formatting
-        yaml = YAML()
-        yaml.preserve_quotes = True
-        yaml.width = 120
-        yaml.default_flow_style = False
+        # Initialize YAML handler to preserve formatting
+        yaml = create_yaml_dumper()
 
         # Load input file
         with input_file.open(encoding="utf-8") as f:

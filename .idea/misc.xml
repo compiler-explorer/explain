@@ -6,4 +6,7 @@
   <component name="ProjectRootManager" version="2" languageLevel="JDK_24" default="true" project-jdk-name="uv (explain)" project-jdk-type="Python SDK">
     <output url="file://$PROJECT_DIR$/out" />
   </component>
+  <component name="PythonCompatibilityInspectionAdvertiser">
+    <option name="version" value="3" />
+  </component>
 </project>

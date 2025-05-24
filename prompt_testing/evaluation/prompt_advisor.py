@@ -8,6 +8,8 @@ from typing import Any
 
 from anthropic import Anthropic
 
+from prompt_testing.yaml_utils import create_yaml_dumper, load_yaml_file
+
 
 class PromptAdvisor:
     """Uses Claude to analyze test results and suggest prompt improvements."""
@@ -297,12 +299,7 @@ class PromptOptimizer:
 
         # Load current prompt
         prompt_path = self.prompts_dir / f"{prompt_version}.yaml"
-        from ruamel.yaml import YAML
-
-        yaml = YAML(typ="safe")
-
-        with prompt_path.open() as f:
-            current_prompt = yaml.load(f)
+        current_prompt = load_yaml_file(prompt_path)
 
         # Get improvement suggestions
         suggestions = self.advisor.analyze_results_and_suggest_improvements(
@@ -323,8 +320,7 @@ class PromptOptimizer:
             )
 
             new_prompt_path = self.prompts_dir / f"{output_name}.yaml"
-            yaml_out = YAML()
-            yaml_out.default_flow_style = False
+            yaml_out = create_yaml_dumper()
             with new_prompt_path.open("w") as f:
                 yaml_out.dump(new_prompt, f)
 

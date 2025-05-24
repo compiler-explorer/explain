@@ -5,13 +5,13 @@ Scoring and evaluation system for prompt testing.
 from pathlib import Path
 from typing import Any
 
-from ruamel.yaml import YAML
+from prompt_testing.yaml_utils import create_yaml_loader
 
 
 def load_test_case(file_path: str, case_id: str) -> dict[str, Any]:
     """Load a specific test case from a YAML file."""
     path = Path(file_path)
-    yaml = YAML(typ="safe")
+    yaml = create_yaml_loader()
     with path.open(encoding="utf-8") as f:
         data = yaml.load(f)
 
@@ -26,7 +26,7 @@ def load_all_test_cases(test_cases_dir: str) -> list[dict[str, Any]]:
     """Load all test cases from the test_cases directory."""
     all_cases = []
     test_dir = Path(test_cases_dir)
-    yaml = YAML(typ="safe")
+    yaml = create_yaml_loader()
 
     for file_path in test_dir.glob("*.yaml"):
         with file_path.open(encoding="utf-8") as f:

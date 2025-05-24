@@ -200,6 +200,11 @@ def cmd_analyze(args):
 def cmd_improve(args):
     """Analyze results and suggest prompt improvements."""
 
+    # Validate arguments
+    if args.create_improved and not args.output:
+        print("Error: --output is required when using --create-improved")
+        return 1
+
     optimizer = PromptOptimizer(args.project_root)
 
     # If specific results file provided
