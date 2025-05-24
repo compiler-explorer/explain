@@ -5,69 +5,55 @@ in one place to avoid duplication across the codebase.
 """
 
 from enum import Enum
+from pathlib import Path
+
+from ruamel.yaml import YAML
+
+# Load metadata from prompt configuration
+_PROMPT_CONFIG_PATH = Path(__file__).parent / "prompt.yaml"
+yaml = YAML(typ="safe")
+with _PROMPT_CONFIG_PATH.open(encoding="utf-8") as f:
+    _PROMPT_CONFIG = yaml.load(f)
 
 
 class AudienceLevel(str, Enum):
     """Target audience for the explanation.
 
-    Each member contains: (value, description, guidance)
+    Each member loads its metadata from the prompt configuration.
     """
 
-    def __new__(cls, value: str, description: str, guidance: str):
-        """Create a new AudienceLevel with associated metadata."""
+    def __new__(cls, value: str):
+        """Create a new AudienceLevel with metadata from config."""
         obj = str.__new__(cls, value)
         obj._value_ = value
-        obj.description = description
-        obj.guidance = guidance
+        # Load metadata from config
+        config = _PROMPT_CONFIG["audience_levels"][value]
+        obj.description = config["description"]
+        obj.guidance = config["guidance"]
         return obj
 
-    BEGINNER = (
-        "beginner",
-        "For beginners learning assembly language. Uses simple language and explains technical terms.",
-        "Use simple, clear language. Define technical terms. Explain concepts step-by-step.",
-    )
-    INTERMEDIATE = (
-        "intermediate",
-        "For users familiar with basic assembly concepts. Focuses on compiler behavior and choices.",
-        "Assume familiarity with basic assembly concepts. Focus on the 'why' behind compiler choices.",
-    )
-    EXPERT = (
-        "expert",
-        "For advanced users. Uses technical terminology and covers advanced optimizations.",
-        "Use technical terminology freely. Focus on advanced optimizations and architectural details.",
-    )
+    BEGINNER = "beginner"
+    INTERMEDIATE = "intermediate"
+    EXPERT = "expert"
 
 
 class ExplanationType(str, Enum):
     """Type of explanation to generate.
 
-    Each member contains: (value, description, focus, user_prompt_phrase)
+    Each member loads its metadata from the prompt configuration.
     """
 
-    def __new__(cls, value: str, description: str, focus: str, user_prompt_phrase: str):
-        """Create a new ExplanationType with associated metadata."""
+    def __new__(cls, value: str):
+        """Create a new ExplanationType with metadata from config."""
         obj = str.__new__(cls, value)
         obj._value_ = value
-        obj.description = description
-        obj.focus = focus
-        obj.user_prompt_phrase = user_prompt_phrase
+        # Load metadata from config
+        config = _PROMPT_CONFIG["explanation_types"][value]
+        obj.description = config["description"]
+        obj.focus = config["focus"]
+        obj.user_prompt_phrase = config["user_prompt_phrase"]
         return obj
 
-    ASSEMBLY = (
-        "assembly",
-        "Explains the assembly instructions and their purpose.",
-        "Focus on explaining the assembly instructions and their purpose.",
-        "assembly output",
-    )
-    SOURCE = (
-        "source",
-        "Explains how source code constructs map to assembly instructions.",
-        "Focus on how source code constructs map to assembly instructions.",
-        "code transformations",
-    )
-    OPTIMIZATION = (
-        "optimization",
-        "Explains compiler optimizations and transformations applied to the code.",
-        "Focus on compiler optimizations and transformations applied to the code.",
-        "optimizations",
-    )
+    ASSEMBLY = "assembly"
+    SOURCE = "source"
+    OPTIMIZATION = "optimization"

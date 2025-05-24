@@ -1,7 +1,9 @@
 import json
 import logging
+from pathlib import Path
 
 from anthropic import Anthropic
+from ruamel.yaml import YAML
 
 from app.explain_api import CostBreakdown, ExplainRequest, ExplainResponse, TokenUsage
 from app.metrics import MetricsProvider
@@ -14,14 +16,26 @@ LOGGER = logging.getLogger("explain")
 MAX_CODE_LENGTH = 10000  # 10K chars should be enough for most source files
 MAX_ASM_LENGTH = 20000  # 20K chars for assembly output
 MAX_ASSEMBLY_LINES = 300  # Maximum number of assembly lines to process
-MODEL = "claude-3-5-haiku-20241022"
-MAX_TOKENS = 1024  # Adjust based on desired explanation length
 
-# Claude token costs (USD)
-# As of November 2024, these are the costs for Claude 3.5 Haiku
-# Update if model or pricing changes
-COST_PER_INPUT_TOKEN = 0.0000008  # $0.80/1M tokens
-COST_PER_OUTPUT_TOKEN = 0.000004  # $4.00/1M tokens
+# Model cost configuration (USD per token)
+# Update when models or pricing changes
+MODEL_COSTS = {
+    "claude-3-5-haiku-20241022": {
+        "per_input_token": 0.0000008,  # $0.80/1M tokens
+        "per_output_token": 0.000004,  # $4.00/1M tokens
+    },
+    # Add other models here as needed
+}
+
+# Load prompt configuration
+_PROMPT_CONFIG_PATH = Path(__file__).parent / "prompt.yaml"
+yaml = YAML(typ="safe")
+with _PROMPT_CONFIG_PATH.open(encoding="utf-8") as f:
+    PROMPT_CONFIG = yaml.load(f)
+
+# Extract model configuration
+MODEL = PROMPT_CONFIG["model"]["name"]
+MAX_TOKENS = PROMPT_CONFIG["model"]["max_tokens"]
 
 
 def select_important_assembly(
@@ -182,25 +196,19 @@ def process_request(
     # TODO: consider not baking the language and arch here for system prompt caching later on.
     #  We'll need to hit minimum token lengths.
 
-    system_prompt = f"""You are an expert in {arch} assembly code and {language}, helping users of the
-Compiler Explorer website understand how their code compiles to assembly.
-The request will be in the form of a JSON document, which explains a source program and how it was compiled,
-and the resulting assembly code that was generated.
+    # Get metadata from prompt config
+    audience_config = PROMPT_CONFIG["audience_levels"][body.audience.value]
+    explanation_config = PROMPT_CONFIG["explanation_types"][body.explanation.value]
 
-Target audience: {body.audience.value}
-{body.audience.guidance}
-
-Explanation type: {body.explanation.value}
-{body.explanation.focus}
-
-Provide clear, concise explanations. Explanations should be educational and highlight
-why certain code constructs generate specific assembly instructions.
-Give no commentary on the original source: it is expected the user already understands their input, and is only
-looking for guidance on the assembly output.
-If it makes it easiest to explain, note the corresponding parts of the source code, but do not focus on this.
-Do not give an overall conclusion.
-Be precise and accurate about CPU features and optimizations - avoid making incorrect claims about branch
-prediction or other hardware details."""
+    # Format the system prompt
+    system_prompt = PROMPT_CONFIG["system_prompt"].format(
+        arch=arch,
+        language=language,
+        audience=body.audience.value,
+        audience_guidance=audience_config["guidance"],
+        explanation_type=body.explanation.value,
+        explanation_focus=explanation_config["focus"],
+    )
 
     # Call Claude API with JSON structure
     LOGGER.info(f"Using Anthropic client with model: {MODEL}")
@@ -215,7 +223,10 @@ prediction or other hardware details."""
                 "content": [
                     {
                         "type": "text",
-                        "text": f"Explain the {arch} {body.explanation.user_prompt_phrase}.",
+                        "text": PROMPT_CONFIG["user_prompt"].format(
+                            arch=arch,
+                            user_prompt_phrase=explanation_config["user_prompt_phrase"],
+                        ),
                     },
                     {"type": "text", "text": json.dumps(structured_data)},
                 ],
@@ -225,7 +236,7 @@ prediction or other hardware details."""
                 "content": [
                     {
                         "type": "text",
-                        "text": "I have analysed the assembly code and my analysis is:",
+                        "text": PROMPT_CONFIG["assistant_prefill"],
                     },
                 ],
             },
@@ -240,9 +251,10 @@ prediction or other hardware details."""
     output_tokens = message.usage.output_tokens
     total_tokens = input_tokens + output_tokens
 
-    # Calculate costs
-    input_cost = input_tokens * COST_PER_INPUT_TOKEN
-    output_cost = output_tokens * COST_PER_OUTPUT_TOKEN
+    # Calculate costs based on model
+    model_cost = MODEL_COSTS.get(MODEL, MODEL_COSTS["claude-3-5-haiku-20241022"])  # Default to haiku costs
+    input_cost = input_tokens * model_cost["per_input_token"]
+    output_cost = output_tokens * model_cost["per_output_token"]
     total_cost = input_cost + output_cost
 
     # Add metrics with properties/dimensions

@@ -49,8 +49,16 @@ class PromptTester:
         self.metrics_provider = NoopMetricsProvider()  # Use noop provider for testing
 
     def load_prompt(self, prompt_version: str) -> dict[str, Any]:
-        """Load a prompt configuration from YAML file."""
-        prompt_file = self.prompt_dir / f"{prompt_version}.yaml"
+        """Load a prompt configuration from YAML file.
+
+        Special case: 'current' loads from app/prompt.yaml
+        """
+        if prompt_version == "current":
+            # Load the current production prompt from the app directory
+            prompt_file = self.project_root / "app" / "prompt.yaml"
+        else:
+            prompt_file = self.prompt_dir / f"{prompt_version}.yaml"
+
         if not prompt_file.exists():
             raise FileNotFoundError(f"Prompt file not found: {prompt_file}")
 
