@@ -892,3 +892,7 @@ This service is designed to be maintainable, secure, and cost-effective, with ro
 - Consider using a more expensive model to avoid this? Now using Haiku 3.5
 - it's not good things like counting...so yeah maybe a better model: e.g. "Scalar Fallback: If the array length is small (less than or equal to 6), the compiler falls back to a scalar implementation that processes the elements one by one." when in fact it was looking at: "  lea eax, -1[rsi] |   cmp eax, 6 | jbe ..."
 - should consider prompt caching
+
+
+## more notes
+- should do server-side caching on S3 a la the rest of the CE project. will need a cache busting flag to force
