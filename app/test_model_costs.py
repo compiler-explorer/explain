@@ -41,6 +41,15 @@ class TestNormalizeModelName:
         with pytest.raises(ValueError, match="Unable to parse model name"):
             normalize_model_name("claude-unknown-model")
 
+    def test_fallback_pattern_specificity(self):
+        """Test that fallback pattern doesn't match unintended numbers."""
+        # Should match the version after the family name
+        assert normalize_model_name("claude-haiku-3-something-20241022") == "haiku-3"
+
+        # Should not match random numbers that aren't version numbers
+        with pytest.raises(ValueError, match="Unable to parse model name"):
+            normalize_model_name("claude-12345-haiku")
+
 
 class TestGetModelCost:
     """Test model cost lookup."""

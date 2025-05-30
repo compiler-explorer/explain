@@ -68,8 +68,10 @@ def normalize_model_name(model: str) -> str:
     # If no pattern matches, try to extract any recognizable family name
     for family in ["opus", "sonnet", "haiku"]:
         if family in model:
-            # Try to find a version number
-            version_match = re.search(r"(\d+)(?:[-.](\d+))?", model)
+            # Try to find a version number that appears after the family name
+            # Look for patterns like family-X, family-X.Y, family-X-Y
+            pattern = rf"{family}[-\s]+(\d+)(?:[-.](\d+))?"
+            version_match = re.search(pattern, model)
             if version_match:
                 major = version_match.group(1)
                 minor = version_match.group(2)
