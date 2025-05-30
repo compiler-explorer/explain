@@ -77,6 +77,18 @@ call → response with metrics. See `claude_explain.md` for detailed architectur
 
 ## Development Workflow Notes
 
+### Before Pushing Code
+**ALWAYS run the full test suite before pushing any code changes:**
+
+```bash
+# Required before every push
+uv run pytest              # Run all tests (matches CI)
+uv run pre-commit run --all-files  # Run all linting/formatting
+```
+
+This prevents CI failures and ensures code quality. The CI runs exactly these commands, so running them locally will catch any issues.
+
+### General Notes
 - The pre-commit hooks may modify the code and so: always run them before `git add`, and if a commit hook fails then
   it's probably you'll need to `git add` again if it indicated it fixed issues (e.g. `ruff`)
 - Ruff is configured for Python 3.13+ with 120 character line length
