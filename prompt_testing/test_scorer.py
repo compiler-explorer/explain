@@ -95,7 +95,9 @@ def test_load_test_case_malformed_yaml():
         temp_path = f.name
 
     try:
-        with pytest.raises((ValueError, OSError)):  # YAML parsing error
+        from ruamel.yaml import YAMLError
+
+        with pytest.raises(YAMLError):  # YAML parsing error
             load_test_case(temp_path, "test_case")
     finally:
         Path(temp_path).unlink()
