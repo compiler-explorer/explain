@@ -7,6 +7,7 @@ requires-python = ">=3.13"
 dependencies = [
     "anthropic>=0.51.0",
     "aws-embedded-metrics>=3.3.0",
+    "boto3>=1.35.0",
     "fastapi",
     "mangum",
     "pydantic-settings>=2.9.1",
@@ -21,6 +22,7 @@ dev = [
     "fastapi[standard]>=0.115",
     "pre-commit>=4.2.0",
     "pytest>=8.3.5",
+    "pytest-asyncio>=0.24.0",
     "ruff>=0.11.10",
 ]
 
@@ -92,6 +94,10 @@ convention = "google"
 
 [tool.uv]
 package = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 
 [tool.setuptools.packages.find]
 include = ["app*", "prompt_testing*"]

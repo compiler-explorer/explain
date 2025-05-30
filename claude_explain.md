@@ -39,6 +39,7 @@ This dual-mode design provides excellent developer experience while maintaining 
    - API Gateway for HTTP routing
    - CloudWatch for metrics and monitoring
    - Docker container for consistent deployment
+   - S3 bucket for response caching
 
 ### Input/Output Contract
 
@@ -92,6 +93,8 @@ The prompt testing framework feeds back into the main service by:
 - Prompt testing framework with CE API integration
 - Pre-commit hooks and code quality tools
 - AWS deployment (handled by Compiler Explorer infrastructure)
+- S3 caching for responses with configurable TTL
+- Cache bypass option for fresh responses
 
 ### 🔄 In Progress
 - Production API key management
@@ -99,7 +102,6 @@ The prompt testing framework feeds back into the main service by:
 - Compiler Explorer UI integration
 
 ### 📋 TODO
-- S3 caching for responses
 - Prompt caching for cost optimization
 - Production monitoring dashboards
 - User feedback collection mechanism
@@ -140,7 +142,8 @@ Smart filtering algorithm prioritizes:
 
 ### Privacy
 - Compiler Explorer will display consent before sending code to Anthropic
-- No persistent storage of user code or explanations (except potential S3 cache)
+- Cached responses stored in S3 with configurable TTL (default 2 days)
+- Cache can be bypassed with `bypass_cache` parameter
 - Compliance with CE privacy policy
 
 ## Cost Management
@@ -152,26 +155,22 @@ Smart filtering algorithm prioritizes:
 ### Optimization Strategies
 - Smart assembly filtering reduces input tokens
 - Response length limits (1024 tokens max)
-- Future: Implement response caching
+- S3-based response caching reduces duplicate API calls
 - Future: Prompt caching for system prompts
 
 ## Future Enhancements
 
 ### Near Term
-1. **Caching Layer**
-   - S3-based response caching
-   - Cache key based on request hash
-   - TTL and cache busting mechanisms
-
-2. **Enhanced Explanations**
+1. **Enhanced Explanations**
    - Compiler warning integration
    - Optimization remarks from compiler
    - Diff explanations for multiple compiler outputs
 
-3. **UI Integration**
+2. **UI Integration**
    - "Explain" button in CE interface
    - Inline explanations in assembly view
    - User feedback collection
+   - Cache status indicator
 
 ### Long Term
 1. **Advanced Features**
@@ -252,19 +251,15 @@ uv run prompt-test enrich --input test_cases.yaml
    - Set up production API key in AWS Secrets Manager
    - Configure rate limiting at API Gateway
    - Set up monitoring dashboards and alerts
+   - Configure S3 bucket and IAM permissions for caching
 
-2. **Implement Caching**
-   - Design S3 caching strategy
-   - Implement cache key generation
-   - Add cache metrics and TTL management
-
-3. **UI Integration**
+2. **UI Integration**
    - Complete CE frontend integration
    - Implement user consent flow
    - Add "Explain" button to compiler output
    - Support markdown rendering for explanations
 
-4. **Launch Preparation**
+3. **Launch Preparation**
    - Load testing and capacity planning
    - Update CE privacy policy
    - User communication and documentation

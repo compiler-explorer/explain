@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from mangum import Mangum
 
+from app.cache import NoOpCacheProvider, S3CacheProvider
 from app.config import get_settings
 from app.explain import process_request
 from app.explain_api import (
@@ -45,6 +46,25 @@ prompt = Prompt(prompt_config_path)
 logger.info(f"Loaded prompt configuration from {prompt_config_path}")
 
 
+def get_cache_provider():
+    """Get the configured cache provider."""
+    settings = get_settings()
+
+    if not settings.cache_enabled:
+        logger.info("Caching disabled by configuration")
+        return NoOpCacheProvider()
+
+    if not settings.cache_s3_bucket:
+        logger.warning("Cache enabled but no S3 bucket configured, disabling cache")
+        return NoOpCacheProvider()
+
+    logger.info(f"S3 cache enabled: bucket={settings.cache_s3_bucket}, prefix={settings.cache_s3_prefix}")
+    return S3CacheProvider(
+        bucket=settings.cache_s3_bucket,
+        prefix=settings.cache_s3_prefix,
+    )
+
+
 @app.get("/", response_model=AvailableOptions)
 async def get_options() -> AvailableOptions:
     """Get available options for the explain API."""
@@ -72,4 +92,5 @@ async def get_options() -> AvailableOptions:
 async def explain(request: ExplainRequest) -> ExplainResponse:
     """Explain a Compiler Explorer compilation from its source and output assembly."""
     async with get_metrics_provider() as metrics_provider:
-        return process_request(request, anthropic_client, prompt, metrics_provider)
+        cache_provider = get_cache_provider()
+        return await process_request(request, anthropic_client, prompt, metrics_provider, cache_provider)

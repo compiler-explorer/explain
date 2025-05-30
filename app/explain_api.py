@@ -56,6 +56,7 @@ class ExplainRequest(BaseModel):
     explanation: ExplanationType = Field(
         default=ExplanationType.ASSEMBLY, description="Type of explanation to generate"
     )
+    bypass_cache: bool = Field(default=False, description="If true, skip reading from cache but still write to cache")
 
 
 class TokenUsage(BaseModel):

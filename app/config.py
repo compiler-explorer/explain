@@ -9,6 +9,9 @@ class Settings(BaseSettings):
     anthropic_api_key: str
     root_path: str = ""
     metrics_enabled: bool = False
+    cache_enabled: bool = True
+    cache_s3_bucket: str = ""
+    cache_s3_prefix: str = "explain-cache/"
     model_config = SettingsConfigDict(env_file=".env")
 
 

@@ -78,11 +78,12 @@ def noop_metrics():
 class TestProcessRequest:
     """Test the main process_request function."""
 
-    def test_process_request_success(self, sample_request, mock_anthropic_client, noop_metrics):
+    @pytest.mark.asyncio
+    async def test_process_request_success(self, sample_request, mock_anthropic_client, noop_metrics):
         """Test successful processing of a request."""
         # Create a test prompt instance using the actual prompt.yaml
         test_prompt = Prompt(Path("app/prompt.yaml"))
-        response = process_request(sample_request, mock_anthropic_client, test_prompt, noop_metrics)
+        response = await process_request(sample_request, mock_anthropic_client, test_prompt, noop_metrics)
 
         # Verify response structure
         assert response.status == "success"

@@ -23,10 +23,15 @@ See the source code for the current project structure. Key entry points:
 
 ### Environment Configuration
 
-Create a `.env` file (NOT in git) with your Anthropic API key:
+Create a `.env` file (NOT in git) with your configuration:
 
 ```ini
 ANTHROPIC_API_KEY=<your-key-here>
+
+# Optional caching configuration
+CACHE_ENABLED=true
+CACHE_S3_BUCKET=your-bucket-name
+CACHE_S3_PREFIX=explain-cache/
 ```
 
 ### Install Dependencies
@@ -84,6 +89,8 @@ uv run ruff format
 - Smart assembly filtering for large compiler outputs
 - AWS CloudWatch metrics integration when deployed
 - Local development with `.env` file configuration
+- S3-based response caching to reduce API costs and improve performance
+- Configurable cache with `bypass_cache` option for fresh responses
 
 ## API Usage
 
@@ -114,7 +121,8 @@ uv run ruff format
       },
       "labels": []
     }
-  ]
+  ],
+  "bypass_cache": false  // Optional: set to true to skip cache reads
 }
 ```
 
@@ -145,3 +153,13 @@ See `app/explain.py` for current limits and model configuration. The service inc
 ## Deployment
 
 The service is designed for AWS Lambda deployment with API Gateway. See the Terraform configuration in the repository for infrastructure setup. The version of the service that runs in production is controlled by the terraform in our [infra](https://github.com/compiler-explorer/infra) repository.
+
+### S3 Caching Configuration
+
+When deploying via Terraform, the S3 caching is configured through Lambda environment variables:
+
+- `CACHE_ENABLED`: Set to `true` to enable caching
+- `CACHE_S3_BUCKET`: The S3 bucket name for storing cached responses
+- `CACHE_S3_PREFIX`: The key prefix for cache objects (default: `explain-cache/`)
+
+The Lambda function's IAM role must have permissions to read and write to the specified S3 bucket. Cache entries are automatically set with a 2-day TTL via S3 object metadata.
