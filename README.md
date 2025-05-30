@@ -142,7 +142,8 @@ uv run ruff format
     "input_cost": 0.000123,
     "output_cost": 0.000456,
     "total_cost": 0.000579
-  }
+  },
+  "cached": false
 }
 ```
 

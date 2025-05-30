@@ -50,7 +50,9 @@ async def process_request(
             metrics_provider.set_property("language", body.language)
             metrics_provider.set_property("compiler", body.compiler)
             metrics_provider.set_property("instructionSet", body.instructionSet or "unknown")
+            metrics_provider.set_property("cached", "true")
             metrics_provider.put_metric("ClaudeExplainRequest", 1)
+            metrics_provider.put_metric("ClaudeExplainCachedResponse", 1)
 
             return cached_response
 
@@ -107,7 +109,9 @@ async def _call_anthropic_api(
     metrics_provider.set_property("language", body.language)
     metrics_provider.set_property("compiler", body.compiler)
     metrics_provider.set_property("instructionSet", body.instructionSet or "unknown")
+    metrics_provider.set_property("cached", "false")
     metrics_provider.put_metric("ClaudeExplainRequest", 1)
+    metrics_provider.put_metric("ClaudeExplainFreshResponse", 1)
 
     # Track token usage
     metrics_provider.put_metric("ClaudeExplainInputTokens", input_tokens)
@@ -129,4 +133,5 @@ async def _call_anthropic_api(
             output_cost=round(output_cost, 6),
             total_cost=round(total_cost, 6),
         ),
+        cached=False,  # This is a fresh response from the API
     )

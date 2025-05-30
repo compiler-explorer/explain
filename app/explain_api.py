@@ -84,6 +84,7 @@ class ExplainResponse(BaseModel):
     model: str | None = Field(None, description="The Claude model used")
     usage: TokenUsage | None = Field(None, description="Token usage information")
     cost: CostBreakdown | None = Field(None, description="Cost breakdown")
+    cached: bool = Field(default=False, description="Whether this response was served from cache")
 
 
 class ExplainErrorResponse(BaseModel):

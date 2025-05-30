@@ -102,6 +102,9 @@ class TestProcessRequest:
         assert isinstance(response.cost.output_cost, float)
         assert isinstance(response.cost.total_cost, float)
 
+        # Check cached flag
+        assert response.cached is False  # Should not be cached on first request
+
         # Verify the mock was called correctly
         mock_anthropic_client.messages.create.assert_called_once()
         args, kwargs = mock_anthropic_client.messages.create.call_args

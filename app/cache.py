@@ -185,7 +185,10 @@ async def get_cached_response(
 
     try:
         # Convert cached dict back to ExplainResponse
-        return ExplainResponse(**cached_data)
+        response = ExplainResponse(**cached_data)
+        # Mark this response as cached
+        response.cached = True
+        return response
     except Exception as e:
         LOGGER.warning(f"Error deserializing cached response: {e}")
         return None

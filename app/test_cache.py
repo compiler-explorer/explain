@@ -292,6 +292,7 @@ class TestCacheHighLevelFunctions:
         assert result is not None
         assert result.status == "success"
         assert result.explanation == "This function implements a square operation..."
+        assert result.cached is True
         mock_cache.get.assert_called_once()
 
     @pytest.mark.asyncio
