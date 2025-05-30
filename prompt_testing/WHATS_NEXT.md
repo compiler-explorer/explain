@@ -14,6 +14,15 @@ This document outlines the next steps for improving the prompt testing framework
 - Basic error handling for API failures
 - Switched to ruamel.yaml for better YAML formatting preservation
 
+### Code Quality Improvements (PR #2)
+- Added error handling for JSON parsing in `claude_reviewer.py`
+- Added tests for `scorer.py` (test case loading)
+- Fixed test prompt formats (v1_baseline.yaml, v2_baseline.yaml)
+- Added `prompt-test validate` command for prompt structure validation
+- Extracted common file handling utilities to `file_utils.py`
+- Refactored large functions in `cli.py` and `runner.py`
+- Added tests for pure functions (12 new tests)
+
 ## Priority Improvements
 
 ### 1. **Prompt Structure Architecture Decision**
@@ -96,14 +105,19 @@ Add support for compiler warnings in explanations:
 2. Automated prompt regression testing
 3. GitHub PR comments with test results
 4. Slack/Discord notifications for failures
+5. **Add `prompt-test deploy` command** - Automate the deployment process with validation, backup, and rollback capabilities
 
 ## Technical Debt
 
 ### Code Quality
 1. Add more comprehensive error handling
 2. Improve test coverage (target 90%+)
+   - `runner.py` needs tests (requires mocking Claude API)
+   - `cli.py` command functions need tests (requires mocking)
+   - `prompt_advisor.py` needs tests (requires mocking)
 3. Add type hints throughout
 4. Standardize logging approach
+5. Break down remaining large functions
 
 ### Architecture
 1. Consider abstracting scorer interface

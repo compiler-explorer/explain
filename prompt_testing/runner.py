@@ -2,7 +2,6 @@
 Main test runner for prompt evaluation.
 """
 
-import json
 import time
 from datetime import datetime
 from pathlib import Path
@@ -17,7 +16,7 @@ from app.metrics import NoopMetricsProvider
 from app.prompt import Prompt
 from prompt_testing.evaluation.claude_reviewer import ClaudeReviewer
 from prompt_testing.evaluation.scorer import load_all_test_cases
-from prompt_testing.yaml_utils import load_yaml_file
+from prompt_testing.file_utils import load_prompt_file, save_json_results
 
 # Load environment variables from .env file
 load_dotenv()
@@ -59,10 +58,7 @@ class PromptTester:
         else:
             prompt_file = self.prompt_dir / f"{prompt_version}.yaml"
 
-        if not prompt_file.exists():
-            raise FileNotFoundError(f"Prompt file not found: {prompt_file}")
-
-        return load_yaml_file(prompt_file)
+        return load_prompt_file(prompt_file)
 
     def convert_test_case_to_request(self, test_case: dict[str, Any]) -> ExplainRequest:
         """Convert a test case to an ExplainRequest object."""
@@ -266,11 +262,7 @@ class PromptTester:
             output_file = f"{timestamp}_{prompt_version}.json"
 
         output_path = self.results_dir / output_file
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-
-        with output_path.open("w") as f:
-            json.dump(test_results, f, indent=2)
-
+        save_json_results(test_results, output_path)
         print(f"Results saved to: {output_path}")
         return str(output_path)
 

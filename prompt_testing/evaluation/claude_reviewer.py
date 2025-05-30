@@ -209,12 +209,36 @@ Then provide your evaluation in this exact JSON format:
         # Extract JSON from the response (handle thinking output if present)
         json_start = response_text.find("{")
         json_end = response_text.rfind("}") + 1
+
+        if json_start == -1 or json_end == 0:
+            raise ValueError(f"No valid JSON found in Claude's response: {response_text[:200]}...")
+
         json_str = response_text[json_start:json_end]
 
-        evaluation = json.loads(json_str)
+        try:
+            evaluation = json.loads(json_str)
+        except json.JSONDecodeError as e:
+            raise ValueError(
+                f"Failed to parse Claude's evaluation response as JSON: {e}\nResponse: {json_str[:200]}..."
+            ) from e
 
         # Convert Claude's 0-100 scores to 0-1 range
+        if "scores" not in evaluation:
+            raise ValueError(f"Missing 'scores' in evaluation response: {list(evaluation.keys())}")
+
         scores = evaluation["scores"]
+
+        # Validate required score fields
+        required_scores = [
+            "technical_accuracy",
+            "educational_value",
+            "clarity_structure",
+            "completeness",
+            "practical_insights",
+        ]
+        missing_scores = [field for field in required_scores if field not in scores]
+        if missing_scores:
+            raise ValueError(f"Missing required scores: {missing_scores}")
 
         # Calculate overall score with weights
         overall_score = (
