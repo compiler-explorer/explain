@@ -1,6 +1,7 @@
 """Tests for file utilities."""
 
 import tempfile
+import time
 from pathlib import Path
 
 import pytest
@@ -109,8 +110,6 @@ def test_find_latest_results_file():
         file3 = results_dir / "20240103_120000_prompt2.json"
 
         # Create files with slight time delays
-        import time
-
         file1.write_text("{}")
         time.sleep(0.01)
         file2.write_text("{}")

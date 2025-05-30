@@ -1,8 +1,9 @@
 """Tests for CLI utility functions."""
 
+import json
 from unittest.mock import Mock
 
-from prompt_testing.cli import _filter_compilers
+from prompt_testing.cli import _filter_compilers, _generate_compiler_mapping
 
 
 class MockCompiler:
@@ -86,11 +87,6 @@ def test_generate_compiler_mapping(tmp_path):
     ]
 
     output_file = tmp_path / "mapping.json"
-
-    # Import here to avoid circular import
-    import json
-
-    from prompt_testing.cli import _generate_compiler_mapping
 
     # Generate mapping
     _generate_compiler_mapping(compilers, output_file)

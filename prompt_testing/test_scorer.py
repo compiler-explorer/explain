@@ -4,6 +4,7 @@ import tempfile
 from pathlib import Path
 
 import pytest
+from ruamel.yaml import YAMLError
 
 from prompt_testing.evaluation.scorer import load_all_test_cases, load_test_case
 
@@ -95,8 +96,6 @@ def test_load_test_case_malformed_yaml():
         temp_path = f.name
 
     try:
-        from ruamel.yaml import YAMLError
-
         with pytest.raises(YAMLError):  # YAML parsing error
             load_test_case(temp_path, "test_case")
     finally:

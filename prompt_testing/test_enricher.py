@@ -5,6 +5,7 @@ from unittest.mock import Mock
 import pytest
 
 from prompt_testing.ce_api import AssemblyLine, CompilationError, CompileResponse
+from prompt_testing.ce_api.models import SourceInfo
 from prompt_testing.enricher import TestCaseEnricher
 
 
@@ -64,8 +65,6 @@ class TestTestCaseEnricher:
         mock_client.find_compiler_by_name.return_value = mock_compiler
 
         # Mock compilation response
-        from prompt_testing.ce_api.models import SourceInfo
-
         asm_lines = [
             AssemblyLine(text="push rbp", address=1, source=SourceInfo(file=None, line=1)),
             AssemblyLine(text="mov rbp, rsp", address=2, source=SourceInfo(file=None, line=1)),

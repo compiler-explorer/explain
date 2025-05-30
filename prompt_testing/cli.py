@@ -10,6 +10,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+from app.explain_api import AssemblyItem, ExplainRequest
 from app.prompt import Prompt
 from prompt_testing.ce_api import CompilerExplorerClient
 from prompt_testing.enricher import TestCaseEnricher
@@ -182,8 +183,6 @@ def cmd_validate(args):
 
         # Test generating messages
         try:
-            from app.explain_api import AssemblyItem, ExplainRequest
-
             test_request = ExplainRequest(
                 language="C++",
                 compiler="gcc 12.1",
