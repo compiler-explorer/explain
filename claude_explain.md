@@ -93,7 +93,7 @@ The prompt testing framework feeds back into the main service by:
 - Prompt testing framework with CE API integration
 - Pre-commit hooks and code quality tools
 - AWS deployment (handled by Compiler Explorer infrastructure)
-- S3 caching for responses with configurable TTL
+- S3 caching for responses with configurable HTTP Cache-Control headers
 - Cache bypass option for fresh responses
 
 ### 🔄 In Progress

@@ -160,8 +160,10 @@ The service supports S3-based response caching to reduce API costs and improve p
 - `CACHE_ENABLED`: Set to `true` to enable caching (default: `true`)
 - `CACHE_S3_BUCKET`: The S3 bucket name for storing cached responses
 - `CACHE_S3_PREFIX`: The key prefix for cache objects (default: `explain-cache/`)
-- `CACHE_TTL`: Cache time-to-live in human-readable format (default: `2d`)
+- `CACHE_TTL`: HTTP Cache-Control max-age in human-readable format (default: `2d`)
   - Examples: `2d` (2 days), `48h` (48 hours), `30m` (30 minutes), `172800s` (seconds)
+  - Note: This sets the HTTP Cache-Control header for client-side caching only
+  - S3 object expiration is handled separately via bucket lifecycle rules
 
 #### Required S3 Permissions
 
@@ -169,7 +171,7 @@ The Lambda function's IAM role must have the following S3 permissions:
 - `s3:GetObject` - to retrieve cached responses
 - `s3:PutObject` - to store new responses
 
-Cache entries are automatically set with the configured TTL via S3 object metadata (`Cache-Control` header).
+Objects are stored with an HTTP `Cache-Control` header for client-side caching. S3 object lifecycle and expiration are managed independently of this TTL.
 
 #### Cache Behavior
 
