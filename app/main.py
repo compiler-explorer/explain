@@ -58,10 +58,14 @@ def get_cache_provider():
         logger.warning("Cache enabled but no S3 bucket configured, disabling cache")
         return NoOpCacheProvider()
 
-    logger.info(f"S3 cache enabled: bucket={settings.cache_s3_bucket}, prefix={settings.cache_s3_prefix}")
+    logger.info(
+        f"S3 cache enabled: bucket={settings.cache_s3_bucket}, "
+        f"prefix={settings.cache_s3_prefix}, ttl={settings.cache_ttl} ({settings.cache_ttl_seconds}s)"
+    )
     return S3CacheProvider(
         bucket=settings.cache_s3_bucket,
         prefix=settings.cache_s3_prefix,
+        settings=settings,
     )
 
 

@@ -9,6 +9,7 @@ dependencies = [
     "aws-embedded-metrics>=3.3.0",
     "boto3>=1.35.0",
     "fastapi",
+    "humanfriendly>=10.0",
     "mangum",
     "pydantic-settings>=2.9.1",
     "python-dotenv>=1.1.0",

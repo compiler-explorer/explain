@@ -13,6 +13,7 @@ from typing import Any
 import boto3
 from botocore.exceptions import ClientError, NoCredentialsError
 
+from app.config import Settings
 from app.explain_api import ExplainRequest, ExplainResponse
 from app.prompt import Prompt
 
@@ -57,16 +58,18 @@ class NoOpCacheProvider(CacheProvider):
 class S3CacheProvider(CacheProvider):
     """S3-based cache provider."""
 
-    def __init__(self, bucket: str, prefix: str = "explain-cache/"):
+    def __init__(self, bucket: str, prefix: str = "explain-cache/", settings: Settings | None = None):
         """Initialize the S3 cache provider.
 
         Args:
             bucket: The S3 bucket name
             prefix: The key prefix for cache objects (default: "explain-cache/")
+            settings: Application settings (optional, for accessing cache TTL)
         """
         self.bucket = bucket
         self.prefix = prefix.rstrip("/") + "/"  # Ensure trailing slash
         self._s3_client = None
+        self.settings = settings
 
     @property
     def s3_client(self):
@@ -109,7 +112,7 @@ class S3CacheProvider(CacheProvider):
                 Key=s3_key,
                 Body=content.encode("utf-8"),
                 ContentType="application/json",
-                CacheControl="max-age=172800",  # 2 days
+                CacheControl=f"max-age={self.settings.cache_ttl_seconds if self.settings else 172800}",
             )
             LOGGER.debug(f"Cached response for key {key}")
         except (ClientError, NoCredentialsError) as e:

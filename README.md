@@ -32,6 +32,7 @@ ANTHROPIC_API_KEY=<your-key-here>
 CACHE_ENABLED=true
 CACHE_S3_BUCKET=your-bucket-name
 CACHE_S3_PREFIX=explain-cache/
+CACHE_TTL=2d  # Human-readable duration (e.g., "2d", "48h", "30m", "172800s")
 ```
 
 ### Install Dependencies
