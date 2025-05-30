@@ -42,8 +42,8 @@ prompt_testing/
 │   └── edge_cases.yaml
 ├── prompts/              # Prompt versions (YAML files)
 │   ├── v1_baseline.yaml
-│   ├── current.yaml
 │   └── v2_improved.yaml
+│   # Note: 'current' prompt is loaded from app/prompt.yaml
 ├── results/              # Test results and analysis
 │   └── [timestamp]_[prompt_version].json
 └── evaluation/           # Scoring and review tools
@@ -84,21 +84,58 @@ cases:
 
 ## Prompt Format
 
-Prompts are defined in YAML files with separate system and user prompts:
+Prompts are defined in YAML files that must match the production schema. Here's the required structure:
 
 ```yaml
+# Model configuration (required)
+model:
+  name: claude-3-5-haiku-20241022  # Model to use
+  max_tokens: 1024                  # Maximum response tokens
+  temperature: 0.0                  # Sampling temperature
+
+# Audience levels (required)
+audience_levels:
+  beginner:
+    description: "Novice programmers"
+    guidance: "Use simple language, avoid jargon..."
+  intermediate:
+    description: "Experienced developers"
+    guidance: "Assume familiarity with programming concepts..."
+  expert:
+    description: "Systems programmers"
+    guidance: "Use technical terminology freely..."
+
+# Explanation types (required)
+explanation_types:
+  assembly:
+    description: "Focus on assembly instructions"
+    focus_areas:
+      - "Instruction-by-instruction breakdown"
+      - "Register usage and memory access"
+    user_prompt_phrase: "assembly output"
+  optimization:
+    description: "Focus on compiler optimizations"
+    focus_areas:
+      - "Optimization techniques applied"
+      - "Performance implications"
+    user_prompt_phrase: "compiler optimizations"
+
+# Prompt templates (required)
 system_prompt: |
-  You are an expert in {arch} assembly code and {language}, helping users of the
-  Compiler Explorer website understand how their code compiles to assembly.
+  You are an expert in {arch} assembly code and {language}...
 
-user_prompt: "Explain the {arch} assembly output."
+  Audience: {audience_description}
+  {audience_guidance}
 
-assistant_prefill: "I have analysed the assembly code and my analysis is:"
+  Explanation Type: {explanation_type_description}
+  Focus on: {explanation_type_focus}
 
-model_config:
-  model: claude-3-5-sonnet-20241022
-  max_tokens: 4000
+user_prompt: "Explain the {arch} {explanation_type_phrase} for this {language} code."
+
+assistant_prefill: "I'll analyze the {explanation_type_phrase} and explain it for {audience_level} level."
 ```
+
+**Important**: Test prompts must include ALL these fields to work in production. The `current` special prompt loads from `app/prompt.yaml` which contains the complete structure.
 
 ## Evaluation Metrics
 
@@ -226,7 +263,7 @@ uv run prompt-test run --prompt v1_baseline --compare current --categories basic
 
 1. Create a new prompt version:
    ```bash
-   cp prompt_testing/prompts/current.yaml prompt_testing/prompts/v3_experiment.yaml
+   cp app/prompt.yaml prompt_testing/prompts/v3_experiment.yaml
    # Edit the new prompt
    ```
 
@@ -235,9 +272,18 @@ uv run prompt-test run --prompt v1_baseline --compare current --categories basic
    uv run prompt-test run --prompt v3_experiment --compare current
    ```
 
-3. If it performs better, update current:
+3. Validate the new prompt structure:
    ```bash
-   cp prompt_testing/prompts/v3_experiment.yaml prompt_testing/prompts/current.yaml
+   # Ensure the prompt loads correctly in production code
+   uv run python -c "from app.prompt import Prompt; Prompt.from_yaml('prompt_testing/prompts/v3_experiment.yaml')"
+   ```
+
+4. If it performs better AND validates, update current:
+   ```bash
+   # Deploy the improved prompt (git tracks the previous version)
+   cp prompt_testing/prompts/v3_experiment.yaml app/prompt.yaml
+   # Verify the service still works
+   uv run pytest app/test_explain.py::test_process_request_success
    ```
 
 ### Adding Test Cases
@@ -269,9 +315,22 @@ uv run prompt-test run --prompt v1_baseline --compare current --categories basic
    uv run prompt-test run --prompt current_v2 --scorer claude --compare current
    ```
 
-5. If improved, adopt as new current version:
+5. Review deployment criteria:
+   - **Score improvement**: New prompt should score higher (e.g., 0.85+ average)
+   - **No regressions**: No individual test case should drop significantly
+   - **Cost efficiency**: Token usage should not increase dramatically
+   - **Error-free**: All test cases should complete without errors
+
+6. If ALL criteria are met, deploy to production:
    ```bash
-   cp prompt_testing/prompts/current_v2.yaml prompt_testing/prompts/current.yaml
+   # Validate prompt structure
+   uv run python -c "from app.prompt import Prompt; Prompt.from_yaml('prompt_testing/prompts/current_v2.yaml')"
+
+   # Deploy (git tracks previous versions)
+   cp prompt_testing/prompts/current_v2.yaml app/prompt.yaml
+
+   # Test production integration
+   uv run pytest app/test_explain.py
    ```
 
 ### Human Review Workflow

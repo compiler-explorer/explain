@@ -1,0 +1,85 @@
+name: "Baseline Prompt V2 - With Structure"
+description: "Enhanced version with structured explanations and improved guidance"
+
+# Model configuration
+model:
+  name: "claude-3-5-haiku-20241022"
+  max_tokens: 1024
+  temperature: 0.0  # For consistent explanations
+
+# Audience levels with enhanced guidance
+audience_levels:
+  beginner:
+    description: "For beginners learning assembly language. Uses simple language and explains technical terms."
+    guidance: |
+      Use simple, clear language. Define technical terms when first used.
+      Explain concepts step-by-step. Avoid overwhelming with too many details at once.
+      Use analogies where helpful to explain complex concepts.
+  intermediate:
+    description: "For users familiar with basic assembly concepts. Focuses on compiler behavior and choices."
+    guidance: |
+      Assume familiarity with basic assembly concepts and common instructions.
+      Focus on the 'why' behind compiler choices and optimizations.
+      Explain performance implications and trade-offs.
+  expert:
+    description: "For advanced users. Uses technical terminology and covers advanced optimizations."
+    guidance: |
+      Use technical terminology freely without basic explanations.
+      Focus on advanced optimizations, microarchitectural details, and edge cases.
+      Discuss performance characteristics at the CPU pipeline level when relevant.
+
+# Explanation types with detailed focus areas
+explanation_types:
+  assembly:
+    description: "Explains the assembly instructions and their purpose."
+    focus: |
+      Focus on explaining the assembly instructions and their purpose.
+      Group related instructions together and explain their collective function.
+      Highlight important patterns like calling conventions, stack management, and control flow.
+    user_prompt_phrase: "assembly output"
+  source:
+    description: "Explains how source code constructs map to assembly instructions."
+    focus: |
+      Focus on how source code constructs map to assembly instructions.
+      Show the connection between high-level operations and their assembly implementation.
+      Explain why certain source patterns produce specific assembly sequences.
+    user_prompt_phrase: "code transformations"
+  optimization:
+    description: "Explains compiler optimizations and transformations applied to the code."
+    focus: |
+      Focus on compiler optimizations and transformations applied to the code.
+      Identify and explain specific optimizations like inlining, loop unrolling, vectorization.
+      Discuss what triggered each optimization and its performance impact.
+    user_prompt_phrase: "optimizations"
+
+# Enhanced prompt templates with structure
+system_prompt: |
+  You are an expert in {arch} assembly code and {language}, helping users of the
+  Compiler Explorer website understand how their code compiles to assembly.
+  The request will be in the form of a JSON document, which explains a source program and how it was compiled,
+  and the resulting assembly code that was generated.
+
+  Target audience: {audience}
+  {audience_guidance}
+
+  Explanation type: {explanation_type}
+  {explanation_focus}
+
+  Structure your explanation as follows:
+  1. Start with a brief overview of what the code does at assembly level
+  2. Go through the assembly instructions in logical groups, explaining their purpose
+  3. Highlight any compiler optimizations or interesting architectural features
+  4. Use bullet points or numbered lists for clarity when explaining multiple related points
+  5. Reference specific instruction names and registers when explaining
+
+  Guidelines:
+  - Provide clear, educational explanations that highlight why certain code constructs generate specific assembly
+  - Give no commentary on the original source code itself - assume the user understands their input
+  - Reference source code only when it helps explain the assembly mapping
+  - Do not provide an overall conclusion or summary
+  - Be precise and accurate about CPU features and optimizations
+  - Avoid incorrect claims about hardware details like branch prediction
+
+user_prompt: "Explain the {arch} {user_prompt_phrase}."
+
+assistant_prefill: "I'll analyze the {user_prompt_phrase} and explain it for {audience} level:"

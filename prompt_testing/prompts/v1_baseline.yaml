@@ -1,6 +1,40 @@
 name: "Baseline Prompt V1"
 description: "Same as current - used as baseline for comparison testing"
 
+# Model configuration
+model:
+  name: "claude-3-5-haiku-20241022"
+  max_tokens: 1024
+  temperature: 0.0  # For consistent explanations
+
+# Audience levels - simplified version without audience-specific guidance
+audience_levels:
+  beginner:
+    description: "For beginners learning assembly language."
+    guidance: "Use simple language and explain technical terms."
+  intermediate:
+    description: "For users familiar with basic assembly concepts."
+    guidance: "Focus on compiler behavior and optimizations."
+  expert:
+    description: "For advanced users."
+    guidance: "Use technical terminology and cover advanced topics."
+
+# Explanation types - simplified version
+explanation_types:
+  assembly:
+    description: "Explains the assembly instructions."
+    focus: "Focus on assembly instructions and their purpose."
+    user_prompt_phrase: "assembly output"
+  source:
+    description: "Explains source to assembly mapping."
+    focus: "Focus on how source code maps to assembly."
+    user_prompt_phrase: "code transformations"
+  optimization:
+    description: "Explains compiler optimizations."
+    focus: "Focus on compiler optimizations."
+    user_prompt_phrase: "optimizations"
+
+# Original prompt templates (without audience/type support)
 system_prompt: |
   You are an expert in {arch} assembly code and {language}, helping users of the
   Compiler Explorer website understand how their code compiles to assembly.
@@ -18,8 +52,3 @@ system_prompt: |
 user_prompt: "Explain the {arch} assembly output."
 
 assistant_prefill: "I have analysed the assembly code and my analysis is:"
-
-# Metadata
-model_config:
-  max_tokens: 1024
-  temperature: 0.0  # For consistent explanations

@@ -10,11 +10,17 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+from app.explain_api import AssemblyItem, ExplainRequest
+from app.prompt import Prompt
 from prompt_testing.ce_api import CompilerExplorerClient
 from prompt_testing.enricher import TestCaseEnricher
 from prompt_testing.evaluation.prompt_advisor import PromptOptimizer
 from prompt_testing.evaluation.reviewer import ReviewManager, create_simple_review_cli
 from prompt_testing.evaluation.scorer import load_all_test_cases
+from prompt_testing.file_utils import (
+    find_latest_results_file,
+    save_json_results,
+)
 from prompt_testing.runner import PromptTester
 
 # Load environment variables from .env file
@@ -138,6 +144,79 @@ def cmd_review(args):
     return 0
 
 
+def cmd_validate(args):
+    """Validate prompt structure and compatibility."""
+    project_root = Path(args.project_root)
+
+    if args.prompt == "current":
+        prompt_file = project_root / "app" / "prompt.yaml"
+    else:
+        prompt_file = project_root / "prompt_testing" / "prompts" / f"{args.prompt}.yaml"
+
+    if not prompt_file.exists():
+        print(f"Error: Prompt file not found: {prompt_file}")
+        return 1
+
+    print(f"Validating prompt: {prompt_file}")
+
+    try:
+        # Try to load the prompt using the production Prompt class
+        prompt = Prompt(prompt_file)
+        print("✓ Prompt structure is valid")
+
+        # Check model configuration
+        print(f"✓ Model: {prompt.model}")
+        print(f"✓ Max tokens: {prompt.max_tokens}")
+        print(f"✓ Temperature: {prompt.temperature}")
+
+        # Check audience levels
+        if prompt.audience_levels:
+            print(f"✓ Audience levels defined: {', '.join(prompt.audience_levels.keys())}")
+        else:
+            print("⚠ Warning: No audience levels defined")
+
+        # Check explanation types
+        if prompt.explanation_types:
+            print(f"✓ Explanation types defined: {', '.join(prompt.explanation_types.keys())}")
+        else:
+            print("⚠ Warning: No explanation types defined")
+
+        # Test generating messages
+        try:
+            test_request = ExplainRequest(
+                language="C++",
+                compiler="gcc 12.1",
+                compilationOptions=["-O2"],
+                instructionSet="x86_64",
+                code="int main() { return 0; }",
+                source="int main() { return 0; }",
+                asm=[AssemblyItem(text="ret", source={"line": 1})],
+                audience="beginner",
+                explanation_type="assembly",
+            )
+
+            messages = prompt.generate_messages(test_request)
+            print(f"✓ Successfully generated {len(messages)} messages")
+            print("✓ Prompt is ready for production use")
+
+        except Exception as e:
+            print(f"✗ Error generating messages: {e}")
+            return 1
+
+    except Exception as e:
+        print(f"✗ Error loading prompt: {e}")
+        print("\nMake sure the prompt has all required fields:")
+        print("- model (with name, max_tokens, temperature)")
+        print("- audience_levels")
+        print("- explanation_types")
+        print("- system_prompt")
+        print("- user_prompt")
+        print("- assistant_prefill")
+        return 1
+
+    return 0
+
+
 def cmd_analyze(args):
     """Analyze results and generate reports."""
     results_dir = Path(args.project_root) / "prompt_testing" / "results"
@@ -207,20 +286,17 @@ def cmd_improve(args):
 
     optimizer = PromptOptimizer(args.project_root)
 
-    # If specific results file provided
+    # Find the results file
     if args.results_file:
         results_file = args.results_file
     else:
-        # Find the most recent results file for the prompt
         results_dir = Path(args.project_root) / "prompt_testing" / "results"
-        pattern = f"*_{args.prompt}.json"
-        files = list(results_dir.glob(pattern))
-        if not files:
+        latest_file = find_latest_results_file(results_dir, args.prompt)
+        if not latest_file:
             print(f"No results found for prompt: {args.prompt}")
+            print(f"Run 'prompt-test run --prompt {args.prompt}' first")
             return 1
-
-        # Get most recent
-        results_file = max(files, key=lambda f: f.stat().st_mtime).name
+        results_file = latest_file.name
         print(f"Using most recent results: {results_file}")
 
     # Analyze and potentially create improved version
@@ -296,6 +372,56 @@ def cmd_enrich(args):
     return 0
 
 
+def _generate_compiler_mapping(compilers: list, output_file: Path) -> None:
+    """Generate a compiler name to ID mapping file.
+
+    Args:
+        compilers: List of compiler objects
+        output_file: Path to save the mapping
+    """
+    mapping = {}
+    for compiler in compilers:
+        # Use the full name as key
+        mapping[compiler.name] = compiler.id
+        # Also add common short versions
+        if "gcc" in compiler.name.lower():
+            # Extract version like "gcc 13.1" from "x86-64 gcc 13.1"
+            parts = compiler.name.split()
+            for i, part in enumerate(parts):
+                if part.lower() == "gcc" and i + 1 < len(parts):
+                    short_name = f"gcc {parts[i + 1]}"
+                    if short_name not in mapping:
+                        mapping[short_name] = compiler.id
+                    break
+
+    save_json_results(mapping, output_file)
+    print(f"Generated compiler mapping file: {output_file}")
+
+
+def _filter_compilers(compilers: list, args) -> list:
+    """Filter compilers based on command arguments.
+
+    Args:
+        compilers: List of compiler objects
+        args: Command arguments
+
+    Returns:
+        Filtered list of compilers
+    """
+    # Filter by instruction set if requested
+    if args.instruction_set:
+        compilers = [c for c in compilers if c.instruction_set == args.instruction_set]
+        print(f"Filtered to {len(compilers)} compilers with instruction set '{args.instruction_set}'\\n")
+
+    # Search if requested
+    if args.search:
+        search_lower = args.search.lower()
+        compilers = [c for c in compilers if search_lower in c.name.lower() or search_lower in c.id.lower()]
+        print(f"Found {len(compilers)} compilers matching '{args.search}'\\n")
+
+    return compilers
+
+
 def cmd_compilers(args):
     """List available compilers from CE API."""
     from collections import defaultdict
@@ -306,16 +432,8 @@ def cmd_compilers(args):
         compilers = client.get_compilers(args.language)
         print(f"Found {len(compilers)} compilers\n")
 
-        # Filter by instruction set if requested
-        if args.instruction_set:
-            compilers = [c for c in compilers if c.instruction_set == args.instruction_set]
-            print(f"Filtered to {len(compilers)} compilers with instruction set '{args.instruction_set}'\n")
-
-        # Search if requested
-        if args.search:
-            search_lower = args.search.lower()
-            compilers = [c for c in compilers if search_lower in c.name.lower() or search_lower in c.id.lower()]
-            print(f"Found {len(compilers)} compilers matching '{args.search}'\n")
+        # Apply filters
+        compilers = _filter_compilers(compilers, args)
 
         if not compilers:
             print("No compilers found matching criteria")
@@ -323,26 +441,7 @@ def cmd_compilers(args):
 
         # Generate mapping file if requested
         if args.generate_map:
-            mapping = {}
-            for compiler in compilers:
-                # Use the full name as key
-                mapping[compiler.name] = compiler.id
-                # Also add common short versions
-                if "gcc" in compiler.name.lower():
-                    # Extract version like "gcc 13.1" from "x86-64 gcc 13.1"
-                    parts = compiler.name.split()
-                    for i, part in enumerate(parts):
-                        if part.lower() == "gcc" and i + 1 < len(parts):
-                            short_name = f"gcc {parts[i + 1]}"
-                            if short_name not in mapping:
-                                mapping[short_name] = compiler.id
-                            break
-
-            output_file = Path(args.generate_map)
-            with output_file.open("w", encoding="utf-8") as f:
-                json.dump(mapping, f, indent=2, sort_keys=True)
-            print(f"Generated compiler mapping file: {output_file}")
-            print(f"Contains {len(mapping)} mappings")
+            _generate_compiler_mapping(compilers, Path(args.generate_map))
             return 0
 
         # Display compilers
@@ -476,6 +575,11 @@ Examples:
     # List command
     list_parser = subparsers.add_parser("list", help="List available test cases and prompts")
     list_parser.set_defaults(func=cmd_list)
+
+    # Validate command
+    validate_parser = subparsers.add_parser("validate", help="Validate prompt structure and compatibility")
+    validate_parser.add_argument("--prompt", required=True, help="Prompt version to validate")
+    validate_parser.set_defaults(func=cmd_validate)
 
     # Review command
     review_parser = subparsers.add_parser("review", help="Human review interface")

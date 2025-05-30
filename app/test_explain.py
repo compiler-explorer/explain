@@ -1,22 +1,17 @@
 import json
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
 
-from app.explain import (
-    MAX_ASSEMBLY_LINES,
-    MAX_TOKENS,
-    MODEL,
-    prepare_structured_data,
-    process_request,
-    select_important_assembly,
-)
+from app.explain import process_request
 from app.explain_api import (
     AssemblyItem,
     ExplainRequest,
     SourceMapping,
 )
 from app.metrics import NoopMetricsProvider
+from app.prompt import MAX_ASSEMBLY_LINES, Prompt
 
 
 @pytest.fixture
@@ -85,12 +80,14 @@ class TestProcessRequest:
 
     def test_process_request_success(self, sample_request, mock_anthropic_client, noop_metrics):
         """Test successful processing of a request."""
-        response = process_request(sample_request, mock_anthropic_client, noop_metrics)
+        # Create a test prompt instance using the actual prompt.yaml
+        test_prompt = Prompt(Path("app/prompt.yaml"))
+        response = process_request(sample_request, mock_anthropic_client, test_prompt, noop_metrics)
 
         # Verify response structure
         assert response.status == "success"
         assert response.explanation == "This assembly code implements a simple square function..."
-        assert response.model == MODEL
+        assert response.model == test_prompt.model
 
         # Check usage information
         assert response.usage is not None
@@ -109,8 +106,8 @@ class TestProcessRequest:
         args, kwargs = mock_anthropic_client.messages.create.call_args
 
         # Check that key parameters were passed
-        assert kwargs["model"] == MODEL
-        assert kwargs["max_tokens"] == MAX_TOKENS
+        assert kwargs["model"] == test_prompt.model
+        assert kwargs["max_tokens"] == test_prompt.max_tokens
         assert "system" in kwargs
 
         # Verify the system prompt contains appropriate instructions
@@ -160,7 +157,18 @@ class TestSelectImportantAssembly:
         ]
         label_defs = {"main": 0}
 
-        result = select_important_assembly(test_asm, label_defs, max_lines=10)
+        # Create a minimal prompt instance for testing
+        test_prompt = Prompt(
+            {
+                "model": {"name": "test", "max_tokens": 100},
+                "system_prompt": "",
+                "user_prompt": "",
+                "assistant_prefill": "",
+                "audience_levels": {},
+                "explanation_types": {},
+            }
+        )
+        result = test_prompt.select_important_assembly(test_asm, label_defs, max_lines=10)
 
         assert len(result) == 3
         assert result == test_asm
@@ -187,7 +195,18 @@ class TestSelectImportantAssembly:
         }
 
         # Run the function with a small max_lines for testing
-        result = select_important_assembly(test_asm, label_defs, max_lines=15)
+        # Create a minimal prompt instance for testing
+        test_prompt = Prompt(
+            {
+                "model": {"name": "test", "max_tokens": 100},
+                "system_prompt": "",
+                "user_prompt": "",
+                "assistant_prefill": "",
+                "audience_levels": {},
+                "explanation_types": {},
+            }
+        )
+        result = test_prompt.select_important_assembly(test_asm, label_defs, max_lines=15)
 
         # Verify the result has fewer lines than the original
         # Note: The function may exceed max_lines slightly due to context lines and omission markers
@@ -226,7 +245,18 @@ class TestSelectImportantAssembly:
 
         label_defs = {"func1": 0, "func2": 50}
 
-        result = select_important_assembly(test_asm, label_defs, max_lines=20)
+        # Create a minimal prompt instance for testing
+        test_prompt = Prompt(
+            {
+                "model": {"name": "test", "max_tokens": 100},
+                "system_prompt": "",
+                "user_prompt": "",
+                "assistant_prefill": "",
+                "audience_levels": {},
+                "explanation_types": {},
+            }
+        )
+        result = test_prompt.select_important_assembly(test_asm, label_defs, max_lines=20)
 
         # Check that function labels are included
         func_labels = [line["text"] for line in result if "func" in line["text"]]
@@ -242,7 +272,18 @@ class TestPrepareStructuredData:
 
     def test_prepare_structured_data_basic(self, sample_request):
         """Test basic structured data preparation."""
-        result = prepare_structured_data(sample_request)
+        # Create a minimal prompt instance for testing
+        test_prompt = Prompt(
+            {
+                "model": {"name": "test", "max_tokens": 100},
+                "system_prompt": "",
+                "user_prompt": "",
+                "assistant_prefill": "",
+                "audience_levels": {},
+                "explanation_types": {},
+            }
+        )
+        result = test_prompt.prepare_structured_data(sample_request)
 
         # Verify all required fields exist
         assert result["language"] == "c++"
@@ -265,7 +306,18 @@ class TestPrepareStructuredData:
             asm=[AssemblyItem(text="main:", source=None)],
         )
 
-        result = prepare_structured_data(minimal_request)
+        # Create a minimal prompt instance for testing
+        test_prompt = Prompt(
+            {
+                "model": {"name": "test", "max_tokens": 100},
+                "system_prompt": "",
+                "user_prompt": "",
+                "assistant_prefill": "",
+                "audience_levels": {},
+                "explanation_types": {},
+            }
+        )
+        result = test_prompt.prepare_structured_data(minimal_request)
 
         assert result["language"] == "rust"
         assert result["compiler"] == "rustc"
@@ -287,7 +339,18 @@ class TestPrepareStructuredData:
             asm=large_asm,
         )
 
-        result = prepare_structured_data(large_request)
+        # Create a minimal prompt instance for testing
+        test_prompt = Prompt(
+            {
+                "model": {"name": "test", "max_tokens": 100},
+                "system_prompt": "",
+                "user_prompt": "",
+                "assistant_prefill": "",
+                "audience_levels": {},
+                "explanation_types": {},
+            }
+        )
+        result = test_prompt.prepare_structured_data(large_request)
 
         # Verify truncation occurred
         assert result["truncated"]
@@ -296,7 +359,18 @@ class TestPrepareStructuredData:
 
     def test_prepare_structured_data_assembly_dict_conversion(self, sample_request):
         """Test that assembly items are properly converted to dicts."""
-        result = prepare_structured_data(sample_request)
+        # Create a minimal prompt instance for testing
+        test_prompt = Prompt(
+            {
+                "model": {"name": "test", "max_tokens": 100},
+                "system_prompt": "",
+                "user_prompt": "",
+                "assistant_prefill": "",
+                "audience_levels": {},
+                "explanation_types": {},
+            }
+        )
+        result = test_prompt.prepare_structured_data(sample_request)
 
         # Check that assembly items are dictionaries
         for asm_item in result["assembly"]:
