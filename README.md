@@ -28,11 +28,8 @@ Create a `.env` file (NOT in git) with your configuration:
 ```ini
 ANTHROPIC_API_KEY=<your-key-here>
 
-# Optional caching configuration
-CACHE_ENABLED=true
-CACHE_S3_BUCKET=your-bucket-name
-CACHE_S3_PREFIX=explain-cache/
-CACHE_TTL=2d  # Human-readable duration (e.g., "2d", "48h", "30m", "172800s")
+# Optional S3 caching configuration could go here
+# See "S3 Caching Configuration" section below for details
 ```
 
 ### Install Dependencies
@@ -158,10 +155,24 @@ The service is designed for AWS Lambda deployment with API Gateway. See the Terr
 
 ### S3 Caching Configuration
 
-When deploying via Terraform, the S3 caching is configured through Lambda environment variables:
+The service supports S3-based response caching to reduce API costs and improve performance. Configure caching through environment variables:
 
-- `CACHE_ENABLED`: Set to `true` to enable caching
+- `CACHE_ENABLED`: Set to `true` to enable caching (default: `true`)
 - `CACHE_S3_BUCKET`: The S3 bucket name for storing cached responses
 - `CACHE_S3_PREFIX`: The key prefix for cache objects (default: `explain-cache/`)
+- `CACHE_TTL`: Cache time-to-live in human-readable format (default: `2d`)
+  - Examples: `2d` (2 days), `48h` (48 hours), `30m` (30 minutes), `172800s` (seconds)
 
-The Lambda function's IAM role must have permissions to read and write to the specified S3 bucket. Cache entries are automatically set with a 2-day TTL via S3 object metadata.
+#### Required S3 Permissions
+
+The Lambda function's IAM role must have the following S3 permissions:
+- `s3:GetObject` - to retrieve cached responses
+- `s3:PutObject` - to store new responses
+
+Cache entries are automatically set with the configured TTL via S3 object metadata (`Cache-Control` header).
+
+#### Cache Behavior
+
+- Cache keys are generated based on the full request content including source code, assembly, and all options
+- Requests with `bypass_cache: true` will skip cache lookup but still store the fresh response
+- Cache misses or errors gracefully fall back to generating fresh responses
