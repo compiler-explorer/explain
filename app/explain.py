@@ -124,14 +124,14 @@ async def _call_anthropic_api(
         explanation=explanation,
         model=prompt_data["model"],
         usage=TokenUsage(
-            input_tokens=input_tokens,
-            output_tokens=output_tokens,
-            total_tokens=total_tokens,
+            inputTokens=input_tokens,
+            outputTokens=output_tokens,
+            totalTokens=total_tokens,
         ),
         cost=CostBreakdown(
-            input_cost=round(input_cost, 6),
-            output_cost=round(output_cost, 6),
-            total_cost=round(total_cost, 6),
+            inputCost=round(input_cost, 6),
+            outputCost=round(output_cost, 6),
+            totalCost=round(total_cost, 6),
         ),
         cached=False,  # This is a fresh response from the API
     )

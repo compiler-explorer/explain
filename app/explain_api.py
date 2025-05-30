@@ -56,23 +56,23 @@ class ExplainRequest(BaseModel):
     explanation: ExplanationType = Field(
         default=ExplanationType.ASSEMBLY, description="Type of explanation to generate"
     )
-    bypass_cache: bool = Field(default=False, description="If true, skip reading from cache but still write to cache")
+    bypassCache: bool = Field(default=False, description="If true, skip reading from cache but still write to cache")
 
 
 class TokenUsage(BaseModel):
     """Token usage information."""
 
-    input_tokens: int
-    output_tokens: int
-    total_tokens: int
+    inputTokens: int
+    outputTokens: int
+    totalTokens: int
 
 
 class CostBreakdown(BaseModel):
     """Cost breakdown information."""
 
-    input_cost: float
-    output_cost: float
-    total_cost: float
+    inputCost: float
+    outputCost: float
+    totalCost: float
 
 
 class ExplainResponse(BaseModel):

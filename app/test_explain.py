@@ -92,15 +92,15 @@ class TestProcessRequest:
 
         # Check usage information
         assert response.usage is not None
-        assert response.usage.input_tokens == 100
-        assert response.usage.output_tokens == 50
-        assert response.usage.total_tokens == 150
+        assert response.usage.inputTokens == 100
+        assert response.usage.outputTokens == 50
+        assert response.usage.totalTokens == 150
 
         # Check cost information
         assert response.cost is not None
-        assert isinstance(response.cost.input_cost, float)
-        assert isinstance(response.cost.output_cost, float)
-        assert isinstance(response.cost.total_cost, float)
+        assert isinstance(response.cost.inputCost, float)
+        assert isinstance(response.cost.outputCost, float)
+        assert isinstance(response.cost.totalCost, float)
 
         # Check cached flag
         assert response.cached is False  # Should not be cached on first request

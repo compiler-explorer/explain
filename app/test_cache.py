@@ -81,8 +81,8 @@ def sample_response():
         status="success",
         explanation="This function implements a square operation...",
         model="claude-3-5-sonnet-20241022",
-        usage=TokenUsage(input_tokens=100, output_tokens=50, total_tokens=150),
-        cost=CostBreakdown(input_cost=0.001, output_cost=0.002, total_cost=0.003),
+        usage=TokenUsage(inputTokens=100, outputTokens=50, totalTokens=150),
+        cost=CostBreakdown(inputCost=0.001, outputCost=0.002, totalCost=0.003),
     )
 
 
@@ -251,14 +251,14 @@ class TestCacheKeyGeneration:
             compiler="g++",
             code="int test() { return 0; }",
             asm=[AssemblyItem(text="test:", source=None)],
-            bypass_cache=False,
+            bypassCache=False,
         )
         request2 = ExplainRequest(
             language="c++",
             compiler="g++",
             code="int test() { return 0; }",
             asm=[AssemblyItem(text="test:", source=None)],
-            bypass_cache=True,
+            bypassCache=True,
         )
 
         key1 = generate_cache_key(request1, test_prompt)
@@ -275,7 +275,7 @@ class TestCacheHighLevelFunctions:
         mock_cache = AsyncMock()
         mock_cache.get.return_value = {"status": "success", "explanation": "cached"}
 
-        sample_request.bypass_cache = True
+        sample_request.bypassCache = True
         result = await get_cached_response(sample_request, test_prompt, mock_cache)
 
         assert result is None

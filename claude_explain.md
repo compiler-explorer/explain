@@ -143,7 +143,7 @@ Smart filtering algorithm prioritizes:
 ### Privacy
 - Compiler Explorer will display consent before sending code to Anthropic
 - Cached responses stored in S3 with configurable TTL (default 2 days)
-- Cache can be bypassed with `bypass_cache` parameter
+- Cache can be bypassed with `bypassCache` parameter
 - Compliance with CE privacy policy
 
 ## Cost Management

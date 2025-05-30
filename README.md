@@ -88,13 +88,17 @@ uv run ruff format
 - AWS CloudWatch metrics integration when deployed
 - Local development with `.env` file configuration
 - S3-based response caching to reduce API costs and improve performance
-- Configurable cache with `bypass_cache` option for fresh responses
+- Configurable cache with `bypassCache` option for fresh responses
 
 ## API Usage
 
 ### Endpoint
 
 `POST /` (root path)
+
+### Field Naming Convention
+
+The API uses **camelCase** for all field names to maintain consistency with JavaScript/JSON conventions, even though the internal Python code follows snake_case conventions.
 
 ### Request Format
 
@@ -120,7 +124,7 @@ uv run ruff format
       "labels": []
     }
   ],
-  "bypass_cache": false  // Optional: set to true to skip cache reads
+  "bypassCache": false  // Optional: set to true to skip cache reads
 }
 ```
 
@@ -132,14 +136,14 @@ uv run ruff format
   "status": "success",
   "model": "claude-3-5-haiku-20241022",
   "usage": {
-    "input_tokens": 123,
-    "output_tokens": 456,
-    "total_tokens": 579
+    "inputTokens": 123,
+    "outputTokens": 456,
+    "totalTokens": 579
   },
   "cost": {
-    "input_cost": 0.000123,
-    "output_cost": 0.000456,
-    "total_cost": 0.000579
+    "inputCost": 0.000123,
+    "outputCost": 0.000456,
+    "totalCost": 0.000579
   },
   "cached": false
 }
@@ -176,5 +180,5 @@ Objects are stored with an HTTP `Cache-Control` header for client-side caching. 
 #### Cache Behavior
 
 - Cache keys are generated based on the full request content including source code, assembly, and all options
-- Requests with `bypass_cache: true` will skip cache lookup but still store the fresh response
+- Requests with `bypassCache: true` will skip cache lookup but still store the fresh response
 - Cache misses or errors gracefully fall back to generating fresh responses

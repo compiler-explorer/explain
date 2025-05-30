@@ -176,7 +176,7 @@ async def get_cached_response(
     Returns:
         The cached ExplainResponse if found, None otherwise
     """
-    if request.bypass_cache:
+    if request.bypassCache:
         LOGGER.debug("Cache bypassed by request")
         return None
 
