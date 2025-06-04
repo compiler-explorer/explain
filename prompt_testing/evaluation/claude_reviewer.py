@@ -148,6 +148,11 @@ Which compiled to this assembly:
 
 ## Evaluation Criteria
 
+We assume the user is aware of which compiler they've selected, and if they have provided
+command-line parameters, they are aware what those do. Similarly they know the architecture
+they've selected and so there is not need to repeat any of this information unless it is
+critical to a point that needs to be made later on.
+
 {_AUDIENCE_LEVEL[audience]}
 
 {_EXPLANATION_TYPE[explanation_type]}
