@@ -297,8 +297,11 @@ class PromptOptimizer:
         with results_path.open() as f:
             test_data = json.load(f)
 
-        # Load current prompt
-        prompt_path = self.prompts_dir / f"{prompt_version}.yaml"
+        # Load current prompt - handle "current" special case
+        if prompt_version == "current":
+            prompt_path = self.project_root / "app" / "prompt.yaml"
+        else:
+            prompt_path = self.prompts_dir / f"{prompt_version}.yaml"
         current_prompt = load_yaml_file(prompt_path)
 
         # Get improvement suggestions

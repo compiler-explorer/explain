@@ -2,149 +2,133 @@
 
 ## Overview
 
-This document outlines the next steps for improving the prompt testing framework based on PR review feedback and recent development work.
+This document outlines the next steps for improving the prompt testing framework based on audit findings and recent development work.
 
 ## Recently Completed ✅
 
-### Compiler Explorer API Integration
+### Web Review Interface (Latest)
+- **Fixed HTML review interface** - Replaced string concatenation with Flask + Jinja2
+- **Added markdown rendering** - AI responses now display with proper formatting using python-markdown
+- **Fixed template errors** - Resolved "dict has no attribute request" by enriching results with test case data
+- **Improved result descriptions** - Clear labels like "Current Production Prompt - 12 cases" instead of "unknown"
+- **Added CSS styling** - Proper code block, header, and list formatting
+- **Interactive web server** - `uv run prompt-test review --interactive` launches Flask app on localhost:5001
+
+### Prompt Improvement System Audit & Fixes
+- **Fixed critical "current" prompt loading bug** - PromptOptimizer now handles "current" → `app/prompt.yaml` mapping
+- **Verified PromptAdvisor functionality** - Claude-based analysis with structured JSON suggestions working
+- **Tested improvement workflow** - `uv run prompt-test improve --prompt current` now works correctly
+- **Found existing analysis files** - Comprehensive suggestions in `/results/analysis_*` files with specific improvements
+
+### Earlier Improvements
 - Added support for calling CE REST API to fetch assembly output
 - Test cases can now have empty `asm` blocks that get populated automatically
 - Created `uv run prompt-test enrich` command to fetch real assembly data
 - Support for different compiler versions and optimization flags
-- Basic error handling for API failures
-- Switched to ruamel.yaml for better YAML formatting preservation
-
-### Code Quality Improvements (PR #2)
 - Added error handling for JSON parsing in `claude_reviewer.py`
 - Added tests for `scorer.py` (test case loading)
-- Fixed test prompt formats (v1_baseline.yaml, v2_baseline.yaml)
-- Added `prompt-test validate` command for prompt structure validation
-- Extracted common file handling utilities to `file_utils.py`
-- Refactored large functions in `cli.py` and `runner.py`
-- Added tests for pure functions (12 new tests)
-
-### Caching Implementation
 - Added S3-based caching for explanation responses
-- Cache key generation based on all response-affecting data including prompt content
-- Configurable TTL and human-readable duration support
-- Cost reduction for duplicate API requests
+- Migrated to Claude-only scoring (removed AutomaticScorer and HybridScorer)
 
-### Claude-Only Scoring Migration
-- Removed AutomaticScorer and HybridScorer classes
-- ClaudeReviewer is now the primary evaluation method
-- Simplified CLI scoring options
-- Improved evaluation quality at the cost of API usage
+## Immediate Priority Actions
 
-## Priority Improvements
+### 1. **Integrate Human Review Data into Improvement Workflow**
+**Priority**: High - Critical gap in feedback loop
 
-### 1. **Prompt Structure Architecture Decision**
-**Priority**: High - Blocks prompt improvement workflow
+**Current State**:
+- Web interface collects human reviews in JSONL format via ReviewManager
+- PromptAdvisor only uses automated Claude reviewer metrics
+- No integration between human feedback and improvement suggestions
 
-We need to decide on the fundamental architecture for how prompts handle audience levels and explanation types:
+**Actions Needed**:
+1. Modify `PromptAdvisor.analyze_results_and_suggest_improvements()` to accept human review data
+2. Add human review aggregation alongside automated metrics in analysis prompt
+3. Update CLI improve command to load and pass human reviews to advisor
+4. Create unified feedback format combining human + automated reviews
 
-**Option A**: Separate system prompts for each combination
-- Pro: More focused, specific instructions
-- Con: More prompts to maintain
+### 2. **Add File Selection Intelligence for Improve Command**
+**Priority**: Medium - Usability improvement
 
-**Option B**: Single system prompt with user-specified parameters
-- Pro: Easier to maintain and test
-- Con: Less specialized instructions
+**Current Issue**:
+- `uv run prompt-test improve --prompt current` uses "most recent results" which could be comparison/analysis files
+- No filtering by prompt version when multiple results exist
 
-**Decision needed**: This affects how the prompt advisor can feed improvements back into the system.
+**Actions Needed**:
+1. Add logic to skip analysis files (containing "analysis_" or "comparison_")
+2. Filter results by prompt version to avoid cross-contamination
+3. Prefer newer timestamp files when multiple valid options exist
+4. Add `--results-file` flag for manual override when needed
 
-### 2. **Enhance Claude-Only Scoring**
-**Priority**: Medium - Performance and usability improvement
+### 3. **Add Iteration Tracking and Version History**
+**Priority**: Medium - Proper development workflow
 
-Current state:
-- Successfully transitioned to Claude-only scoring
-- ClaudeReviewer is the primary evaluation method
-- AutomaticScorer and HybridScorer have been removed
+**Current Gap**: No tracking of prompt improvement lineage or performance over time
 
-Remaining actions:
-1. Add cost warnings and progress indicators for long evaluation runs
-2. Consider adding parallel evaluation for performance
-3. Add cost tracking and budgeting features
-4. Document best practices for cost-effective evaluation
+**Actions Needed**:
+1. Add version history metadata to prompt YAML files
+2. Track what each version builds on (parent version, improvements applied)
+3. Performance tracking across iterations (score trends, regression detection)
+4. Add `prompt-test history` command to show improvement lineage
 
-### 3. **HTML Review Interface**
-**Priority**: Medium - Quality of life improvement
+## System Architecture Status
 
-Current issues:
-- Uses string concatenation for HTML generation
-- "Fake" JavaScript alerts need real implementation
+### ✅ Working Components:
+- **Core testing infrastructure** - PromptTester, test case loading, Claude API integration
+- **Claude-based evaluation** - ClaudeReviewer with structured feedback
+- **Prompt improvement advisor** - PromptAdvisor with JSON-structured suggestions
+- **Web review interface** - Flask app with markdown rendering and test case enrichment
+- **Human review collection** - JSONL storage via ReviewManager
+- **File utilities** - YAML handling, result storage, enrichment logic
 
-Actions needed:
-1. Choose and implement proper HTML templating (Jinja2 recommended)
-2. Replace string concatenation in `reviewer.py`
-3. Implement real form submission handling
-4. Add proper CSS styling
-5. Add tests for the review interface
+### 🔧 Integration Gaps:
+- **Human reviews → Automated improvements** - Reviews collected but not fed into PromptAdvisor
+- **File selection logic** - Manual results file selection required
+- **Version tracking** - No lineage or performance history
+- **Cross-prompt contamination** - No filtering to avoid using wrong results files
 
-### 4. **Compiler Warning Integration**
-**Priority**: Medium - Feature enhancement
+## Discovered Analysis Files
 
-Add support for compiler warnings in explanations:
-1. Modify CE API client to capture warnings
-2. Update test case format to include warnings
-3. Enhance prompts to explain warnings when present
-4. Add test cases specifically for warning scenarios
+Several comprehensive analysis files already exist with detailed improvement suggestions:
 
-### 5. **Documentation Updates**
-**Priority**: Low - Cleanup
+1. `/results/analysis_current_20250524_135349_current.json` - Production prompt analysis (0.67 avg score)
+   - Focus on verification steps, pattern identification, missing topics coverage
 
-- Update README to use `uv run` consistently
-- Add more context about automatic scoring methodology
-- Document the prompt testing workflow end-to-end
+2. `/results/analysis_v1_baseline_comparison_current_vs_v1_baseline.json` - Baseline comparison
+   - Structured prompt improvements, prefill changes, user prompt restructuring
+
+These contain actionable suggestions that could be applied to create improved prompt versions.
 
 ## Future Enhancements
 
 ### Performance & Scalability
-1. Add caching for CE API responses (not yet implemented in prompt testing)
-2. Implement retry logic with exponential backoff
-3. Support batch/parallel test execution
-4. Add progress indicators for long-running operations
-
-### Analytics & Monitoring
-1. Add cost tracking and budgeting features
-2. Create visualization dashboards for results
-3. Track prompt performance over time
-4. Add regression detection
+1. Parallel evaluation for cost-effective Claude review
+2. Add progress indicators for long-running operations
+3. Cost tracking and budgeting features
 
 ### Integration & Automation
-1. CI/CD pipeline integration
-2. Automated prompt regression testing
-3. GitHub PR comments with test results
-4. Slack/Discord notifications for failures
-5. **Add `prompt-test deploy` command** - Automate the deployment process with validation, backup, and rollback capabilities
+1. CI/CD pipeline integration for prompt regression testing
+2. Automated deployment with validation and rollback
+3. Performance monitoring and regression detection
 
 ## Technical Debt
 
 ### Code Quality
-1. Add more comprehensive error handling
-2. Improve test coverage (target 90%+)
-   - `runner.py` needs tests (requires mocking Claude API)
-   - `cli.py` command functions need tests (requires mocking)
-   - `prompt_advisor.py` needs tests (requires mocking)
-3. Add type hints throughout
-4. Standardize logging approach
-5. Break down remaining large functions
-
-### Architecture
-1. ~~Consider abstracting scorer interface~~ (Simplified to Claude-only scoring)
-2. Make reviewer interface pluggable
-3. Add plugin system for custom evaluators
-
-## Questions for Discussion
-
-1. Should we support multiple LLM providers beyond Anthropic?
-2. How should we handle rate limiting for the CE API?
-3. What's the best way to version prompts?
-4. Should test cases be in a separate repository?
+1. Add tests for `prompt_advisor.py` (requires mocking Claude API)
+2. Add tests for web review interface components
+3. Improve error handling in file selection logic
+4. Add type hints for human review integration
 
 ## Next Session Recommendations
 
-Based on priority and dependencies, I recommend tackling in this order:
-1. Make the prompt structure architecture decision
-2. Add compiler warning support
-3. Improve the HTML review interface with proper templating
-4. Add cost tracking and progress indicators for Claude evaluation
+**For immediate continuation**:
+1. **Human review integration** - Highest impact, completes feedback loop
+2. **File selection intelligence** - Prevents workflow errors, improves usability
+3. **Apply existing analysis suggestions** - Use discovered analysis files to create improved prompt versions
+4. **Version tracking implementation** - Foundation for proper iterative development
+
+**Key Files for Human Review Integration**:
+- `prompt_testing/evaluation/prompt_advisor.py:25` - `analyze_results_and_suggest_improvements()`
+- `prompt_testing/evaluation/reviewer.py` - ReviewManager and HumanReview classes
+- `prompt_testing/cli.py` - improve command implementation
+
+The human review integration is the critical missing piece that would create a complete feedback loop from web interface → analysis → improved prompts.
