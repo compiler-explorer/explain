@@ -1,0 +1,205 @@
+description: The default "square" code in CE, which the users will see to start with
+
+# TODO come up with a way to generate multiple test cases from each
+# instead of duplicating?
+cases:
+- id: square_cpp_no_o_beginner_asm
+  category: default_code
+  description: The default code with no optimization
+  audience: beginner
+  explanation_type: assembly
+  input:
+    language: C++
+    compiler: x86-64 gcc 15.1
+    compilationOptions: []
+    instructionSet: x86_64
+    code: |
+      // Type your code here, or load an example.
+      int square(int num) {
+        return num * num;
+      }
+    asm:
+    - text: 'square(int):'
+    - text: '        push    rbp'
+      source:
+        line: 2
+    - text: '        mov     rbp, rsp'
+      source:
+        line: 2
+    - text: '        mov     DWORD PTR [rbp-4], edi'
+      source:
+        line: 2
+    - text: '        mov     eax, DWORD PTR [rbp-4]'
+      source:
+        line: 3
+    - text: '        imul    eax, eax'
+      source:
+        line: 3
+    - text: '        pop     rbp'
+      source:
+        line: 4
+    - text: '        ret'
+      source:
+        line: 4
+    labelDefinitions: {}
+- id: square_cpp_no_o_beginner_source
+  category: default_code
+  description: The default code with no optimization
+  audience: beginner
+  explanation_type: source
+  input:
+    language: C++
+    compiler: x86-64 gcc 15.1
+    compilationOptions: []
+    instructionSet: x86_64
+    code: |
+      // Type your code here, or load an example.
+      int square(int num) {
+        return num * num;
+      }
+    asm:
+    - text: 'square(int):'
+    - text: '        push    rbp'
+      source:
+        line: 2
+    - text: '        mov     rbp, rsp'
+      source:
+        line: 2
+    - text: '        mov     DWORD PTR [rbp-4], edi'
+      source:
+        line: 2
+    - text: '        mov     eax, DWORD PTR [rbp-4]'
+      source:
+        line: 3
+    - text: '        imul    eax, eax'
+      source:
+        line: 3
+    - text: '        pop     rbp'
+      source:
+        line: 4
+    - text: '        ret'
+      source:
+        line: 4
+    labelDefinitions: {}
+- id: square_cpp_no_o_beginner_optimization
+  category: default_code
+  description: The default code with no optimization
+  audience: beginner
+  explanation_type: optimization
+  input:
+    language: C++
+    compiler: x86-64 gcc 15.1
+    compilationOptions: []
+    instructionSet: x86_64
+    code: |
+      // Type your code here, or load an example.
+      int square(int num) {
+        return num * num;
+      }
+    asm:
+    - text: 'square(int):'
+    - text: '        push    rbp'
+      source:
+        line: 2
+    - text: '        mov     rbp, rsp'
+      source:
+        line: 2
+    - text: '        mov     DWORD PTR [rbp-4], edi'
+      source:
+        line: 2
+    - text: '        mov     eax, DWORD PTR [rbp-4]'
+      source:
+        line: 3
+    - text: '        imul    eax, eax'
+      source:
+        line: 3
+    - text: '        pop     rbp'
+      source:
+        line: 4
+    - text: '        ret'
+      source:
+        line: 4
+    labelDefinitions: {}
+
+
+- id: square_cpp_o1
+  category: default_code
+  description: The default code with optimization on
+  input:
+    language: C++
+    compiler: x86-64 gcc 15.1
+    compilationOptions: ["-O1"]
+    instructionSet: x86_64
+    code: |
+      // Type your code here, or load an example.
+      int square(int num) {
+        return num * num;
+      }
+    asm:
+    - text: 'square(int):'
+    - text: '        imul    edi, edi'
+      source:
+        line: 3
+    - text: '        mov     eax, edi'
+      source:
+        line: 4
+    - text: '        ret'
+      source:
+        line: 4
+    labelDefinitions: {}
+- id: square_cpp_no_o_aarch64
+  category: default_code
+  description: The default code with no optimization (aarch64)
+  input:
+    language: C++
+    compiler: ARM64 gcc 15.1.0
+    compilationOptions: []
+    instructionSet: aarch64
+    code: |
+      // Type your code here, or load an example.
+      int square(int num) {
+        return num * num;
+      }
+    asm:
+    - text: 'square(int):'
+    - text: '        sub     sp, sp, #16'
+      source:
+        line: 2
+    - text: '        str     w0, [sp, 12]'
+      source:
+        line: 2
+    - text: '        ldr     w0, [sp, 12]'
+      source:
+        line: 3
+    - text: '        mul     w0, w0, w0'
+      source:
+        line: 3
+    - text: '        add     sp, sp, 16'
+      source:
+        line: 4
+    - text: '        ret'
+      source:
+        line: 4
+    labelDefinitions: {}
+- id: square_cpp_o1_aarch64
+  category: default_code
+  description: The default code with optimization on (aarch64)
+  input:
+    language: C++
+    compiler: ARM64 gcc 15.1.0
+    compilationOptions: ["-O1"]
+    instructionSet: aarch64
+    code: |
+      // Type your code here, or load an example.
+      int square(int num) {
+        return num * num;
+      }
+    asm:
+    - text: 'square(int):'
+    - text: '        mul     w0, w0, w0'
+      source:
+        line: 4
+    - text: '        ret'
+      source:
+        line: 4
+    labelDefinitions: {}

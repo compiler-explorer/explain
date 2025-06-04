@@ -159,6 +159,8 @@ class PromptTester:
             metrics = self.scorer.evaluate_response(
                 source_code=request.code,
                 assembly_code=self._format_assembly(request.asm),
+                audience=request.audience,
+                explanation_type=request.explanation,
                 explanation=explanation,
                 expected_topics=expected_topics,
                 difficulty=difficulty,

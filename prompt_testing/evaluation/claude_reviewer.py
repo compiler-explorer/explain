@@ -8,6 +8,8 @@ from dataclasses import dataclass
 
 from anthropic import Anthropic
 
+from app.explanation_types import AudienceLevel, ExplanationType
+
 
 @dataclass
 class EvaluationMetrics:
@@ -77,6 +79,27 @@ class ReviewCriteria:
     """
 
 
+_AUDIENCE_LEVEL = {
+    AudienceLevel.BEGINNER: """The explanation should be aimed at beginners.
+They will need basic concepts about assembly explained, and may need to know about
+calling conventions and other key information.""",
+    AudienceLevel.INTERMEDIATE: """The explanation should target an intermediate-level audience.
+They will not need explanation about trivial assembly idioms, calling conventions etc. They
+may need to be told about more esoteric instructions.""",
+    AudienceLevel.EXPERT: """The explanation should target experts.
+Assume the audience knows all instructions.""",
+}
+
+_EXPLANATION_TYPE = {
+    ExplanationType.ASSEMBLY: """The explanation should be predominantly about the compiled assembly.""",
+    ExplanationType.SOURCE: """The explanation should be predominantly about the source code,
+with less emphasis on the assembly except where certain source idioms have a clear assembly interpretation.""",
+    ExplanationType.OPTIMIZATION: """The explanation should be predominantly about optimizations.
+We would expect commentary on optimizations the compiler has performed, and importantly missed
+optimization opportunities.""",
+}
+
+
 class ClaudeReviewer:
     """Uses Claude to evaluate prompt responses with sophisticated analysis."""
 
@@ -96,13 +119,15 @@ class ClaudeReviewer:
         source_code: str,
         assembly_code: str,
         explanation: str,
-        expected_topics: list[str] | None = None,
-        difficulty: str = "intermediate",
+        expected_topics: list[str],
+        difficulty: str,
+        audience: AudienceLevel,
+        explanation_type: ExplanationType,
     ) -> str:
         """Build the evaluation prompt for Claude."""
 
         prompt = f"""You are an expert in compiler technology and technical education.
-Your task is to evaluate an AI-generated explanation of compiler output.
+Your task is to evaluate an AI-generated explanation of Compiler Explorer's output.
 
 ## Context
 
@@ -121,6 +146,10 @@ Which compiled to this assembly:
 {explanation}
 
 ## Evaluation Criteria
+
+{_AUDIENCE_LEVEL[audience]}
+
+{_EXPLANATION_TYPE[explanation_type]}
 
 Please evaluate the explanation on these dimensions:
 
@@ -183,6 +212,8 @@ Then provide your evaluation in this exact JSON format:
         source_code: str,
         assembly_code: str,
         explanation: str,
+        audience: AudienceLevel,
+        explanation_type: ExplanationType,
         expected_topics: list[str] | None = None,
         difficulty: str = "intermediate",
         token_count: int = 0,
@@ -191,7 +222,7 @@ Then provide your evaluation in this exact JSON format:
         """Evaluate a response using Claude."""
 
         evaluation_prompt = self._build_evaluation_prompt(
-            source_code, assembly_code, explanation, expected_topics, difficulty
+            source_code, assembly_code, explanation, expected_topics, difficulty, audience, explanation_type
         )
 
         # Call Claude for evaluation

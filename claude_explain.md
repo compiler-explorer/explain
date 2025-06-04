@@ -266,6 +266,18 @@ uv run prompt-test enrich --input test_cases.yaml
 
 Matt's notes:
 - really need to work on the "expert" / "Optimization" etc part. Right now an unoptimized "square" will babble on about "The compiler generated compact, efficient code for this simple squaring function, leveraging direct register multiplication and minimal overhead." which is crap
+- We should look at prompt improver, and review all the fields in the example yamls. I'm not sure they're all that helpful?
+  - difficulty? vs audience vs explanation_type
+- Would be ace to parallelise the test running of `uv prompt-test run`
+- Need a way to run a test multiple times with different categories and explanation types instead of duplicating
+- Revisit evaluation critera and scoring.
+- Pass the explanation type, description, and the audience too (along with explanation) to claude reviewer
+- would be great to validate the YAML and error on broken/missing/extra fields. probably make most fields required and get rid of all the fallbacks like audience etc too
+  - probably use pydactic thing to wrap with a strong type?
+- HTML review needs UX work; can't see the comment box at the same time as the thing we're commenting on
+- HTML review nice way to tick off things already done
+- HTML review should use localStorage to save reviewer name and/or get from git
+- UX on HTML review - view the automated output too? (like the nuanced opinion not just numbers)
 
 ---
 
