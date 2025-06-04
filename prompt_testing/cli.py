@@ -33,6 +33,7 @@ def cmd_run(args):
     tester = PromptTester(
         args.project_root,
         reviewer_model=args.reviewer_model,
+        max_concurrent_requests=args.max_concurrent,
     )
 
     if args.compare:
@@ -369,11 +370,16 @@ def cmd_enrich(args):
     # Enrich test cases
     with TestCaseEnricher() as enricher:
         try:
-            enricher.enrich_file(
-                input_file,
-                output_file,
-                compiler_map,
-                delay=args.delay,
+            # Use async version with max_concurrent parameter
+            import asyncio
+
+            asyncio.run(
+                enricher.enrich_file_async(
+                    input_file,
+                    output_file,
+                    compiler_map,
+                    max_concurrent=args.max_concurrent,
+                )
             )
         except Exception as e:
             print(f"Enrichment failed: {e}")
@@ -583,6 +589,14 @@ Examples:
         help="Claude model to use for reviewing (e.g., claude-sonnet-4-0, claude-3-5-sonnet-20241022)",
     )
 
+    # Parallelism configuration
+    run_parser.add_argument(
+        "--max-concurrent",
+        type=int,
+        default=5,
+        help="Maximum concurrent API requests (default: 5)",
+    )
+
     run_parser.set_defaults(func=cmd_run)
 
     # List command
@@ -636,7 +650,13 @@ Examples:
         "--delay",
         type=float,
         default=0.5,
-        help="Delay between API calls in seconds (default: 0.5)",
+        help="Delay between API calls in seconds (default: 0.5, ignored when using parallel mode)",
+    )
+    enrich_parser.add_argument(
+        "--max-concurrent",
+        type=int,
+        default=3,
+        help="Maximum concurrent CE API requests (default: 3)",
     )
     enrich_parser.set_defaults(func=cmd_enrich)
 

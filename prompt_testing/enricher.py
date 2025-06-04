@@ -1,6 +1,6 @@
 """Test case enrichment using Compiler Explorer API."""
 
-import time
+import asyncio
 from pathlib import Path
 from typing import Any
 
@@ -83,20 +83,20 @@ class TestCaseEnricher:
         enriched["input"] = enriched_input
         return enriched
 
-    def enrich_file(
+    async def enrich_file_async(
         self,
         input_file: Path,
         output_file: Path | None = None,
         compiler_map: dict[str, str] | None = None,
-        delay: float = 0.5,
+        max_concurrent: int = 3,
     ) -> Path:
-        """Enrich all test cases in a YAML file.
+        """Enrich all test cases in a YAML file asynchronously.
 
         Args:
             input_file: Input YAML file with test cases
             output_file: Output file path. If None, enriches in place
             compiler_map: Optional mapping from test compiler names to CE compiler IDs
-            delay: Delay between API calls in seconds
+            max_concurrent: Maximum concurrent API requests
 
         Returns:
             Path to enriched output file
@@ -111,24 +111,27 @@ class TestCaseEnricher:
         if "cases" not in data:
             raise ValueError("Input file missing 'cases' field")
 
-        # Process each case
-        enriched_cases = []
+        # Process cases concurrently with rate limiting
+        semaphore = asyncio.Semaphore(max_concurrent)
+
+        async def enrich_with_semaphore(case: dict[str, Any], index: int, total: int) -> dict[str, Any]:
+            async with semaphore:
+                print(f"Processing case {index + 1}/{total}: {case.get('id', 'unknown')}")
+                try:
+                    # Since the CE client is sync, run in thread pool
+                    loop = asyncio.get_event_loop()
+                    return await loop.run_in_executor(None, self.enrich_test_case, case, compiler_map)
+                except Exception as e:
+                    print(f"  Error: {e}")
+                    # Continue with other cases
+                    return case
+
+        # Create tasks for all test cases
         total = len(data["cases"])
+        tasks = [enrich_with_semaphore(case, i, total) for i, case in enumerate(data["cases"])]
 
-        for i, case in enumerate(data["cases"]):
-            print(f"Processing case {i + 1}/{total}: {case.get('id', 'unknown')}")
-            try:
-                enriched = self.enrich_test_case(case, compiler_map)
-                enriched_cases.append(enriched)
-
-                # Delay between requests to be nice to the API
-                if i < total - 1:
-                    time.sleep(delay)
-
-            except Exception as e:
-                print(f"  Error: {e}")
-                # Continue with other cases
-                enriched_cases.append(case)
+        # Run tasks concurrently
+        enriched_cases = await asyncio.gather(*tasks)
 
         # Prepare output
         data["cases"] = enriched_cases
@@ -143,6 +146,29 @@ class TestCaseEnricher:
 
         print(f"\nEnriched test cases written to: {output_file}")
         return output_file
+
+    def enrich_file(
+        self,
+        input_file: Path,
+        output_file: Path | None = None,
+        compiler_map: dict[str, str] | None = None,
+        delay: float = 0.5,
+    ) -> Path:
+        """Enrich all test cases in a YAML file (synchronous wrapper).
+
+        Args:
+            input_file: Input YAML file with test cases
+            output_file: Output file path. If None, enriches in place
+            compiler_map: Optional mapping from test compiler names to CE compiler IDs
+            delay: Delay between API calls in seconds (ignored in async version)
+
+        Returns:
+            Path to enriched output file
+        """
+        # Convert delay to max concurrent requests (approximate)
+        max_concurrent = max(1, int(1.0 / delay)) if delay > 0 else 5
+
+        return asyncio.run(self.enrich_file_async(input_file, output_file, compiler_map, max_concurrent))
 
     def close(self):
         """Close the client if we own it."""

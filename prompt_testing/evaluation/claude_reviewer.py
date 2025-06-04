@@ -6,7 +6,7 @@ Uses advanced models with constitutional AI principles.
 import json
 from dataclasses import dataclass
 
-from anthropic import Anthropic
+from anthropic import Anthropic, AsyncAnthropic
 
 from app.explanation_types import AudienceLevel, ExplanationType
 
@@ -110,6 +110,7 @@ class ClaudeReviewer:
         enable_thinking: bool = True,
     ):
         self.client = Anthropic(api_key=anthropic_api_key) if anthropic_api_key else Anthropic()
+        self.async_client = AsyncAnthropic(api_key=anthropic_api_key) if anthropic_api_key else AsyncAnthropic()
         self.reviewer_model = reviewer_model
         self.enable_thinking = enable_thinking
         self.criteria = ReviewCriteria()
@@ -307,3 +308,92 @@ Then provide your evaluation in this exact JSON format:
         if length < min_len:
             return max(0.3, length / min_len)
         return max(0.5, 1.0 - (length - max_len) / max_len)
+
+    async def evaluate_response_async(
+        self,
+        source_code: str,
+        assembly_code: str,
+        explanation: str,
+        audience: AudienceLevel,
+        explanation_type: ExplanationType,
+        expected_topics: list[str] | None = None,
+        difficulty: str = "intermediate",
+        token_count: int = 0,
+        response_time_ms: int | None = None,
+    ) -> EvaluationMetrics:
+        """Evaluate a response using Claude asynchronously."""
+
+        evaluation_prompt = self._build_evaluation_prompt(
+            source_code, assembly_code, explanation, expected_topics, difficulty, audience, explanation_type
+        )
+
+        # Call Claude for evaluation asynchronously
+        message = await self.async_client.messages.create(
+            model=self.reviewer_model,
+            max_tokens=2000,
+            temperature=0.2,  # Lower temperature for more consistent evaluation
+            system="You are a meticulous technical reviewer with expertise in compilers and education.",
+            messages=[{"role": "user", "content": evaluation_prompt}],
+        )
+
+        # Parse the JSON response
+        response_text = message.content[0].text
+
+        # Extract JSON from the response (handle thinking output if present)
+        json_start = response_text.find("{")
+        json_end = response_text.rfind("}") + 1
+
+        if json_start == -1 or json_end == 0:
+            raise ValueError(f"No valid JSON found in Claude's response: {response_text[:200]}...")
+
+        json_str = response_text[json_start:json_end]
+
+        try:
+            evaluation = json.loads(json_str)
+        except json.JSONDecodeError as e:
+            raise ValueError(
+                f"Failed to parse Claude's evaluation response as JSON: {e}\nResponse: {json_str[:200]}..."
+            ) from e
+
+        # Convert Claude's 0-100 scores to 0-1 range
+        if "scores" not in evaluation:
+            raise ValueError(f"Missing 'scores' in evaluation response: {list(evaluation.keys())}")
+
+        scores = evaluation["scores"]
+
+        # Validate required score fields
+        required_scores = [
+            "technical_accuracy",
+            "educational_value",
+            "clarity_structure",
+            "completeness",
+            "practical_insights",
+        ]
+        missing_scores = [field for field in required_scores if field not in scores]
+        if missing_scores:
+            raise ValueError(f"Missing required scores: {missing_scores}")
+
+        # Calculate overall score with weights
+        overall_score = (
+            scores["technical_accuracy"] * 0.30
+            + scores["educational_value"] * 0.25
+            + scores["clarity_structure"] * 0.20
+            + scores["completeness"] * 0.15
+            + scores["practical_insights"] * 0.10
+        ) / 100
+
+        # Map to EvaluationMetrics format
+        return EvaluationMetrics(
+            accuracy_score=scores["technical_accuracy"] / 100,
+            clarity_score=scores["clarity_structure"] / 100,
+            completeness_score=scores["completeness"] / 100,
+            consistency_score=scores["educational_value"] / 100,  # Using educational value as proxy
+            length_score=self._calculate_length_score(explanation, difficulty),
+            technical_accuracy=scores["technical_accuracy"] / 100,
+            overall_score=overall_score,
+            token_count=token_count,
+            response_time_ms=response_time_ms,
+            missing_topics=evaluation.get("missing_topics"),
+            incorrect_claims=evaluation.get("incorrect_claims"),
+            notes=evaluation.get("overall_assessment"),
+        )
