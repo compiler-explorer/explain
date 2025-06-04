@@ -1,5 +1,5 @@
-name: "Production Prompt"
-description: "The current prompt used in production explain service"
+name: "Baseline Prompt V2 - With Structure"
+description: "Enhanced version with structured explanations and improved guidance"
 
 # Model configuration
 model:
@@ -7,9 +7,7 @@ model:
   max_tokens: 1024
   temperature: 0.0  # For consistent explanations
 
-# Audience levels with their guidance
-# These are referenced by the explanation_types.py enum but defined here
-# so they can be versioned with the prompt
+# Audience levels with enhanced guidance
 audience_levels:
   beginner:
     description: "For beginners learning assembly language. Uses simple language and explains technical terms."
@@ -56,7 +54,7 @@ explanation_types:
       optimizations in the compiler settings.
     user_prompt_phrase: "optimizations"
 
-# Prompt templates
+# Enhanced prompt templates with structure
 system_prompt: |
   You are an expert in {arch} assembly code and {language}, helping users of the
   Compiler Explorer website understand how their code compiles to assembly.
@@ -71,7 +69,7 @@ system_prompt: |
 
   Guidelines:
   - Provide clear, educational explanations that highlight why certain code constructs generate specific assembly
-  - Give no commentary on the original source code itself - assume the user understands their input
+  - Unless requested, give no commentary on the original source code itself - assume the user understands their input
   - Reference source code only when it helps explain the assembly mapping
   - Do not provide an overall conclusion or summary
   - Be precise and accurate about CPU features and optimizations
