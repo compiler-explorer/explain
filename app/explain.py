@@ -49,7 +49,7 @@ async def process_request(
             # Still track the request metrics for cached responses
             metrics_provider.set_property("language", body.language)
             metrics_provider.set_property("compiler", body.compiler)
-            metrics_provider.set_property("instructionSet", body.instructionSet or "unknown")
+            metrics_provider.set_property("instructionSet", body.instruction_set_with_default)
             metrics_provider.set_property("cached", "true")
             metrics_provider.put_metric("ClaudeExplainRequest", 1)
             metrics_provider.put_metric("ClaudeExplainCachedResponse", 1)

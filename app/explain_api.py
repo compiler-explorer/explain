@@ -58,6 +58,11 @@ class ExplainRequest(BaseModel):
     )
     bypassCache: bool = Field(default=False, description="If true, skip reading from cache but still write to cache")
 
+    @property
+    def instruction_set_with_default(self) -> str:
+        """Get the instruction set with fallback to 'unknown' if None."""
+        return self.instructionSet or "unknown"
+
 
 class TokenUsage(BaseModel):
     """Token usage information."""

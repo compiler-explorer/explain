@@ -156,7 +156,7 @@ class Prompt:
             "language": request.language,
             "compiler": request.compiler,
             "sourceCode": request.code,
-            "instructionSet": request.instructionSet or "unknown",
+            "instructionSet": request.instruction_set_with_default,
         }
 
         # Format compilation options
@@ -199,7 +199,7 @@ class Prompt:
         structured_data = self.prepare_structured_data(request)
 
         # Format the system prompt
-        arch = request.instructionSet or "unknown"
+        arch = request.instruction_set_with_default
         system_prompt = self.system_prompt_template.format(
             arch=arch,
             language=request.language,
