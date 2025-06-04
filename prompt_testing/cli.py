@@ -22,6 +22,7 @@ from prompt_testing.file_utils import (
     save_json_results,
 )
 from prompt_testing.runner import PromptTester
+from prompt_testing.web_review import start_review_server
 
 # Load environment variables from .env file
 load_dotenv()
@@ -110,8 +111,19 @@ def cmd_list(args):
 
 def cmd_review(args):
     """Human review interface."""
+    if args.interactive:
+        # Start web interface
+        try:
+            start_review_server(args.project_root, port=args.port, open_browser=not args.no_browser)
+        except KeyboardInterrupt:
+            print("\n🛑 Review server stopped")
+        except Exception as e:
+            print(f"❌ Error starting review server: {e}")
+            return 1
+        return 0
+
     if args.results_file:
-        # Review specific results file
+        # Review specific results file via CLI
         results_path = Path(args.results_file)
         with results_path.open() as f:
             results = json.load(f)
@@ -136,9 +148,7 @@ def cmd_review(args):
             print("Invalid results file format")
             return 1
     else:
-        # Interactive review mode
-        print("Interactive review mode not yet implemented")
-        print("Please specify a results file with --results-file")
+        print("Please specify either --interactive for web interface or --results-file for CLI review")
         return 1
 
     return 0
@@ -516,7 +526,10 @@ Examples:
   # List available test cases and prompts
   uv run prompt-test list
 
-  # Review results interactively
+  # Review results interactively (web interface)
+  uv run prompt-test review --interactive
+
+  # Review specific results file (CLI)
   uv run prompt-test review --results-file results/20241201_120000_current.json
 
   # Analyze all results
@@ -583,7 +596,12 @@ Examples:
 
     # Review command
     review_parser = subparsers.add_parser("review", help="Human review interface")
-    review_parser.add_argument("--results-file", help="Results file to review")
+    review_parser.add_argument("--results-file", help="Results file to review (CLI mode)")
+    review_parser.add_argument(
+        "--interactive", "-i", action="store_true", help="Start web interface for interactive review"
+    )
+    review_parser.add_argument("--port", type=int, default=5000, help="Port for web interface (default: 5000)")
+    review_parser.add_argument("--no-browser", action="store_true", help="Don't automatically open browser")
     review_parser.set_defaults(func=cmd_review)
 
     # Analyze command

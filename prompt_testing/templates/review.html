@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Review: {{ data.summary.prompt_version if data.summary else filename }}</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0; padding: 20px; background: #f5f5f5; line-height: 1.6;
+        }
+        .container { max-width: 1000px; margin: 0 auto; }
+        .header {
+            background: white; padding: 20px; border-radius: 8px;
+            margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .case-card {
+            background: white; margin-bottom: 30px; border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1); overflow: hidden;
+        }
+        .case-header {
+            background: #f8f9fa; padding: 15px 20px;
+            border-bottom: 1px solid #e9ecef;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .case-id { font-weight: 600; color: #333; }
+        .case-meta { font-size: 0.9em; color: #666; }
+        .case-content { padding: 20px; }
+        .section { margin-bottom: 25px; }
+        .section h4 {
+            margin: 0 0 10px 0; color: #333; font-size: 0.95em;
+            text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .code-block {
+            background: #f8f9fa; padding: 15px; border-radius: 6px;
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 0.9em; overflow-x: auto; border-left: 4px solid #007acc;
+        }
+        .response-text {
+            background: #f0f9ff; padding: 15px; border-radius: 6px;
+            border-left: 4px solid #0ea5e9; line-height: 1.6;
+        }
+        .response-text pre {
+            background: #f8f9fa; padding: 10px; border-radius: 4px;
+            overflow-x: auto; font-size: 0.9em; margin: 10px 0;
+        }
+        .response-text code {
+            background: #f1f5f9; padding: 2px 4px; border-radius: 3px;
+            font-family: 'Monaco', 'Consolas', monospace; font-size: 0.9em;
+        }
+        .response-text pre code {
+            background: none; padding: 0;
+        }
+        .response-text h1, .response-text h2, .response-text h3 {
+            margin-top: 20px; margin-bottom: 10px; color: #1e40af;
+        }
+        .response-text ul, .response-text ol {
+            margin: 10px 0; padding-left: 20px;
+        }
+        .response-text blockquote {
+            border-left: 3px solid #ddd; margin: 10px 0; padding-left: 15px;
+            color: #666; font-style: italic;
+        }
+        /* Basic syntax highlighting for assembly code */
+        .response-text .language-assembly {
+            background: #282c34; color: #abb2bf; padding: 15px; border-radius: 6px;
+            font-family: 'Monaco', 'Consolas', monospace; font-size: 0.85em;
+        }
+        .response-text .language-c, .response-text .language-cpp {
+            background: #f8f8f2; color: #272822; padding: 15px; border-radius: 6px;
+            font-family: 'Monaco', 'Consolas', monospace; font-size: 0.85em;
+        }
+        .response-text strong {
+            font-weight: 600; color: #1e40af;
+        }
+        .response-text em {
+            font-style: italic; color: #6366f1;
+        }
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 15px; background: #f8f9fa; padding: 15px; border-radius: 6px;
+        }
+        .metric { text-align: center; }
+        .metric-value { font-size: 1.2em; font-weight: 600; color: #2563eb; }
+        .metric-label { font-size: 0.85em; color: #666; }
+        .review-form {
+            background: #fefce8; border: 1px solid #fde047;
+            padding: 20px; border-radius: 6px; margin-top: 20px;
+        }
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px; margin-bottom: 15px;
+        }
+        .form-group { display: flex; flex-direction: column; }
+        .form-group label { font-weight: 500; margin-bottom: 5px; color: #333; }
+        .form-group input, .form-group textarea, .form-group select {
+            padding: 8px 12px; border: 1px solid #d1d5db;
+            border-radius: 4px; font-size: 0.9em;
+        }
+        .form-group textarea { resize: vertical; min-height: 60px; }
+        .save-btn {
+            background: #16a34a; color: white; border: none;
+            padding: 10px 20px; border-radius: 6px; cursor: pointer;
+            font-weight: 500; transition: background 0.2s ease;
+        }
+        .save-btn:hover { background: #15803d; }
+        .save-btn:disabled { background: #9ca3af; cursor: not-allowed; }
+        .success-msg { color: #16a34a; font-weight: 500; margin-left: 10px; }
+        .error-msg { color: #dc2626; font-weight: 500; margin-left: 10px; }
+        .reviewer-info {
+            background: #ede9fe; padding: 15px; border-radius: 6px;
+            margin-bottom: 20px; border-left: 4px solid #8b5cf6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📝 Review: {{ data.summary.prompt_version if data.summary else 'Unknown' }}</h1>
+            <p><strong>File:</strong> {{ filename }}</p>
+            {% if data.summary %}
+            <p><strong>Success Rate:</strong>
+               {{ "%.1f"|format(data.summary.success_rate * 100) }}%
+               ({{ data.summary.successful_cases }}/{{ data.summary.total_cases }} cases)</p>
+            {% if data.summary.average_metrics %}
+            <p><strong>Average Score:</strong>
+               {{ "%.2f"|format(data.summary.average_metrics.overall_score) }}</p>
+            {% endif %}
+            {% endif %}
+        </div>
+
+        <div class="reviewer-info">
+            <h4>👤 Reviewer Information</h4>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="reviewer-name">Your Name/ID:</label>
+                    <input type="text" id="reviewer-name" placeholder="e.g., john_doe" required>
+                </div>
+            </div>
+        </div>
+
+        {% if data.results %}
+        {% for result in data.results %}
+        {% if result.success %}
+        <div class="case-card">
+            <div class="case-header">
+                <div class="case-id">{{ result.case_id }}</div>
+                <div class="case-meta">
+                    {{ result.test_case.language }} | {{ result.test_case.compiler }} |
+                    Audience: {{ result.test_case.audience }} |
+                    Type: {{ result.test_case.explanation_type }}
+                </div>
+            </div>
+
+            <div class="case-content">
+                <div class="section">
+                    <h4>💾 Source Code</h4>
+                    <div class="code-block">{{ result.test_case.source_code }}</div>
+                </div>
+
+                <div class="section">
+                    <h4>🤖 AI Response</h4>
+                    <div class="response-text">
+                        {% if result.response_html %}
+                            {{ result.response_html | safe }}
+                        {% else %}
+                            {{ result.response }}
+                        {% endif %}
+                    </div>
+                </div>
+
+                {% if result.metrics %}
+                <div class="section">
+                    <h4>📊 Automatic Metrics</h4>
+                    <div class="metrics">
+                        <div class="metric">
+                            <div class="metric-value">
+                                {{ "%.2f"|format(result.metrics.overall_score) }}
+                            </div>
+                            <div class="metric-label">Overall</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-value">
+                                {{ "%.2f"|format(result.metrics.accuracy_score) }}
+                            </div>
+                            <div class="metric-label">Accuracy</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-value">
+                                {{ "%.2f"|format(result.metrics.clarity_score) }}
+                            </div>
+                            <div class="metric-label">Clarity</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-value">{{ result.metrics.token_count }}</div>
+                            <div class="metric-label">Tokens</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-value">{{ result.metrics.response_time_ms }}</div>
+                            <div class="metric-label">Time (ms)</div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <div class="review-form">
+                    <h4>✏️ Your Review</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Accuracy (1-5):</label>
+                            <input type="number" min="1" max="5" class="score-input"
+                                   name="accuracy" data-case="{{ result.case_id }}">
+                        </div>
+                        <div class="form-group">
+                            <label>Clarity (1-5):</label>
+                            <input type="number" min="1" max="5" class="score-input"
+                                   name="clarity" data-case="{{ result.case_id }}">
+                        </div>
+                        <div class="form-group">
+                            <label>Completeness (1-5):</label>
+                            <input type="number" min="1" max="5" class="score-input"
+                                   name="completeness" data-case="{{ result.case_id }}">
+                        </div>
+                        <div class="form-group">
+                            <label>Educational Value (1-5):</label>
+                            <input type="number" min="1" max="5" class="score-input"
+                                   name="educational_value" data-case="{{ result.case_id }}">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Strengths (comma-separated):</label>
+                        <textarea name="strengths" data-case="{{ result.case_id }}"
+                                  placeholder="What does this response do well?"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Weaknesses (comma-separated):</label>
+                        <textarea name="weaknesses" data-case="{{ result.case_id }}"
+                                  placeholder="What could be improved?"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Suggestions (comma-separated):</label>
+                        <textarea name="suggestions" data-case="{{ result.case_id }}"
+                                  placeholder="Specific suggestions for improvement"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Overall Comments:</label>
+                        <textarea name="overall_comments" data-case="{{ result.case_id }}"
+                                  placeholder="General feedback"></textarea>
+                    </div>
+
+                    <button class="save-btn" onclick="saveReview('{{ result.case_id }}')">
+                        Save Review for {{ result.case_id }}
+                    </button>
+                    <span class="message" id="message-{{ result.case_id }}"></span>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        {% endfor %}
+        {% endif %}
+    </div>
+
+    <script>
+        async function saveReview(caseId) {
+            const reviewerName = document.getElementById('reviewer-name').value.trim();
+            if (!reviewerName) {
+                alert('Please enter your name/ID before saving reviews.');
+                return;
+            }
+
+            const button = event.target;
+            const messageEl = document.getElementById('message-' + caseId);
+
+            button.disabled = true;
+            button.textContent = 'Saving...';
+            messageEl.textContent = '';
+
+            try {
+                const formData = {
+                    case_id: caseId,
+                    prompt_version: '{{ data.summary.prompt_version if data.summary else "unknown" }}',
+                    reviewer: reviewerName,
+                    accuracy: document.querySelector(
+                        `input[name="accuracy"][data-case="${caseId}"]`).value,
+                    clarity: document.querySelector(
+                        `input[name="clarity"][data-case="${caseId}"]`).value,
+                    completeness: document.querySelector(
+                        `input[name="completeness"][data-case="${caseId}"]`).value,
+                    educational_value: document.querySelector(
+                        `input[name="educational_value"][data-case="${caseId}"]`).value,
+                    strengths: document.querySelector(
+                        `textarea[name="strengths"][data-case="${caseId}"]`).value,
+                    weaknesses: document.querySelector(
+                        `textarea[name="weaknesses"][data-case="${caseId}"]`).value,
+                    suggestions: document.querySelector(
+                        `textarea[name="suggestions"][data-case="${caseId}"]`).value,
+                    overall_comments: document.querySelector(
+                        `textarea[name="overall_comments"][data-case="${caseId}"]`).value
+                };
+
+                if (!formData.accuracy || !formData.clarity ||
+                    !formData.completeness || !formData.educational_value) {
+                    throw new Error('Please fill in all rating scores (1-5)');
+                }
+
+                const response = await fetch('/api/review', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    messageEl.textContent = '✅ Saved!';
+                    messageEl.className = 'success-msg';
+
+                    const inputs = document.querySelectorAll(`[data-case="${caseId}"]`);
+                    inputs.forEach(input => input.disabled = true);
+                } else {
+                    throw new Error(result.error || 'Failed to save review');
+                }
+
+            } catch (error) {
+                messageEl.textContent = '❌ Error: ' + error.message;
+                messageEl.className = 'error-msg';
+            } finally {
+                button.disabled = false;
+                button.textContent = `Save Review for ${caseId}`;
+            }
+        }
+    </script>
+</body>
+</html>

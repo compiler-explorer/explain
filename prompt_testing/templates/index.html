@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prompt Review Interface</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0; padding: 20px; background: #f5f5f5;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .header {
+            background: white; padding: 20px; border-radius: 8px;
+            margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        .result-card {
+            background: white; padding: 20px; border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .result-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        .result-header {
+            display: flex; justify-content: space-between;
+            align-items: center; margin-bottom: 15px;
+        }
+        .prompt-version { font-weight: 600; font-size: 1.1em; color: #333; }
+        .timestamp { color: #666; font-size: 0.9em; }
+        .metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
+        .metric { text-align: center; }
+        .metric-value { font-size: 1.4em; font-weight: 600; color: #2563eb; }
+        .metric-label { font-size: 0.85em; color: #666; }
+        .review-btn {
+            width: 100%; padding: 10px; background: #2563eb; color: white;
+            border: none; border-radius: 6px; cursor: pointer; font-weight: 500;
+            transition: background 0.2s ease;
+        }
+        .review-btn:hover { background: #1d4ed8; }
+        .loading { text-align: center; padding: 40px; color: #666; }
+        .empty-state { text-align: center; padding: 60px 20px; color: #666; }
+        .empty-state h3 { margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧪 Prompt Review Interface</h1>
+            <p>Select a test result file to review and rate prompt responses.</p>
+        </div>
+
+        <div id="loading" class="loading">
+            <p>Loading test results...</p>
+        </div>
+
+        <div id="results" class="results-grid" style="display: none;"></div>
+
+        <div id="empty" class="empty-state" style="display: none;">
+            <h3>No test results found</h3>
+            <p>Run some tests first using: <code>uv run prompt-test run --prompt [version]</code></p>
+        </div>
+    </div>
+
+    <script>
+        async function loadResults() {
+            try {
+                const response = await fetch('/api/results');
+                const data = await response.json();
+
+                document.getElementById('loading').style.display = 'none';
+
+                if (data.results.length === 0) {
+                    document.getElementById('empty').style.display = 'block';
+                    return;
+                }
+
+                const resultsContainer = document.getElementById('results');
+                resultsContainer.style.display = 'grid';
+
+                data.results.forEach(result => {
+                    const card = createResultCard(result);
+                    resultsContainer.appendChild(card);
+                });
+
+            } catch (error) {
+                document.getElementById('loading').innerHTML =
+                    '<p style="color: red;">Error loading results: ' + error.message + '</p>';
+            }
+        }
+
+        function createResultCard(result) {
+            const card = document.createElement('div');
+            card.className = 'result-card';
+
+            const successRate = (result.success_rate * 100).toFixed(0);
+            const avgScore = result.average_score ? result.average_score.toFixed(2) : 'N/A';
+
+            card.innerHTML = `
+                <div class="result-header">
+                    <div class="prompt-version">${result.description}</div>
+                    <div class="timestamp">${result.timestamp}</div>
+                </div>
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-value">${successRate}%</div>
+                        <div class="metric-label">Success Rate</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">${avgScore}</div>
+                        <div class="metric-label">Avg Score</div>
+                    </div>
+                </div>
+                <button class="review-btn" onclick="openReview('${result.file}')">
+                    Review Results (${result.total_cases} cases)
+                </button>
+            `;
+
+            return card;
+        }
+
+        function openReview(filename) {
+            window.open(`/review/${filename}`, '_blank');
+        }
+
+        // Load results on page load
+        loadResults();
+    </script>
+</body>
+</html>
