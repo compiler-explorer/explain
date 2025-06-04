@@ -23,6 +23,18 @@ This document outlines the next steps for improving the prompt testing framework
 - Refactored large functions in `cli.py` and `runner.py`
 - Added tests for pure functions (12 new tests)
 
+### Caching Implementation
+- Added S3-based caching for explanation responses
+- Cache key generation based on all response-affecting data including prompt content
+- Configurable TTL and human-readable duration support
+- Cost reduction for duplicate API requests
+
+### Claude-Only Scoring Migration
+- Removed AutomaticScorer and HybridScorer classes
+- ClaudeReviewer is now the primary evaluation method
+- Simplified CLI scoring options
+- Improved evaluation quality at the cost of API usage
+
 ## Priority Improvements
 
 ### 1. **Prompt Structure Architecture Decision**
@@ -40,21 +52,19 @@ We need to decide on the fundamental architecture for how prompts handle audienc
 
 **Decision needed**: This affects how the prompt advisor can feed improvements back into the system.
 
-### 2. **Transition to Claude-Only Scoring**
-**Priority**: High - Core functionality improvement
+### 2. **Enhance Claude-Only Scoring**
+**Priority**: Medium - Performance and usability improvement
 
 Current state:
-- AutomaticScorer uses regex patterns and heuristics (not very effective)
-- ClaudeReviewer provides much better evaluation quality
-- HybridScorer was an attempt to balance cost and quality
+- Successfully transitioned to Claude-only scoring
+- ClaudeReviewer is the primary evaluation method
+- AutomaticScorer and HybridScorer have been removed
 
-Actions needed:
-1. Remove AutomaticScorer and HybridScorer classes
-2. Make ClaudeReviewer the only scoring method
-3. Update CLI to remove scorer type options
-4. Add cost warnings and progress indicators
-5. Document the rationale for Claude-only scoring
-6. Consider adding parallel evaluation for performance
+Remaining actions:
+1. Add cost warnings and progress indicators for long evaluation runs
+2. Consider adding parallel evaluation for performance
+3. Add cost tracking and budgeting features
+4. Document best practices for cost-effective evaluation
 
 ### 3. **HTML Review Interface**
 **Priority**: Medium - Quality of life improvement
@@ -89,7 +99,7 @@ Add support for compiler warnings in explanations:
 ## Future Enhancements
 
 ### Performance & Scalability
-1. Add caching for CE API responses
+1. Add caching for CE API responses (not yet implemented in prompt testing)
 2. Implement retry logic with exponential backoff
 3. Support batch/parallel test execution
 4. Add progress indicators for long-running operations
@@ -120,7 +130,7 @@ Add support for compiler warnings in explanations:
 5. Break down remaining large functions
 
 ### Architecture
-1. Consider abstracting scorer interface
+1. ~~Consider abstracting scorer interface~~ (Simplified to Claude-only scoring)
 2. Make reviewer interface pluggable
 3. Add plugin system for custom evaluators
 
@@ -135,6 +145,6 @@ Add support for compiler warnings in explanations:
 
 Based on priority and dependencies, I recommend tackling in this order:
 1. Make the prompt structure architecture decision
-2. Refine the automatic scorer with better documentation
-3. Add compiler warning support
-4. Improve the HTML review interface
+2. Add compiler warning support
+3. Improve the HTML review interface with proper templating
+4. Add cost tracking and progress indicators for Claude evaluation

@@ -264,6 +264,9 @@ uv run prompt-test enrich --input test_cases.yaml
    - Update CE privacy policy
    - User communication and documentation
 
+Matt's notes:
+- really need to work on the "expert" / "Optimization" etc part. Right now an unoptimized "square" will babble on about "The compiler generated compact, efficient code for this simple squaring function, leveraging direct register multiplication and minimal overhead." which is crap
+
 ---
 
 *This document represents the current design and implementation status of the Claude Explain service. For implementation details, see the source code and API documentation.*
