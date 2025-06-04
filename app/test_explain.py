@@ -297,8 +297,6 @@ class TestPrepareStructuredData:
         assert result["instructionSet"] == "amd64"
         assert len(result["assembly"]) == 4
         assert result["labelDefinitions"] == {"square(int)": 0}
-        assert result["compilerMessages"] == []
-        assert result["optimizationRemarks"] == []
         assert not result["truncated"]
 
     def test_prepare_structured_data_missing_optional_fields(self):

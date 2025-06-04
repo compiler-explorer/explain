@@ -178,10 +178,6 @@ class Prompt:
         # Include label definitions
         structured_data["labelDefinitions"] = request.labelDefinitions or {}
 
-        # For now, these fields are not in the Pydantic model but kept for compatibility
-        structured_data["compilerMessages"] = []
-        structured_data["optimizationRemarks"] = []
-
         return structured_data
 
     def generate_messages(self, request: ExplainRequest) -> dict[str, Any]:
