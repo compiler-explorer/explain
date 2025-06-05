@@ -294,6 +294,154 @@ def cmd_analyze(args):
     return 0
 
 
+def cmd_publish(args):
+    """Publish a tested prompt to production (app/prompt.yaml)."""
+    import shutil
+    import subprocess
+    import tempfile
+
+    from ruamel.yaml import YAML
+
+    project_root = Path(args.project_root)
+    prompt_file = project_root / "prompt_testing" / "prompts" / f"{args.prompt}.yaml"
+    production_file = project_root / "app" / "prompt.yaml"
+
+    # Check if prompt file exists
+    if not prompt_file.exists():
+        print(f"✗ Prompt file not found: {prompt_file}")
+        return 1
+
+    print(f"📋 Publishing prompt '{args.prompt}' to production...")
+
+    try:
+        # Load and clean up the prompt
+        yaml = YAML()
+        yaml.preserve_quotes = True
+        yaml.default_flow_style = False
+
+        with prompt_file.open(encoding="utf-8") as f:
+            prompt_data = yaml.load(f)
+
+        # Clean up metadata for production
+        original_name = prompt_data.get("name", args.prompt)
+        original_description = prompt_data.get("description", "")
+
+        # Remove experimental metadata
+        if "experiment_metadata" in prompt_data:
+            print("🧹 Removing experiment_metadata for production")
+            del prompt_data["experiment_metadata"]
+
+        # Update name and description for production
+        if args.name:
+            prompt_data["name"] = args.name
+            print(f"📝 Updated name: '{original_name}' → '{args.name}'")
+        else:
+            # Auto-generate production name
+            prod_name = f"Production {original_name.replace('Version', 'v').strip()}"
+            prompt_data["name"] = prod_name
+            print(f"📝 Auto-generated name: '{original_name}' → '{prod_name}'")
+
+        if args.description:
+            prompt_data["description"] = args.description
+            print("📝 Updated description")
+        else:
+            # Clean up description to remove experimental language
+            clean_desc = original_description.replace("Human feedback integration", "Production prompt")
+            clean_desc = clean_desc.replace("improved markdown formatting, conciseness", "optimized for clarity")
+            clean_desc = clean_desc.replace("based on", "incorporating")
+            prompt_data["description"] = clean_desc
+            if clean_desc != original_description:
+                print("📝 Cleaned up description for production")
+
+        # Write to temporary file first
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False, encoding="utf-8") as temp_file:
+            yaml.dump(prompt_data, temp_file)
+            temp_path = Path(temp_file.name)
+
+        print("✅ Cleaned up prompt metadata")
+
+        # Validate the prompt loads correctly in main service
+        print("🔍 Validating prompt structure...")
+        try:
+            from app.prompt import Prompt
+
+            prompt = Prompt(temp_path)
+            print("✅ Prompt structure validation passed")
+        except Exception as e:
+            print(f"✗ Prompt validation failed: {e}")
+            temp_path.unlink()  # Clean up temp file
+            return 1
+
+        # Test that we can generate messages
+        print("🧪 Testing message generation...")
+        try:
+            test_request = ExplainRequest(
+                language="C++",
+                compiler="gcc 12.1",
+                compilationOptions=["-O2"],
+                instructionSet="x86_64",
+                code="int main() { return 0; }",
+                source="int main() { return 0; }",
+                asm=[AssemblyItem(text="ret", source={"line": 1})],
+                audience="beginner",
+                explanation_type="assembly",
+            )
+            messages = prompt.generate_messages(test_request)
+            print(f"✅ Successfully generated {len(messages)} messages")
+        except Exception as e:
+            print(f"✗ Message generation test failed: {e}")
+            temp_path.unlink()  # Clean up temp file
+            return 1
+
+        # Backup existing production prompt
+        if production_file.exists():
+            backup_file = production_file.with_suffix(".yaml.backup")
+            shutil.copy2(production_file, backup_file)
+            print(f"💾 Backed up existing prompt to {backup_file.name}")
+
+        # Copy to production
+        shutil.copy2(temp_path, production_file)
+        temp_path.unlink()  # Clean up temp file
+        print(f"🚀 Copied prompt to {production_file}")
+
+        # Run integration tests
+        print("🧪 Running integration tests...")
+        try:
+            result = subprocess.run(
+                ["uv", "run", "pytest", "app/test_explain.py", "-v"],
+                cwd=project_root,
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+            if result.returncode == 0:
+                print("✅ Integration tests passed")
+            else:
+                print("⚠️  Integration tests had issues:")
+                print(result.stdout)
+                if result.stderr:
+                    print("STDERR:")
+                    print(result.stderr)
+                print("❗ Consider reviewing the test failures")
+        except subprocess.TimeoutExpired:
+            print("⚠️  Integration tests timed out")
+        except Exception as e:
+            print(f"⚠️  Could not run integration tests: {e}")
+
+        print(f"\n🎉 Successfully published '{args.prompt}' to production!")
+        print(f"📁 Location: {production_file}")
+        print("\n📋 Next steps:")
+        print("  1. Test the service locally: uv run fastapi dev")
+        print("  2. Run manual tests: ./test-explain.sh")
+        print("  3. Commit the changes: git add app/prompt.yaml && git commit")
+
+        return 0
+
+    except Exception as e:
+        print(f"✗ Publication failed: {e}")
+        return 1
+
+
 def cmd_improve(args):
     """Analyze results and suggest prompt improvements."""
 
@@ -563,6 +711,9 @@ Examples:
   # Create an experimental improved version
   uv run prompt-test improve --prompt current --create-improved --output current_v2
 
+  # Publish a tested prompt to production
+  uv run prompt-test publish --prompt v7 --name "Production v8"
+
   # List available C++ compilers
   uv run prompt-test compilers --language c++
 
@@ -652,6 +803,13 @@ Examples:
     )
     improve_parser.add_argument("--output", help="Name for the improved prompt version")
     improve_parser.set_defaults(func=cmd_improve)
+
+    # Publish command
+    publish_parser = subparsers.add_parser("publish", help="Publish a tested prompt to production (app/prompt.yaml)")
+    publish_parser.add_argument("--prompt", required=True, help="Prompt version to publish")
+    publish_parser.add_argument("--name", help="Production name for the prompt (auto-generated if not specified)")
+    publish_parser.add_argument("--description", help="Production description (auto-cleaned if not specified)")
+    publish_parser.set_defaults(func=cmd_publish)
 
     # Enrich command
     enrich_parser = subparsers.add_parser("enrich", help="Enrich test cases with CE API assembly data")

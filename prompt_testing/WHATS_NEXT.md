@@ -20,6 +20,13 @@ This document outlines the next steps for improving the prompt testing framework
   * Phase 4: Review status indicators + progress tracking + update functionality
   * Professional review management system with visual status, form pre-population, and real-time updates
 
+### Automated Prompt Publishing System (Latest)
+- **✅ COMPLETED: Production deployment automation** - `uv run prompt-test publish --prompt <version>`
+- **Metadata cleanup** - Automatically removes experiment_metadata and cleans names/descriptions for production
+- **Built-in validation** - Ensures prompt loads correctly in main service and can generate messages
+- **Safety features** - Automatic backup, temp file handling, error rollback, integration test execution
+- **Professional workflow** - Clear next steps guidance and comprehensive error reporting
+
 ### Prompt Improvement System Audit & Fixes
 - **Fixed critical "current" prompt loading bug** - PromptOptimizer now handles "current" → `app/prompt.yaml` mapping
 - **Verified PromptAdvisor functionality** - Claude-based analysis with structured JSON suggestions working
@@ -113,7 +120,14 @@ These contain actionable suggestions that could be applied to create improved pr
 
 ### Integration & Automation
 1. CI/CD pipeline integration for prompt regression testing
-2. Automated deployment with validation and rollback
+2. **✅ COMPLETED: Automated deployment with validation and rollback**
+   - Added `uv run prompt-test publish --prompt <version>` command
+   - Automatic metadata cleanup (removes experiment_metadata, cleans names/descriptions)
+   - Built-in validation that prompt loads correctly in main service
+   - Message generation testing to ensure compatibility
+   - Automatic backup of existing production prompt
+   - Integration test execution with clear pass/fail reporting
+   - Safety features: temp file handling, error rollback, clear next steps
 3. Performance monitoring and regression detection
 
 ## Technical Debt

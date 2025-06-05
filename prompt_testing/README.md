@@ -278,12 +278,14 @@ uv run prompt-test run --prompt v1_baseline --compare current --categories basic
    uv run python -c "from app.prompt import Prompt; Prompt.from_yaml('prompt_testing/prompts/v3_experiment.yaml')"
    ```
 
-4. If it performs better AND validates, update current:
+4. If it performs better AND validates, publish to production:
    ```bash
-   # Deploy the improved prompt (git tracks the previous version)
-   cp prompt_testing/prompts/v3_experiment.yaml app/prompt.yaml
-   # Verify the service still works
-   uv run pytest app/test_explain.py::test_process_request_success
+   # Automated deployment with validation and safety checks
+   uv run prompt-test publish --prompt v3_experiment --name "Production v4"
+
+   # Manual deployment (alternative, but automated is recommended)
+   # cp prompt_testing/prompts/v3_experiment.yaml app/prompt.yaml
+   # uv run pytest app/test_explain.py::test_process_request_success
    ```
 
 ### Adding Test Cases
@@ -359,6 +361,31 @@ uv run prompt-test run --prompt v1_baseline --compare current --categories basic
    ```bash
    uv run prompt-test analyze
    ```
+
+### Production Deployment Workflow
+
+Once you've tested and validated a prompt, publish it to production:
+
+```bash
+# Automated deployment with full validation and safety checks
+uv run prompt-test publish --prompt v7 --name "Production v8"
+
+# Or let it auto-generate a production name
+uv run prompt-test publish --prompt v7
+```
+
+**The publish command automatically:**
+- ✅ **Cleans metadata**: Removes experiment_metadata and cleans up names/descriptions
+- ✅ **Validates structure**: Ensures prompt loads correctly in main service
+- ✅ **Tests compatibility**: Verifies message generation works end-to-end
+- ✅ **Creates backup**: Automatically backs up existing production prompt
+- ✅ **Runs integration tests**: Executes full test suite to catch regressions
+- ✅ **Provides guidance**: Clear next steps for local testing and committing
+
+**Safety features:**
+- Temp file handling with automatic cleanup on errors
+- Error rollback if validation fails
+- Comprehensive error reporting for debugging
 
 ## Best Practices
 
