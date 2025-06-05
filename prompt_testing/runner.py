@@ -338,8 +338,11 @@ class PromptTester:
                         "version1_score": m1["overall_score"],
                         "version2_score": m2["overall_score"],
                         "better_version": version2 if m2["overall_score"] > m1["overall_score"] else version1,
-                        "accuracy_difference": m2["accuracy_score"] - m1["accuracy_score"],
-                        "clarity_difference": m2["clarity_score"] - m1["clarity_score"],
+                        "accuracy_difference": m2["accuracy"] - m1["accuracy"],
+                        "relevance_difference": m2["relevance"] - m1["relevance"],
+                        "conciseness_difference": m2["conciseness"] - m1["conciseness"],
+                        "insight_difference": m2["insight"] - m1["insight"],
+                        "appropriateness_difference": m2["appropriateness"] - m1["appropriateness"],
                     }
                 )
 
