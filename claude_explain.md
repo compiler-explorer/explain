@@ -267,7 +267,7 @@ uv run prompt-test enrich --input test_cases.yaml
 Matt's notes:
 - really need to work on the "expert" / "Optimization" etc part. Right now an unoptimized "square" will babble on about "The compiler generated compact, efficient code for this simple squaring function, leveraging direct register multiplication and minimal overhead." which is crap
 - We should look at prompt improver, and review all the fields in the example yamls. I'm not sure they're all that helpful?
-  - difficulty? vs audience vs explanation_type
+  - difficulty? vs audience vs `explanation_type`
 - Would be ace to parallelise the test running of `uv prompt-test run`
 - Need a way to run a test multiple times with different categories and explanation types instead of duplicating
 - Revisit evaluation critera and scoring.
@@ -278,6 +278,32 @@ Matt's notes:
 - HTML review nice way to tick off things already done
 - HTML review should use localStorage to save reviewer name and/or get from git
 - UX on HTML review - view the automated output too? (like the nuanced opinion not just numbers)
+
+--- before v4 ---
+
+- Is "source" that useful? If so, it doesn't do a good job currently.
+- Optimization still does a terrible job on the "unoptimized" view of the square like: "At higher optimization levels (e.g., -O2, -O3), compiler might inline this function. For more complex scenarios, consider using `__builtin_mul` or saturating arithmetic intrinsics. The assembly demonstrates a clean, direct translation of the square function with minimal overhead." which is crap. builting mul is a terrible idea, and why would you saturate?
+  - even "expert / assembly" on unoptimized square says: "The code demonstrates a straightforward, optimized implementation of integer squaring with minimal stack manipulation." - are we leading it down the optimzation world too much?
+- Overall, maybe we need to rethink the categories entirely.
+
+More gibberish: func(x) { return x* 77; } on O3:
+"imul eax, edi, 77:
+
+- Direct multiplication instruction using immediate value 77
+- Uses edi (32-bit input register) as source operand
+- Performs compile-time optimization by converting multiplication to efficient multiplication
+- Single instruction handles both multiplication and result storage
+- Likely leverages x86 LEA-based multiplication optimization
+"
+
+- compile time optimization - bullshit
+- "likely leverages LEA" - bullshit
+
+more crap: "Microarchitectural Observations: Single-cycle multiplication on modern x86 processors" for imul eax, edx, 1044
+
+---
+
+Newer prompt (v4) -> "Typically single-cycle execution on modern x86 processors" for mul 77, so...still not good.
 
 ---
 

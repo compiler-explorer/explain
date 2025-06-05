@@ -152,17 +152,6 @@ class PromptTester:
 
         # Evaluate response
         if success:
-            # Handle audience-specific expected topics
-            expected_topics_by_audience = test_case.get("expected_topics_by_audience", {})
-            if expected_topics_by_audience and request.audience.value in expected_topics_by_audience:
-                expected_topics = expected_topics_by_audience[request.audience.value]
-            else:
-                # Fall back to general expected topics
-                expected_topics = test_case.get("expected_topics", [])
-
-            # Get difficulty for Claude reviewer
-            difficulty = test_case.get("difficulty", "intermediate")
-
             # Use Claude reviewer for evaluation (async version)
             metrics = await self.scorer.evaluate_response_async(
                 source_code=request.code,
@@ -170,8 +159,7 @@ class PromptTester:
                 audience=request.audience,
                 explanation_type=request.explanation,
                 explanation=explanation,
-                expected_topics=expected_topics,
-                difficulty=difficulty,
+                test_case=test_case,
                 token_count=output_tokens,
                 response_time_ms=response_time_ms,
             )
@@ -270,9 +258,11 @@ class PromptTester:
             if all_metrics:
                 summary["average_metrics"] = {
                     "overall_score": sum(m["overall_score"] for m in all_metrics) / len(all_metrics),
-                    "accuracy_score": sum(m["accuracy_score"] for m in all_metrics) / len(all_metrics),
-                    "clarity_score": sum(m["clarity_score"] for m in all_metrics) / len(all_metrics),
-                    "technical_accuracy": sum(m["technical_accuracy"] for m in all_metrics) / len(all_metrics),
+                    "accuracy": sum(m["accuracy"] for m in all_metrics) / len(all_metrics),
+                    "relevance": sum(m["relevance"] for m in all_metrics) / len(all_metrics),
+                    "conciseness": sum(m["conciseness"] for m in all_metrics) / len(all_metrics),
+                    "insight": sum(m["insight"] for m in all_metrics) / len(all_metrics),
+                    "appropriateness": sum(m["appropriateness"] for m in all_metrics) / len(all_metrics),
                     "average_tokens": sum(m["token_count"] for m in all_metrics) / len(all_metrics),
                     "average_response_time": sum(m["response_time_ms"] or 0 for m in all_metrics) / len(all_metrics),
                 }

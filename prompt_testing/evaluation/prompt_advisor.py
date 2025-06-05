@@ -159,6 +159,13 @@ Based on this analysis, please suggest specific improvements to the prompts. Foc
    - Specific explanation types (assembly/source/optimization)
    - General guidelines (applies to all cases)
 
+IMPORTANT: Avoid prescriptive language that creates checklist-style behavior. Instead of:
+- "Always include X" → "When X would help understanding, explain it"
+- "Explicitly state Y" → "When Y is relevant to the explanation, mention it"
+- "Include Z as a standard part" → "Weave Z into the explanation where it adds value"
+
+The goal is natural, contextual explanations, not formulaic outputs with mandatory sections.
+
 Provide your response in this JSON format:
 ```json
 {

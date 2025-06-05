@@ -57,8 +57,11 @@ def cmd_run(args):
         if "average_metrics" in summary:
             avg = summary["average_metrics"]
             print(f"  Average score: {avg['overall_score']:.2f}")
-            print(f"  Average accuracy: {avg['accuracy_score']:.2f}")
-            print(f"  Average clarity: {avg['clarity_score']:.2f}")
+            print(f"  Accuracy: {avg['accuracy']:.2f}")
+            print(f"  Relevance: {avg['relevance']:.2f}")
+            print(f"  Conciseness: {avg['conciseness']:.2f}")
+            print(f"  Insight: {avg['insight']:.2f}")
+            print(f"  Appropriateness: {avg['appropriateness']:.2f}")
             print(f"  Average tokens: {avg['average_tokens']:.0f}")
             print(f"  Average response time: {avg['average_response_time']:.0f}ms")
 
@@ -263,8 +266,13 @@ def cmd_analyze(args):
                 if "average_metrics" in summary:
                     avg = summary["average_metrics"]
                     print(f"  Avg score: {avg['overall_score']:.2f}")
-                    print(f"  Avg accuracy: {avg['accuracy_score']:.2f}")
-                    print(f"  Avg clarity: {avg['clarity_score']:.2f}")
+                    # Display new metrics
+                    if "accuracy" in avg:
+                        print(f"  Accuracy: {avg['accuracy']:.2f}")
+                        print(f"  Relevance: {avg['relevance']:.2f}")
+                        print(f"  Conciseness: {avg['conciseness']:.2f}")
+                        print(f"  Insight: {avg['insight']:.2f}")
+                        print(f"  Appropriateness: {avg['appropriateness']:.2f}")
 
         except Exception as e:
             print(f"  Error reading {result_file.name}: {e}")

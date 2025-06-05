@@ -1,16 +1,16 @@
-description: "Edge cases and problematic scenarios"
-
+description: Edge cases and problematic scenarios
 cases:
 - id: edge_empty_001
   category: empty_function
   quality: bad_example
-  description: "Empty function that should result in minimal explanation"
+  description: Empty function that should result in minimal explanation
   input:
     language: C
-    compiler: "x86-64 gcc 13.1"
-    compilationOptions: ["-O0"]
+    compiler: x86-64 gcc 13.1
+    compilationOptions:
+    - -O0
     instructionSet: x86_64
-    code: "void empty_function() {}"
+    code: void empty_function() {}
     asm:
     - text: 'empty_function:'
     - text: '        push    rbp'
@@ -29,18 +29,17 @@ cases:
       source:
         line: 1
     labelDefinitions: {}
-  expected_topics: [function_prologue, function_epilogue, no_optimization]
   difficulty: beginner
-  notes: "Should generate minimal explanation focusing on calling convention"
-
+  notes: Should generate minimal explanation focusing on calling convention
 - id: edge_undefined_001
   category: undefined_behavior
   quality: challenging_example
-  description: "Code with undefined behavior leading to unexpected assembly"
+  description: Code with undefined behavior leading to unexpected assembly
   input:
     language: C++
-    compiler: "x86-64 clang 16.0.0"
-    compilationOptions: ["-O2"]
+    compiler: x86-64 clang 16.0.0
+    compilationOptions:
+    - -O2
     instructionSet: x86_64
     code: |
       int undefined_increment(int* p) {
@@ -68,18 +67,17 @@ cases:
         line: 2
     - text: ''
     labelDefinitions: {}
-  expected_topics: [undefined_behavior, sequence_points, compiler_assumptions]
   difficulty: advanced
-  notes: "Should explain that this is undefined behavior and compiler can assume anything"
-
+  notes: Should explain that this is undefined behavior and compiler can assume anything
 - id: edge_long_asm_001
   category: truncated_assembly
   quality: special_case
-  description: "Very long assembly that gets truncated"
+  description: Very long assembly that gets truncated
   input:
     language: C++
-    compiler: "x86-64 gcc 13.1"
-    compilationOptions: ["-O0"]
+    compiler: x86-64 gcc 13.1
+    compilationOptions:
+    - -O0
     instructionSet: x86_64
     code: |
       int large_function() {
@@ -232,6 +230,5 @@ cases:
     labelDefinitions:
       .L2: 5
       .L3: 40
-  expected_topics: [assembly_truncation, loop_unoptimized, function_calls]
   difficulty: intermediate
-  notes: "Should handle truncated assembly gracefully and explain omission markers"
+  notes: Should handle truncated assembly gracefully and explain omission markers

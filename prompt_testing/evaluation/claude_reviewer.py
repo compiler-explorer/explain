@@ -13,14 +13,14 @@ from app.explanation_types import AudienceLevel, ExplanationType
 
 @dataclass
 class EvaluationMetrics:
-    """Metrics for evaluating a single response."""
+    """New metrics-based evaluation for a single response."""
 
-    accuracy_score: float  # 0-1, how well it covers expected topics
-    clarity_score: float  # 0-1, readability and educational value
-    completeness_score: float  # 0-1, covers all relevant aspects
-    consistency_score: float  # 0-1, consistent with similar cases
-    length_score: float  # 0-1, appropriate length (not too verbose/brief)
-    technical_accuracy: float  # 0-1, technical correctness
+    # Core metrics (0-1 scale)
+    accuracy: float  # Technical correctness without false claims
+    relevance: float  # Discusses actual code, recognizes optimization level
+    conciseness: float  # Direct explanation without filler or boilerplate
+    insight: float  # Explains WHY and provides actionable understanding
+    appropriateness: float  # Matches audience level and explanation type
 
     overall_score: float  # Weighted combination of above
 
@@ -29,53 +29,59 @@ class EvaluationMetrics:
     response_time_ms: int | None = None
 
     # Detailed feedback
-    missing_topics: list[str] | None = None
-    incorrect_claims: list[str] | None = None
-    notes: str | None = None
+    flags: list[str] | None = None  # Issues found (BS patterns, etc)
+    strengths: list[str] | None = None  # What was done well
+    notes: str | None = None  # General feedback
 
 
 @dataclass
 class ReviewCriteria:
-    """Criteria for Claude to evaluate responses against."""
+    """New metrics-based criteria for Claude to evaluate responses."""
 
-    technical_accuracy: str = """
-    Evaluate the technical accuracy of the explanation:
-    - Are the assembly instructions correctly explained?
-    - Are compiler optimizations accurately described?
-    - Are technical claims verifiable and correct?
-    - Does it avoid oversimplifications that lead to inaccuracy?
+    accuracy: str = """
+    Evaluate technical accuracy (0-100):
+    - Are assembly instructions correctly explained?
+    - No false claims about hardware behavior (e.g., "single-cycle multiplication")
+    - No invented optimizations or non-existent features
+    - Correct understanding of instruction semantics
+    - Heavily penalize confident incorrectness
     """
 
-    educational_value: str = """
-    Assess the educational value for someone learning about compilers:
-    - Is the explanation at an appropriate level for the target audience?
-    - Does it build understanding progressively?
-    - Are complex concepts explained clearly?
-    - Does it provide insight into why the compiler made certain choices?
+    relevance: str = """
+    Evaluate relevance to the actual code (0-100):
+    - Discusses THIS specific code, not hypothetical versions
+    - Recognizes actual optimization level from assembly patterns
+    - Acknowledges when code is clearly unoptimized
+    - No false claims of "efficiency" for obviously naive/unoptimized code
+    - No generic statements that don't match the actual assembly
     """
 
-    clarity_structure: str = """
-    Evaluate clarity and structure:
-    - Is the explanation well-organized and easy to follow?
-    - Are technical terms properly introduced before use?
-    - Is the language clear and concise?
-    - Does it avoid unnecessary jargon while maintaining precision?
+    conciseness: str = """
+    Evaluate conciseness and signal-to-noise ratio (0-100):
+    - Direct explanation of assembly vs generic filler
+    - No boilerplate headers ("Architecture:", "Optimization Level:", etc.)
+    - Focused, to-the-point explanations
+    - No padding with obvious restatements
+    - Avoids formulaic structure when not needed
     """
 
-    completeness: str = """
-    Assess completeness relative to the input:
-    - Does it address all significant transformations in the assembly?
-    - Are important optimizations explained?
-    - Does it cover the key differences between source and assembly?
-    - Is the scope appropriate (not too narrow or too broad)?
+    insight: str = """
+    Evaluate practical insight and understanding (0-100):
+    - Explains WHY the compiler made these specific choices
+    - Provides actionable understanding for developers
+    - No useless or incorrect suggestions (e.g., "use __builtin_mul")
+    - Focuses on actual patterns present in THIS code
+    - Helps reader understand compiler behavior principles
     """
 
-    practical_insights: str = """
-    Evaluate practical insights provided:
-    - Does it help developers understand performance implications?
-    - Are there actionable insights about writing better code?
-    - Does it explain when/why certain optimizations occur?
-    - Does it connect assembly behavior to source code patterns?
+    appropriateness: str = """
+    Evaluate appropriateness for audience and explanation type (0-100):
+    - Matches audience level without condescension
+    - Matches explanation type focus (assembly/source/optimization)
+    - Beginners get foundations, experts get depth
+    - No over-explaining basics to experts
+    - No overwhelming beginners with trivia
+    - Content matches the requested explanation type
     """
 
 
@@ -120,15 +126,14 @@ class ClaudeReviewer:
         source_code: str,
         assembly_code: str,
         explanation: str,
-        expected_topics: list[str],
-        difficulty: str,
+        test_case: dict,
         audience: AudienceLevel,
         explanation_type: ExplanationType,
     ) -> str:
         """Build the evaluation prompt for Claude."""
 
         prompt = f"""You are an expert in compiler technology and technical education.
-Your task is to evaluate an AI-generated explanation of Compiler Explorer's output.
+Your task is to evaluate an AI-generated explanation of Compiler Explorer's output using our new metrics.
 
 ## Context
 
@@ -146,48 +151,52 @@ Which compiled to this assembly:
 
 {explanation}
 
-## Evaluation Criteria
+## Evaluation Context
 
 We assume the user is aware of which compiler they've selected, and if they have provided
 command-line parameters, they are aware what those do. Similarly they know the architecture
-they've selected and so there is not need to repeat any of this information unless it is
+they've selected and so there is no need to repeat any of this information unless it is
 critical to a point that needs to be made later on.
 
+Target audience: {audience.value}
 {_AUDIENCE_LEVEL[audience]}
 
+Explanation type: {explanation_type.value}
 {_EXPLANATION_TYPE[explanation_type]}
 
-Please evaluate the explanation on these dimensions:
+Test case description: {test_case.get("description", "No description provided")}
 
-1. **Technical Accuracy (0-100)**
-{self.criteria.technical_accuracy}
+## NEW METRICS SYSTEM
 
-2. **Educational Value (0-100)**
-{self.criteria.educational_value}
+Evaluate the explanation on these 5 dimensions:
 
-3. **Clarity and Structure (0-100)**
-{self.criteria.clarity_structure}
+1. **Accuracy (0-100)**
+{self.criteria.accuracy}
 
-4. **Completeness (0-100)**
-{self.criteria.completeness}
+2. **Relevance (0-100)**
+{self.criteria.relevance}
 
-5. **Practical Insights (0-100)**
-{self.criteria.practical_insights}
+3. **Conciseness (0-100)**
+{self.criteria.conciseness}
+
+4. **Insight (0-100)**
+{self.criteria.insight}
+
+5. **Appropriateness (0-100)**
+{self.criteria.appropriateness}
 
 """
 
-        if expected_topics:
+        # Add test case specific context if available
+        if test_case.get("common_mistakes"):
             prompt += f"""
-## Expected Topics
-The explanation should cover these topics: {", ".join(expected_topics)}
-Note which ones are missing or inadequately covered.
+## Common Mistakes to Watch For
+This test case commonly produces these mistakes: {", ".join(test_case["common_mistakes"])}
+Check if the explanation falls into any of these traps.
 
 """
 
         prompt += f"""
-## Target Audience
-This explanation is for a {difficulty} level audience.
-
 ## Response Format
 
 {"First, think through your evaluation step by step." if self.enable_thinking else ""}
@@ -196,17 +205,14 @@ Then provide your evaluation in this exact JSON format:
 ```json
 {{
     "scores": {{
-        "technical_accuracy": <0-100>,
-        "educational_value": <0-100>,
-        "clarity_structure": <0-100>,
-        "completeness": <0-100>,
-        "practical_insights": <0-100>
+        "accuracy": <0-100>,
+        "relevance": <0-100>,
+        "conciseness": <0-100>,
+        "insight": <0-100>,
+        "appropriateness": <0-100>
     }},
-    "strengths": ["strength1", "strength2", ...],
-    "weaknesses": ["weakness1", "weakness2", ...],
-    "missing_topics": ["topic1", "topic2", ...],
-    "incorrect_claims": ["claim1", "claim2", ...],
-    "suggestions": ["suggestion1", "suggestion2", ...],
+    "flags": ["Unverified technical claims", "Claims efficiency on unoptimized code", ...],
+    "strengths": ["Correctly explains instruction behavior", "Good contextual relevance", ...],
     "overall_assessment": "A 1-2 sentence overall assessment"
 }}
 ```
@@ -218,17 +224,16 @@ Then provide your evaluation in this exact JSON format:
         source_code: str,
         assembly_code: str,
         explanation: str,
+        test_case: dict,
         audience: AudienceLevel,
         explanation_type: ExplanationType,
-        expected_topics: list[str] | None = None,
-        difficulty: str = "intermediate",
         token_count: int = 0,
         response_time_ms: int | None = None,
     ) -> EvaluationMetrics:
         """Evaluate a response using Claude."""
 
         evaluation_prompt = self._build_evaluation_prompt(
-            source_code, assembly_code, explanation, expected_topics, difficulty, audience, explanation_type
+            source_code, assembly_code, explanation, test_case, audience, explanation_type
         )
 
         # Call Claude for evaluation
@@ -266,39 +271,27 @@ Then provide your evaluation in this exact JSON format:
         scores = evaluation["scores"]
 
         # Validate required score fields
-        required_scores = [
-            "technical_accuracy",
-            "educational_value",
-            "clarity_structure",
-            "completeness",
-            "practical_insights",
-        ]
+        required_scores = ["accuracy", "relevance", "conciseness", "insight", "appropriateness"]
         missing_scores = [field for field in required_scores if field not in scores]
         if missing_scores:
             raise ValueError(f"Missing required scores: {missing_scores}")
 
-        # Calculate overall score with weights
-        overall_score = (
-            scores["technical_accuracy"] * 0.30
-            + scores["educational_value"] * 0.25
-            + scores["clarity_structure"] * 0.20
-            + scores["completeness"] * 0.15
-            + scores["practical_insights"] * 0.10
-        ) / 100
+        # Calculate overall score with new weights
+        weights = {"accuracy": 0.3, "relevance": 0.25, "conciseness": 0.2, "insight": 0.15, "appropriateness": 0.1}
+        overall_score = sum(scores[metric] * weights[metric] for metric in weights) / 100
 
         # Map to EvaluationMetrics format
         return EvaluationMetrics(
-            accuracy_score=scores["technical_accuracy"] / 100,
-            clarity_score=scores["clarity_structure"] / 100,
-            completeness_score=scores["completeness"] / 100,
-            consistency_score=scores["educational_value"] / 100,  # Using educational value as proxy
-            length_score=self._calculate_length_score(explanation, difficulty),
-            technical_accuracy=scores["technical_accuracy"] / 100,
+            accuracy=scores["accuracy"] / 100,
+            relevance=scores["relevance"] / 100,
+            conciseness=scores["conciseness"] / 100,
+            insight=scores["insight"] / 100,
+            appropriateness=scores["appropriateness"] / 100,
             overall_score=overall_score,
             token_count=token_count,
             response_time_ms=response_time_ms,
-            missing_topics=evaluation.get("missing_topics"),
-            incorrect_claims=evaluation.get("incorrect_claims"),
+            flags=evaluation.get("flags"),
+            strengths=evaluation.get("strengths"),
             notes=evaluation.get("overall_assessment"),
         )
 
@@ -319,17 +312,16 @@ Then provide your evaluation in this exact JSON format:
         source_code: str,
         assembly_code: str,
         explanation: str,
+        test_case: dict,
         audience: AudienceLevel,
         explanation_type: ExplanationType,
-        expected_topics: list[str] | None = None,
-        difficulty: str = "intermediate",
         token_count: int = 0,
         response_time_ms: int | None = None,
     ) -> EvaluationMetrics:
         """Evaluate a response using Claude asynchronously."""
 
         evaluation_prompt = self._build_evaluation_prompt(
-            source_code, assembly_code, explanation, expected_topics, difficulty, audience, explanation_type
+            source_code, assembly_code, explanation, test_case, audience, explanation_type
         )
 
         # Call Claude for evaluation asynchronously
@@ -367,38 +359,26 @@ Then provide your evaluation in this exact JSON format:
         scores = evaluation["scores"]
 
         # Validate required score fields
-        required_scores = [
-            "technical_accuracy",
-            "educational_value",
-            "clarity_structure",
-            "completeness",
-            "practical_insights",
-        ]
+        required_scores = ["accuracy", "relevance", "conciseness", "insight", "appropriateness"]
         missing_scores = [field for field in required_scores if field not in scores]
         if missing_scores:
             raise ValueError(f"Missing required scores: {missing_scores}")
 
-        # Calculate overall score with weights
-        overall_score = (
-            scores["technical_accuracy"] * 0.30
-            + scores["educational_value"] * 0.25
-            + scores["clarity_structure"] * 0.20
-            + scores["completeness"] * 0.15
-            + scores["practical_insights"] * 0.10
-        ) / 100
+        # Calculate overall score with new weights
+        weights = {"accuracy": 0.3, "relevance": 0.25, "conciseness": 0.2, "insight": 0.15, "appropriateness": 0.1}
+        overall_score = sum(scores[metric] * weights[metric] for metric in weights) / 100
 
         # Map to EvaluationMetrics format
         return EvaluationMetrics(
-            accuracy_score=scores["technical_accuracy"] / 100,
-            clarity_score=scores["clarity_structure"] / 100,
-            completeness_score=scores["completeness"] / 100,
-            consistency_score=scores["educational_value"] / 100,  # Using educational value as proxy
-            length_score=self._calculate_length_score(explanation, difficulty),
-            technical_accuracy=scores["technical_accuracy"] / 100,
+            accuracy=scores["accuracy"] / 100,
+            relevance=scores["relevance"] / 100,
+            conciseness=scores["conciseness"] / 100,
+            insight=scores["insight"] / 100,
+            appropriateness=scores["appropriateness"] / 100,
             overall_score=overall_score,
             token_count=token_count,
             response_time_ms=response_time_ms,
-            missing_topics=evaluation.get("missing_topics"),
-            incorrect_claims=evaluation.get("incorrect_claims"),
+            flags=evaluation.get("flags"),
+            strengths=evaluation.get("strengths"),
             notes=evaluation.get("overall_assessment"),
         )
