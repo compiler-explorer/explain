@@ -4,6 +4,7 @@ Command-line interface for prompt testing framework.
 """
 
 import argparse
+import asyncio
 import json
 import sys
 from pathlib import Path
@@ -266,13 +267,11 @@ def cmd_analyze(args):
                 if "average_metrics" in summary:
                     avg = summary["average_metrics"]
                     print(f"  Avg score: {avg['overall_score']:.2f}")
-                    # Display new metrics
-                    if "accuracy" in avg:
-                        print(f"  Accuracy: {avg['accuracy']:.2f}")
-                        print(f"  Relevance: {avg['relevance']:.2f}")
-                        print(f"  Conciseness: {avg['conciseness']:.2f}")
-                        print(f"  Insight: {avg['insight']:.2f}")
-                        print(f"  Appropriateness: {avg['appropriateness']:.2f}")
+                    print(f"  Accuracy: {avg['accuracy']:.2f}")
+                    print(f"  Relevance: {avg['relevance']:.2f}")
+                    print(f"  Conciseness: {avg['conciseness']:.2f}")
+                    print(f"  Insight: {avg['insight']:.2f}")
+                    print(f"  Appropriateness: {avg['appropriateness']:.2f}")
 
         except Exception as e:
             print(f"  Error reading {result_file.name}: {e}")
@@ -379,8 +378,6 @@ def cmd_enrich(args):
     with TestCaseEnricher() as enricher:
         try:
             # Use async version with max_concurrent parameter
-            import asyncio
-
             asyncio.run(
                 enricher.enrich_file_async(
                     input_file,

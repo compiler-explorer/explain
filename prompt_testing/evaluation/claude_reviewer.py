@@ -133,7 +133,7 @@ class ClaudeReviewer:
         """Build the evaluation prompt for Claude."""
 
         prompt = f"""You are an expert in compiler technology and technical education.
-Your task is to evaluate an AI-generated explanation of Compiler Explorer's output using our new metrics.
+Your task is to evaluate an AI-generated explanation of Compiler Explorer's output using our metrics.
 
 ## Context
 

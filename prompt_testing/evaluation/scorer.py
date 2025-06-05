@@ -1,5 +1,5 @@
 """
-New metrics-based scoring system for prompt testing.
+Metrics-based scoring system for prompt testing.
 """
 
 from pathlib import Path

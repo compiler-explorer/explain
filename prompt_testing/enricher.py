@@ -114,7 +114,10 @@ class TestCaseEnricher:
         # Process cases concurrently with rate limiting
         semaphore = asyncio.Semaphore(max_concurrent)
 
+        error_count = 0
+
         async def enrich_with_semaphore(case: dict[str, Any], index: int, total: int) -> dict[str, Any]:
+            nonlocal error_count
             async with semaphore:
                 print(f"Processing case {index + 1}/{total}: {case.get('id', 'unknown')}")
                 try:
@@ -123,6 +126,7 @@ class TestCaseEnricher:
                     return await loop.run_in_executor(None, self.enrich_test_case, case, compiler_map)
                 except Exception as e:
                     print(f"  Error: {e}")
+                    error_count += 1
                     # Continue with other cases
                     return case
 
@@ -132,6 +136,12 @@ class TestCaseEnricher:
 
         # Run tasks concurrently
         enriched_cases = await asyncio.gather(*tasks)
+
+        # Check for errors
+        if error_count > 0:
+            print(f"\nWarning: {error_count} test cases failed to enrich")
+            if error_count == total:
+                raise RuntimeError(f"All {error_count} test cases failed to enrich")
 
         # Prepare output
         data["cases"] = enriched_cases
