@@ -118,6 +118,13 @@
             background: #ede9fe; padding: 15px; border-radius: 6px;
             margin-bottom: 20px; border-left: 4px solid #8b5cf6;
         }
+        /* Tooltip styling */
+        label[title], input[title] {
+            cursor: help;
+        }
+        label[title]:hover {
+            color: #2563eb;
+        }
     </style>
 </head>
 <body>
@@ -144,6 +151,8 @@
                     <input type="text" id="reviewer-name" placeholder="e.g., john_doe" required>
                 </div>
             </div>
+            <p><strong>📊 Quality Metrics:</strong> Rate responses using our 5 quality dimensions.
+               Hover over metric labels for detailed descriptions.</p>
         </div>
 
         {% if data.results %}
@@ -166,13 +175,15 @@
                 </div>
 
                 <div class="section">
+                    <h4>⚙️ Assembly Output</h4>
+                    <div class="code-block">{% if result.test_case.assembly %}{% for asm_item in result.test_case.assembly %}{{ asm_item.text }}
+{% endfor %}{% else %}Assembly not available{% endif %}</div>
+                </div>
+
+                <div class="section">
                     <h4>🤖 AI Response</h4>
-                    <div class="response-text">
-                        {% if result.response_html %}
-                            {{ result.response_html | safe }}
-                        {% else %}
-                            {{ result.response }}
-                        {% endif %}
+                    <div class="response-text" id="response-{{ result.case_id }}">
+                        {{ result.response }}
                     </div>
                 </div>
 
@@ -188,15 +199,33 @@
                         </div>
                         <div class="metric">
                             <div class="metric-value">
-                                {{ "%.2f"|format(result.metrics.accuracy_score) }}
+                                {{ "%.2f"|format(result.metrics.accuracy) }}
                             </div>
                             <div class="metric-label">Accuracy</div>
                         </div>
                         <div class="metric">
                             <div class="metric-value">
-                                {{ "%.2f"|format(result.metrics.clarity_score) }}
+                                {{ "%.2f"|format(result.metrics.relevance) }}
                             </div>
-                            <div class="metric-label">Clarity</div>
+                            <div class="metric-label">Relevance</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-value">
+                                {{ "%.2f"|format(result.metrics.conciseness) }}
+                            </div>
+                            <div class="metric-label">Conciseness</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-value">
+                                {{ "%.2f"|format(result.metrics.insight) }}
+                            </div>
+                            <div class="metric-label">Insight</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-value">
+                                {{ "%.2f"|format(result.metrics.appropriateness) }}
+                            </div>
+                            <div class="metric-label">Appropriateness</div>
                         </div>
                         <div class="metric">
                             <div class="metric-value">{{ result.metrics.token_count }}</div>
@@ -214,24 +243,34 @@
                     <h4>✏️ Your Review</h4>
                     <div class="form-row">
                         <div class="form-group">
-                            <label>Accuracy (1-5):</label>
+                            <label title="Technical correctness without false claims">Accuracy (1-5):</label>
                             <input type="number" min="1" max="5" class="score-input"
-                                   name="accuracy" data-case="{{ result.case_id }}">
+                                   name="accuracy" data-case="{{ result.case_id }}"
+                                   title="Technical correctness without false claims">
                         </div>
                         <div class="form-group">
-                            <label>Clarity (1-5):</label>
+                            <label title="Discusses actual code, recognizes optimization level">Relevance (1-5):</label>
                             <input type="number" min="1" max="5" class="score-input"
-                                   name="clarity" data-case="{{ result.case_id }}">
+                                   name="relevance" data-case="{{ result.case_id }}"
+                                   title="Discusses actual code, recognizes optimization level">
                         </div>
                         <div class="form-group">
-                            <label>Completeness (1-5):</label>
+                            <label title="Direct explanation without filler or boilerplate">Conciseness (1-5):</label>
                             <input type="number" min="1" max="5" class="score-input"
-                                   name="completeness" data-case="{{ result.case_id }}">
+                                   name="conciseness" data-case="{{ result.case_id }}"
+                                   title="Direct explanation without filler or boilerplate">
                         </div>
                         <div class="form-group">
-                            <label>Educational Value (1-5):</label>
+                            <label title="Explains WHY and provides actionable understanding">Insight (1-5):</label>
                             <input type="number" min="1" max="5" class="score-input"
-                                   name="educational_value" data-case="{{ result.case_id }}">
+                                   name="insight" data-case="{{ result.case_id }}"
+                                   title="Explains WHY and provides actionable understanding">
+                        </div>
+                        <div class="form-group">
+                            <label title="Matches audience level and explanation type">Appropriateness (1-5):</label>
+                            <input type="number" min="1" max="5" class="score-input"
+                                   name="appropriateness" data-case="{{ result.case_id }}"
+                                   title="Matches audience level and explanation type">
                         </div>
                     </div>
 
@@ -271,7 +310,29 @@
         {% endif %}
     </div>
 
+    <!-- Include marked library from CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
     <script>
+        // Configure marked to match Compiler Explorer
+        marked.setOptions({
+            gfm: true,
+            breaks: true
+        });
+
+        // Render all markdown responses on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            {% for result in data.results %}
+            {% if result.success %}
+            const responseEl_{{ result.case_id | replace("-", "_") }} = document.getElementById('response-{{ result.case_id }}');
+            if (responseEl_{{ result.case_id | replace("-", "_") }}) {
+                const markdown = {{ result.response | tojson }};
+                responseEl_{{ result.case_id | replace("-", "_") }}.innerHTML = marked.parse(markdown);
+            }
+            {% endif %}
+            {% endfor %}
+        });
+
         async function saveReview(caseId) {
             const reviewerName = document.getElementById('reviewer-name').value.trim();
             if (!reviewerName) {
@@ -293,12 +354,14 @@
                     reviewer: reviewerName,
                     accuracy: document.querySelector(
                         `input[name="accuracy"][data-case="${caseId}"]`).value,
-                    clarity: document.querySelector(
-                        `input[name="clarity"][data-case="${caseId}"]`).value,
-                    completeness: document.querySelector(
-                        `input[name="completeness"][data-case="${caseId}"]`).value,
-                    educational_value: document.querySelector(
-                        `input[name="educational_value"][data-case="${caseId}"]`).value,
+                    relevance: document.querySelector(
+                        `input[name="relevance"][data-case="${caseId}"]`).value,
+                    conciseness: document.querySelector(
+                        `input[name="conciseness"][data-case="${caseId}"]`).value,
+                    insight: document.querySelector(
+                        `input[name="insight"][data-case="${caseId}"]`).value,
+                    appropriateness: document.querySelector(
+                        `input[name="appropriateness"][data-case="${caseId}"]`).value,
                     strengths: document.querySelector(
                         `textarea[name="strengths"][data-case="${caseId}"]`).value,
                     weaknesses: document.querySelector(
@@ -309,8 +372,8 @@
                         `textarea[name="overall_comments"][data-case="${caseId}"]`).value
                 };
 
-                if (!formData.accuracy || !formData.clarity ||
-                    !formData.completeness || !formData.educational_value) {
+                if (!formData.accuracy || !formData.relevance ||
+                    !formData.conciseness || !formData.insight || !formData.appropriateness) {
                     throw new Error('Please fill in all rating scores (1-5)');
                 }
 

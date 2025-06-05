@@ -8,7 +8,6 @@ from datetime import datetime
 from pathlib import Path
 from threading import Timer
 
-import markdown
 from flask import Flask, jsonify, render_template, request
 
 from prompt_testing.evaluation.reviewer import HumanReview, ReviewManager
@@ -39,15 +38,6 @@ class ReviewWebServer:
         self.app = Flask(__name__, template_folder=str(template_dir))
         self.app.json.compact = False  # Pretty print JSON responses
 
-        # Configure markdown renderer with sensible defaults for code explanations
-        self.markdown_renderer = markdown.Markdown(
-            extensions=[
-                "fenced_code",  # Support for ```code``` blocks
-                "tables",  # Table support
-                "nl2br",  # Convert newlines to <br>
-            ]
-        )
-
         self._setup_routes()
 
     def _enrich_result_with_test_case(self, result: dict) -> dict:
@@ -64,6 +54,7 @@ class ReviewWebServer:
                 "compilation_options": input_data.get("compilationOptions", []),
                 "instruction_set": input_data.get("instructionSet", "Unknown"),
                 "source_code": input_data.get("code", ""),
+                "assembly": input_data.get("asm", []),
                 "description": test_case.get("description", ""),
                 "category": test_case.get("category", ""),
                 "quality": test_case.get("quality", ""),
@@ -78,6 +69,7 @@ class ReviewWebServer:
                 "compilation_options": [],
                 "instruction_set": "Unknown",
                 "source_code": "",
+                "assembly": [],
                 "description": f"Test case {case_id}",
                 "category": "",
                 "quality": "",
@@ -186,14 +178,11 @@ class ReviewWebServer:
                 with result_file.open() as f:
                     data = json.load(f)
 
-                # Enrich results with test case information and render markdown
+                # Enrich results with test case information
                 if "results" in data:
                     for result in data["results"]:
                         if result.get("success"):
                             self._enrich_result_with_test_case(result)
-                            # Convert markdown response to HTML
-                            if result.get("response"):
-                                result["response_html"] = self.markdown_renderer.convert(result["response"])
 
                 return render_template("review.html", filename=filename, data=data)
             except Exception as e:
@@ -212,9 +201,10 @@ class ReviewWebServer:
                     reviewer=review_data["reviewer"],
                     timestamp=datetime.now().isoformat(),
                     accuracy=int(review_data["accuracy"]),
-                    clarity=int(review_data["clarity"]),
-                    completeness=int(review_data["completeness"]),
-                    educational_value=int(review_data["educational_value"]),
+                    relevance=int(review_data["relevance"]),
+                    conciseness=int(review_data["conciseness"]),
+                    insight=int(review_data["insight"]),
+                    appropriateness=int(review_data["appropriateness"]),
                     strengths=[s.strip() for s in review_data.get("strengths", "").split(",") if s.strip()],
                     weaknesses=[w.strip() for w in review_data.get("weaknesses", "").split(",") if w.strip()],
                     suggestions=[s.strip() for s in review_data.get("suggestions", "").split(",") if s.strip()],

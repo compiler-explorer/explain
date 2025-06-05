@@ -317,10 +317,17 @@ def cmd_improve(args):
         results_file = latest_file.name
         print(f"Using most recent results: {results_file}")
 
-    # Analyze and potentially create improved version
-    output_path = optimizer.analyze_and_improve(
+    # Analyze and potentially create improved version with human feedback integration
+    output_path, human_stats = optimizer.analyze_and_improve_with_human_feedback(
         results_file, args.prompt, args.output if args.create_improved else None
     )
+
+    # Show human review status
+    if human_stats["total_reviews"] > 0:
+        coverage_pct = human_stats["coverage"] * 100
+        print(f"✓ Incorporated {human_stats['total_reviews']} human reviews ({coverage_pct:.0f}% coverage)")
+    else:
+        print("📝 No human reviews found, using automated analysis only")
 
     # Display key suggestions
     if args.show_suggestions and not args.create_improved:
@@ -333,8 +340,12 @@ def cmd_improve(args):
             summary = analysis["analysis_summary"]
             print(f"\nAverage Score: {summary['average_score']:.2f}")
             print("\nMost Common Missing Topics:")
-            for topic, count in summary.get("common_missing_topics", []):
-                print(f"  - {topic} ({count} times)")
+            topics = summary.get("common_missing_topics", [])
+            if topics:
+                for topic in topics:
+                    print(f"  - {topic}")
+            else:
+                print("  None identified")
 
         if "suggestions" in analysis and isinstance(analysis["suggestions"], dict):
             suggestions = analysis["suggestions"]
