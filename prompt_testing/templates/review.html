@@ -86,6 +86,12 @@
             grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
             gap: 15px; background: #f8f9fa; padding: 15px; border-radius: 6px;
         }
+        .metrics-secondary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 15px; background: #f1f3f4; padding: 15px; border-radius: 6px;
+            margin-top: 10px; border-top: 1px solid #e0e0e0;
+        }
         .metric { text-align: center; }
         .metric-value { font-size: 1.2em; font-weight: 600; color: #2563eb; }
         .metric-label { font-size: 0.85em; color: #666; }
@@ -193,39 +199,41 @@
                     <div class="metrics">
                         <div class="metric">
                             <div class="metric-value">
-                                {{ "%.2f"|format(result.metrics.overall_score) }}
-                            </div>
-                            <div class="metric-label">Overall</div>
-                        </div>
-                        <div class="metric">
-                            <div class="metric-value">
-                                {{ "%.2f"|format(result.metrics.accuracy) }}
+                                {{ "%.1f"|format(result.metrics.accuracy * 5) }}
                             </div>
                             <div class="metric-label">Accuracy</div>
                         </div>
                         <div class="metric">
                             <div class="metric-value">
-                                {{ "%.2f"|format(result.metrics.relevance) }}
+                                {{ "%.1f"|format(result.metrics.relevance * 5) }}
                             </div>
                             <div class="metric-label">Relevance</div>
                         </div>
                         <div class="metric">
                             <div class="metric-value">
-                                {{ "%.2f"|format(result.metrics.conciseness) }}
+                                {{ "%.1f"|format(result.metrics.conciseness * 5) }}
                             </div>
                             <div class="metric-label">Conciseness</div>
                         </div>
                         <div class="metric">
                             <div class="metric-value">
-                                {{ "%.2f"|format(result.metrics.insight) }}
+                                {{ "%.1f"|format(result.metrics.insight * 5) }}
                             </div>
                             <div class="metric-label">Insight</div>
                         </div>
                         <div class="metric">
                             <div class="metric-value">
-                                {{ "%.2f"|format(result.metrics.appropriateness) }}
+                                {{ "%.1f"|format(result.metrics.appropriateness * 5) }}
                             </div>
                             <div class="metric-label">Appropriateness</div>
+                        </div>
+                    </div>
+                    <div class="metrics-secondary">
+                        <div class="metric">
+                            <div class="metric-value">
+                                {{ "%.2f"|format(result.metrics.overall_score) }}
+                            </div>
+                            <div class="metric-label">Overall</div>
                         </div>
                         <div class="metric">
                             <div class="metric-value">{{ result.metrics.token_count }}</div>
@@ -320,8 +328,20 @@
             breaks: true
         });
 
-        // Render all markdown responses on page load
+        // Initialize page on load
         document.addEventListener('DOMContentLoaded', function() {
+            // Load saved reviewer name from localStorage
+            const savedReviewer = localStorage.getItem('reviewerName');
+            if (savedReviewer) {
+                document.getElementById('reviewer-name').value = savedReviewer;
+            }
+
+            // Save reviewer name to localStorage when changed
+            document.getElementById('reviewer-name').addEventListener('input', function() {
+                localStorage.setItem('reviewerName', this.value);
+            });
+
+            // Render all markdown responses
             {% for result in data.results %}
             {% if result.success %}
             const responseEl_{{ result.case_id | replace("-", "_") }} = document.getElementById('response-{{ result.case_id }}');
