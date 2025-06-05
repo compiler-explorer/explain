@@ -18,10 +18,11 @@ class HumanReview:
     timestamp: str
 
     # Scores (1-5 scale)
-    accuracy: int  # How accurate is the technical content?
-    clarity: int  # How clear and understandable is it?
-    completeness: int  # Does it cover all important aspects?
-    educational_value: int  # How helpful is it for learning?
+    accuracy: int  # Technical correctness without false claims
+    relevance: int  # Discusses actual code, recognizes optimization level
+    conciseness: int  # Direct explanation without filler or boilerplate
+    insight: int  # Explains WHY and provides actionable understanding
+    appropriateness: int  # Matches audience level and explanation type
 
     # Qualitative feedback
     strengths: list[str]
@@ -38,7 +39,7 @@ class HumanReview:
 class ReviewManager:
     """Manages human reviews and creates comparison interfaces."""
 
-    def __init__(self, results_dir: str):
+    def __init__(self, results_dir: str | Path):
         self.results_dir = Path(results_dir)
         self.reviews_file = self.results_dir / "human_reviews.jsonl"
 
@@ -92,15 +93,17 @@ class ReviewManager:
         # Calculate average scores
         if reviews:
             avg_accuracy = sum(r.accuracy for r in reviews) / len(reviews)
-            avg_clarity = sum(r.clarity for r in reviews) / len(reviews)
-            avg_completeness = sum(r.completeness for r in reviews) / len(reviews)
-            avg_educational = sum(r.educational_value for r in reviews) / len(reviews)
+            avg_relevance = sum(r.relevance for r in reviews) / len(reviews)
+            avg_conciseness = sum(r.conciseness for r in reviews) / len(reviews)
+            avg_insight = sum(r.insight for r in reviews) / len(reviews)
+            avg_appropriateness = sum(r.appropriateness for r in reviews) / len(reviews)
 
             summary["average_scores"] = {
                 "accuracy": avg_accuracy,
-                "clarity": avg_clarity,
-                "completeness": avg_completeness,
-                "educational_value": avg_educational,
+                "relevance": avg_relevance,
+                "conciseness": avg_conciseness,
+                "insight": avg_insight,
+                "appropriateness": avg_appropriateness,
             }
 
         output_path = Path(output_file)
@@ -118,10 +121,11 @@ def create_simple_review_cli(case_id: str, response: str, prompt_version: str) -
     reviewer = input("Reviewer name: ").strip()
 
     print("\nPlease rate the following aspects (1-5 scale):")
-    accuracy = int(input("Accuracy (technical correctness): "))
-    clarity = int(input("Clarity (how understandable): "))
-    completeness = int(input("Completeness (covers all aspects): "))
-    educational = int(input("Educational value (helpful for learning): "))
+    accuracy = int(input("Accuracy (technical correctness without false claims): "))
+    relevance = int(input("Relevance (discusses actual code, recognizes optimization level): "))
+    conciseness = int(input("Conciseness (direct explanation without filler): "))
+    insight = int(input("Insight (explains WHY, provides actionable understanding): "))
+    appropriateness = int(input("Appropriateness (matches audience level and explanation type): "))
 
     print("\nPlease provide qualitative feedback:")
     strengths = input("Strengths (comma-separated): ").split(",")
@@ -141,9 +145,10 @@ def create_simple_review_cli(case_id: str, response: str, prompt_version: str) -
         reviewer=reviewer,
         timestamp=datetime.now().isoformat(),
         accuracy=accuracy,
-        clarity=clarity,
-        completeness=completeness,
-        educational_value=educational,
+        relevance=relevance,
+        conciseness=conciseness,
+        insight=insight,
+        appropriateness=appropriateness,
         strengths=strengths,
         weaknesses=weaknesses,
         suggestions=suggestions,
