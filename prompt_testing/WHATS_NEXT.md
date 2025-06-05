@@ -8,11 +8,17 @@ This document outlines the next steps for improving the prompt testing framework
 
 ### Web Review Interface (Latest)
 - **Fixed HTML review interface** - Replaced string concatenation with Flask + Jinja2
-- **Added markdown rendering** - AI responses now display with proper formatting using python-markdown
+- **Added markdown rendering** - AI responses now display with proper formatting using client-side marked.js
 - **Fixed template errors** - Resolved "dict has no attribute request" by enriching results with test case data
 - **Improved result descriptions** - Clear labels like "Current Production Prompt - 12 cases" instead of "unknown"
 - **Added CSS styling** - Proper code block, header, and list formatting
 - **Interactive web server** - `uv run prompt-test review --interactive` launches Flask app on localhost:5001
+- **COMPLETED: Quality of Life Improvements** ✅
+  * Phase 1: localStorage reviewer persistence + 1-5 metrics scale alignment
+  * Phase 2: Side-by-side source/assembly code display with responsive grid
+  * Phase 3: Line-separated input format (more natural than comma-separated)
+  * Phase 4: Review status indicators + progress tracking + update functionality
+  * Professional review management system with visual status, form pre-population, and real-time updates
 
 ### Prompt Improvement System Audit & Fixes
 - **Fixed critical "current" prompt loading bug** - PromptOptimizer now handles "current" → `app/prompt.yaml` mapping

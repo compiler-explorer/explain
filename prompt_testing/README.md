@@ -340,10 +340,20 @@ uv run prompt-test run --prompt v1_baseline --compare current --categories basic
    uv run prompt-test run --prompt current --output my_test_results.json
    ```
 
-2. Review results interactively:
+2. Review results interactively via web interface:
    ```bash
    uv run prompt-test review --results-file prompt_testing/results/my_test_results.json
    ```
+
+   **Features:**
+   - Visual status indicators (✅ reviewed, ⚪ pending) with colored borders
+   - Progress tracking with animated completion bar
+   - Side-by-side source code and assembly display
+   - Form pre-population with existing review data
+   - Update functionality for modifying reviews
+   - localStorage persistence for reviewer information
+   - 1-5 scale metrics aligned with human evaluation standards
+   - Line-separated input format for natural feedback entry
 
 3. Analyze review data:
    ```bash
