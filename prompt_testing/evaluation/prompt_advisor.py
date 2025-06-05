@@ -473,7 +473,7 @@ Provide your analysis in this JSON format:
     },
     "human_feedback_integration": {
         "human_priorities_addressed": ["Which human concerns are being addressed"],
-        "automated_automated_retained": ["Which automated findings remain relevant"],
+        "automated_retained": ["Which automated findings remain relevant"],
         "conflicts_resolved": ["How human/automated disagreements were resolved"]
     },
     "expected_impact": "Summary of how these changes should improve both human satisfaction and automated metrics"

@@ -1,5 +1,5 @@
-name: Version 5
-description: Contextual language revision - removes prescriptive 'always' patterns for more natural explanations
+name: Version 6
+description: Automated improvement from v5 - enhanced optimization guidance and structured explanations
 model:
   name: claude-3-5-haiku-20241022
   max_tokens: 1024

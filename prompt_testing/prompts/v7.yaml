@@ -1,5 +1,5 @@
-name: Version 5
-description: Contextual language revision - removes prescriptive 'always' patterns for more natural explanations
+name: Version 7
+description: Human feedback integration - improved markdown formatting, conciseness, and insight depth based on 56% human review coverage
 model:
   name: claude-3-5-haiku-20241022
   max_tokens: 1024
