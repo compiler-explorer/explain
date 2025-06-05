@@ -21,3 +21,4 @@ node_modules
 
 # Package build artifacts
 *.egg-info/
+*.backup
