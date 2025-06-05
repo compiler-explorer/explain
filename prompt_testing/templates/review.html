@@ -131,6 +131,25 @@
         label[title]:hover {
             color: #2563eb;
         }
+        /* Side-by-side code layout */
+        .code-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .code-panel h5 {
+            margin: 0 0 10px 0;
+            font-size: 0.9em;
+            color: #555;
+            font-weight: 600;
+        }
+        /* Stack on mobile */
+        @media (max-width: 768px) {
+            .code-container {
+                grid-template-columns: 1fr;
+                gap: 15px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -176,14 +195,18 @@
 
             <div class="case-content">
                 <div class="section">
-                    <h4>💾 Source Code</h4>
-                    <div class="code-block">{{ result.test_case.source_code }}</div>
-                </div>
-
-                <div class="section">
-                    <h4>⚙️ Assembly Output</h4>
-                    <div class="code-block">{% if result.test_case.assembly %}{% for asm_item in result.test_case.assembly %}{{ asm_item.text }}
+                    <h4>💻 Code & Assembly</h4>
+                    <div class="code-container">
+                        <div class="code-panel">
+                            <h5>💾 Source Code</h5>
+                            <div class="code-block">{{ result.test_case.source_code }}</div>
+                        </div>
+                        <div class="code-panel">
+                            <h5>⚙️ Assembly Output</h5>
+                            <div class="code-block">{% if result.test_case.assembly %}{% for asm_item in result.test_case.assembly %}{{ asm_item.text }}
 {% endfor %}{% else %}Assembly not available{% endif %}</div>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="section">
