@@ -1,14 +1,15 @@
-description: "Complex compiler transformations and advanced optimizations"
-
+description: Complex compiler transformations and advanced optimizations
 cases:
 - id: complex_vectorization_001
   category: vectorization
   quality: good_example
-  description: "Auto-vectorized loop with SIMD instructions"
+  description: Auto-vectorized loop with SIMD instructions
   input:
     language: C++
-    compiler: "x86-64 gcc 13.1"
-    compilationOptions: ["-O3", "-march=native"]
+    compiler: x86-64 gcc 13.1
+    compilationOptions:
+    - -O3
+    - -march=native
     instructionSet: x86_64
     code: |
       void add_arrays(float* a, float* b, float* c, int n) {
@@ -359,17 +360,16 @@ cases:
       .L9: 85
       .L4: 90
       .L7: 93
-  expected_topics: [vectorization, simd, loop_unrolling, memory_alignment]
   difficulty: advanced
-
 - id: complex_branch_001
   category: branch_optimization
   quality: challenging_example
-  description: "Complex branching with likely/unlikely hints"
+  description: Complex branching with likely/unlikely hints
   input:
     language: C++
-    compiler: "x86-64 clang 16.0.0"
-    compilationOptions: ["-O2"]
+    compiler: x86-64 clang 16.0.0
+    compilationOptions:
+    - -O2
     instructionSet: x86_64
     code: |
       int process_value(int x) {
@@ -413,5 +413,4 @@ cases:
     - text: ''
     labelDefinitions:
       .LBB0_1: 2
-  expected_topics: [branch_prediction, profile_guided_optimization, builtin_expect]
   difficulty: advanced

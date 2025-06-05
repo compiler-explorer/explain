@@ -2,12 +2,13 @@
 Main test runner for prompt evaluation.
 """
 
+import asyncio
 import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from anthropic import Anthropic
+from anthropic import Anthropic, AsyncAnthropic
 from dotenv import load_dotenv
 
 from app.explain_api import AssemblyItem, ExplainRequest
@@ -30,22 +31,29 @@ class PromptTester:
         project_root: str,
         anthropic_api_key: str | None = None,
         reviewer_model: str = "claude-sonnet-4-0",
+        max_concurrent_requests: int = 5,
     ):
         self.project_root = Path(project_root)
         self.prompt_dir = self.project_root / "prompt_testing" / "prompts"
         self.test_cases_dir = self.project_root / "prompt_testing" / "test_cases"
         self.results_dir = self.project_root / "prompt_testing" / "results"
 
-        # Initialize Anthropic client
+        # Initialize Anthropic clients (both sync and async)
         if anthropic_api_key:
             self.client = Anthropic(api_key=anthropic_api_key)
+            self.async_client = AsyncAnthropic(api_key=anthropic_api_key)
         else:
             self.client = Anthropic()  # Will use ANTHROPIC_API_KEY env var
+            self.async_client = AsyncAnthropic()
 
         # Initialize Claude reviewer
         self.scorer = ClaudeReviewer(anthropic_api_key=anthropic_api_key, reviewer_model=reviewer_model)
 
         self.metrics_provider = NoopMetricsProvider()  # Use noop provider for testing
+
+        # Rate limiting
+        self.max_concurrent_requests = max_concurrent_requests
+        self.semaphore = asyncio.Semaphore(max_concurrent_requests)
 
     def load_prompt(self, prompt_version: str) -> dict[str, Any]:
         """Load a prompt configuration from YAML file.
@@ -98,13 +106,13 @@ class PromptTester:
                 lines.append(item.text)
         return "\n".join(lines)
 
-    def run_single_test(
+    async def run_single_test_async(
         self, test_case: dict[str, Any], prompt_version: str, model: str | None = None, max_tokens: int | None = None
     ) -> dict[str, Any]:
-        """Run a single test case with the specified prompt."""
-
-        case_id = test_case["id"]
-        print(f"Running test case: {case_id} with prompt: {prompt_version}")
+        """Run a single test case with the specified prompt asynchronously."""
+        async with self.semaphore:  # Rate limiting
+            case_id = test_case["id"]
+            print(f"Running test case: {case_id} with prompt: {prompt_version}")
 
         # Load prompt configuration and create Prompt instance
         prompt_config = self.load_prompt(prompt_version)
@@ -122,9 +130,9 @@ class PromptTester:
         if max_tokens is not None:
             prompt_data["max_tokens"] = max_tokens
 
-        # Call Claude API
+        # Call Claude API asynchronously
         start_time = time.time()
-        message = self.client.messages.create(
+        message = await self.async_client.messages.create(
             model=prompt_data["model"],
             max_tokens=prompt_data["max_tokens"],
             temperature=prompt_data["temperature"],
@@ -144,26 +152,14 @@ class PromptTester:
 
         # Evaluate response
         if success:
-            # Handle audience-specific expected topics
-            expected_topics_by_audience = test_case.get("expected_topics_by_audience", {})
-            if expected_topics_by_audience and request.audience.value in expected_topics_by_audience:
-                expected_topics = expected_topics_by_audience[request.audience.value]
-            else:
-                # Fall back to general expected topics
-                expected_topics = test_case.get("expected_topics", [])
-
-            # Get difficulty for Claude reviewer
-            difficulty = test_case.get("difficulty", "intermediate")
-
-            # Use Claude reviewer for evaluation
-            metrics = self.scorer.evaluate_response(
+            # Use Claude reviewer for evaluation (async version)
+            metrics = await self.scorer.evaluate_response_async(
                 source_code=request.code,
                 assembly_code=self._format_assembly(request.asm),
                 audience=request.audience,
                 explanation_type=request.explanation,
                 explanation=explanation,
-                expected_topics=expected_topics,
-                difficulty=difficulty,
+                test_case=test_case,
                 token_count=output_tokens,
                 response_time_ms=response_time_ms,
             )
@@ -184,7 +180,13 @@ class PromptTester:
             "timestamp": datetime.now().isoformat(),
         }
 
-    def run_test_suite(
+    def run_single_test(
+        self, test_case: dict[str, Any], prompt_version: str, model: str | None = None, max_tokens: int | None = None
+    ) -> dict[str, Any]:
+        """Synchronous wrapper for backward compatibility."""
+        return asyncio.run(self.run_single_test_async(test_case, prompt_version, model, max_tokens))
+
+    async def run_test_suite_async(
         self,
         prompt_version: str,
         test_cases: list[str] | None = None,
@@ -192,7 +194,7 @@ class PromptTester:
         audience: str | None = None,
         explanation_type: str | None = None,
     ) -> dict[str, Any]:
-        """Run a full test suite with the specified prompt version."""
+        """Run a full test suite with the specified prompt version asynchronously."""
 
         # Load all test cases
         all_cases = load_all_test_cases(str(self.test_cases_dir))
@@ -213,22 +215,31 @@ class PromptTester:
         if not all_cases:
             raise ValueError("No test cases found matching the specified criteria")
 
-        print(f"Running {len(all_cases)} test cases with prompt version: {prompt_version}")
+        print(
+            f"Running {len(all_cases)} test cases with prompt version: {prompt_version} "
+            f"(max {self.max_concurrent_requests} concurrent)"
+        )
 
+        # Create tasks for all test cases
+        tasks = [self.run_single_test_async(case, prompt_version) for case in all_cases]
+
+        # Run tasks concurrently with progress tracking
         results = []
-        for case in all_cases:
-            result = self.run_single_test(case, prompt_version)
+
+        # Use asyncio.as_completed to get results as they finish
+        for completed, coro in enumerate(asyncio.as_completed(tasks), 1):
+            result = await coro
             results.append(result)
 
             # Print progress
             if result["success"]:
                 metrics = result["metrics"]
                 if metrics:
-                    print(f"  ✓ {result['case_id']}: {metrics['overall_score']:.2f}")
+                    print(f"  [{completed}/{len(all_cases)}] ✓ {result['case_id']}: {metrics['overall_score']:.2f}")
                 else:
-                    print(f"  ✓ {result['case_id']}: completed")
+                    print(f"  [{completed}/{len(all_cases)}] ✓ {result['case_id']}: completed")
             else:
-                print(f"  ✗ {result['case_id']}: {result['error']}")
+                print(f"  [{completed}/{len(all_cases)}] ✗ {result['case_id']}: {result['error']}")
 
         # Calculate summary statistics
         successful_results = [r for r in results if r["success"]]
@@ -247,14 +258,29 @@ class PromptTester:
             if all_metrics:
                 summary["average_metrics"] = {
                     "overall_score": sum(m["overall_score"] for m in all_metrics) / len(all_metrics),
-                    "accuracy_score": sum(m["accuracy_score"] for m in all_metrics) / len(all_metrics),
-                    "clarity_score": sum(m["clarity_score"] for m in all_metrics) / len(all_metrics),
-                    "technical_accuracy": sum(m["technical_accuracy"] for m in all_metrics) / len(all_metrics),
+                    "accuracy": sum(m["accuracy"] for m in all_metrics) / len(all_metrics),
+                    "relevance": sum(m["relevance"] for m in all_metrics) / len(all_metrics),
+                    "conciseness": sum(m["conciseness"] for m in all_metrics) / len(all_metrics),
+                    "insight": sum(m["insight"] for m in all_metrics) / len(all_metrics),
+                    "appropriateness": sum(m["appropriateness"] for m in all_metrics) / len(all_metrics),
                     "average_tokens": sum(m["token_count"] for m in all_metrics) / len(all_metrics),
                     "average_response_time": sum(m["response_time_ms"] or 0 for m in all_metrics) / len(all_metrics),
                 }
 
         return {"summary": summary, "results": results}
+
+    def run_test_suite(
+        self,
+        prompt_version: str,
+        test_cases: list[str] | None = None,
+        categories: list[str] | None = None,
+        audience: str | None = None,
+        explanation_type: str | None = None,
+    ) -> dict[str, Any]:
+        """Synchronous wrapper for backward compatibility."""
+        return asyncio.run(
+            self.run_test_suite_async(prompt_version, test_cases, categories, audience, explanation_type)
+        )
 
     def save_results(self, test_results: dict[str, Any], output_file: str | None = None) -> str:
         """Save test results to a timestamped file."""
@@ -268,15 +294,17 @@ class PromptTester:
         print(f"Results saved to: {output_path}")
         return str(output_path)
 
-    def compare_prompt_versions(
+    async def compare_prompt_versions_async(
         self, version1: str, version2: str, test_cases: list[str] | None = None
     ) -> dict[str, Any]:
-        """Compare two prompt versions on the same test cases."""
+        """Compare two prompt versions on the same test cases asynchronously."""
 
         print(f"Comparing prompt versions: {version1} vs {version2}")
 
-        results1 = self.run_test_suite(version1, test_cases)
-        results2 = self.run_test_suite(version2, test_cases)
+        # Run both test suites concurrently
+        results1, results2 = await asyncio.gather(
+            self.run_test_suite_async(version1, test_cases), self.run_test_suite_async(version2, test_cases)
+        )
 
         # Create comparison
         comparison = {
@@ -318,3 +346,9 @@ class PromptTester:
             comparison["case_comparisons"].append(case_comparison)
 
         return comparison
+
+    def compare_prompt_versions(
+        self, version1: str, version2: str, test_cases: list[str] | None = None
+    ) -> dict[str, Any]:
+        """Synchronous wrapper for backward compatibility."""
+        return asyncio.run(self.compare_prompt_versions_async(version1, version2, test_cases))

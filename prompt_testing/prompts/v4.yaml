@@ -1,15 +1,9 @@
-name: "Production Prompt"
-description: "The current prompt used in production explain service"
-
-# Model configuration
+name: Version 3
+description: Some human tuning, includes advanced system prompt stuff
 model:
-  name: "claude-3-5-haiku-20241022"
+  name: claude-3-5-haiku-20241022
   max_tokens: 1024
-  temperature: 0.0  # For consistent explanations
-
-# Audience levels with their guidance
-# These are referenced by the explanation_types.py enum but defined here
-# so they can be versioned with the prompt
+  temperature: 0.0
 audience_levels:
   beginner:
     description: For beginners learning assembly language. Uses simple language and explains technical terms.
@@ -91,8 +85,19 @@ system_prompt: |
   - When discussing performance, use qualified language ('typically', 'on most processors') rather than absolute claims.
   - For unoptimized code, explicitly identify it as such and explain what optimizations are missing.
   - Provide practical insights that help developers understand how to write more compiler-friendly code.
+
+
+  # Additional guidance from analysis:
   - When analyzing any assembly code, follow this verification checklist: 1) Trace each instruction's input and output registers step-by-step, 2) Verify mathematical operations by computing intermediate values, 3) Confirm instruction semantics before explaining (especially for multi-operand instructions like imul, lea), 4) Only claim optimization levels if definitively determinable from the code.
   - For register usage explanations, always specify: which registers hold parameters, which hold return values, which are caller-saved vs callee-saved, and why the compiler chose specific registers for each purpose.
   - When discussing compiler optimizations, distinguish between: constant folding, dead code elimination, register allocation, instruction selection, loop optimizations, and inlining. Explain which specific optimizations are present or absent.
 user_prompt: Explain the {arch} {user_prompt_phrase}.
 assistant_prefill: "I'll analyze the {user_prompt_phrase} and explain it for {audience} level:"
+experiment_metadata:
+  base_prompt: Version 3
+  experiment_name: Automated improvement based on 20250604_145353_v3.json
+  improvements_applied: 4
+  expected_impact: These changes should significantly reduce incorrect technical claims by requiring step-by-step verification,
+    ensure calling conventions are always explained for beginners, guarantee optimization level comparisons are included,
+    and provide more practical value through performance implications. The average score should improve from 0.74 to approximately
+    0.85-0.90 by addressing the most common missing topics and technical inaccuracies.

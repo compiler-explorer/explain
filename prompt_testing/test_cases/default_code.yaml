@@ -1,7 +1,4 @@
 description: The default "square" code in CE, which the users will see to start with
-
-# TODO come up with a way to generate multiple test cases from each
-# instead of duplicating?
 cases:
 - id: square_cpp_no_o_beginner_asm
   category: default_code
@@ -120,15 +117,14 @@ cases:
       source:
         line: 4
     labelDefinitions: {}
-
-
 - id: square_cpp_o1
   category: default_code
   description: The default code with optimization on
   input:
     language: C++
     compiler: x86-64 gcc 15.1
-    compilationOptions: ["-O1"]
+    compilationOptions:
+    - -O1
     instructionSet: x86_64
     code: |
       // Type your code here, or load an example.
@@ -147,6 +143,9 @@ cases:
       source:
         line: 4
     labelDefinitions: {}
+  common_mistakes:
+  - Claims this is optimized when it's actually unoptimized
+  - Describes stack usage as 'efficient' when it's not
 - id: square_cpp_no_o_aarch64
   category: default_code
   description: The default code with no optimization (aarch64)
@@ -187,7 +186,8 @@ cases:
   input:
     language: C++
     compiler: ARM64 gcc 15.1.0
-    compilationOptions: ["-O1"]
+    compilationOptions:
+    - -O1
     instructionSet: aarch64
     code: |
       // Type your code here, or load an example.

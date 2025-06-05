@@ -36,6 +36,7 @@
             background: #f8f9fa; padding: 15px; border-radius: 6px;
             font-family: 'Monaco', 'Consolas', monospace;
             font-size: 0.9em; overflow-x: auto; border-left: 4px solid #007acc;
+            white-space: pre-wrap;
         }
         .response-text {
             background: #f0f9ff; padding: 15px; border-radius: 6px;
@@ -44,13 +45,16 @@
         .response-text pre {
             background: #f8f9fa; padding: 10px; border-radius: 4px;
             overflow-x: auto; font-size: 0.9em; margin: 10px 0;
+            line-height: 1.4;
         }
-        .response-text code {
+        .response-text :not(pre) > code {
             background: #f1f5f9; padding: 2px 4px; border-radius: 3px;
             font-family: 'Monaco', 'Consolas', monospace; font-size: 0.9em;
         }
         .response-text pre code {
-            background: none; padding: 0;
+            background: none; padding: 0; border-radius: 0;
+            font-family: 'Monaco', 'Consolas', monospace; font-size: inherit;
+            display: block;
         }
         .response-text h1, .response-text h2, .response-text h3 {
             margin-top: 20px; margin-bottom: 10px; color: #1e40af;

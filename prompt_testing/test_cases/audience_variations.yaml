@@ -1,16 +1,16 @@
-description: "Test cases demonstrating audience and explanation type variations"
-
+description: Test cases demonstrating audience and explanation type variations
 cases:
 - id: factorial_beginner_assembly
   category: recursion
   quality: good_example
-  description: "Factorial function for beginner audience with assembly focus"
+  description: Factorial function for beginner audience with assembly focus
   audience: beginner
   explanation_type: assembly
   input:
     language: C++
-    compiler: "x86-64 gcc 12.2"
-    compilationOptions: ["-O2"]
+    compiler: x86-64 gcc 12.2
+    compilationOptions:
+    - -O2
     instructionSet: x86_64
     code: |
       int factorial(int n) {
@@ -61,22 +61,18 @@ cases:
     labelDefinitions:
       .L1: 3
       .L2: 9
-  expected_topics_by_audience:
-    beginner: [recursion, base_case, stack_usage, registers]
-    intermediate: [tail_recursion_missed, stack_frame_optimization, calling_convention]
-    expert: [branch_prediction, instruction_scheduling, register_allocation_strategy]
   difficulty: beginner
-
 - id: factorial_expert_optimization
   category: recursion
   quality: good_example
-  description: "Same factorial function for expert audience with optimization focus"
+  description: Same factorial function for expert audience with optimization focus
   audience: expert
   explanation_type: optimization
   input:
     language: C++
-    compiler: "x86-64 gcc 12.2"
-    compilationOptions: ["-O2"]
+    compiler: x86-64 gcc 12.2
+    compilationOptions:
+    - -O2
     instructionSet: x86_64
     code: |
       int factorial(int n) {
@@ -127,22 +123,19 @@ cases:
     labelDefinitions:
       .L1: 3
       .L2: 9
-  expected_topics_by_audience:
-    beginner: [recursion, base_case]
-    intermediate: [stack_optimization, function_calls]
-    expert: [tail_call_optimization_missed, register_pressure, branch_layout, microarchitecture_implications]
   difficulty: expert
-
 - id: loop_intermediate_source
   category: loop_optimization
   quality: good_example
-  description: "Loop optimization for intermediate audience with source mapping focus"
+  description: Loop optimization for intermediate audience with source mapping focus
   audience: intermediate
   explanation_type: source
   input:
     language: C++
-    compiler: "x86-64 clang 15.0.0"
-    compilationOptions: ["-O3", "-march=native"]
+    compiler: x86-64 clang 15.0.0
+    compilationOptions:
+    - -O3
+    - -march=native
     instructionSet: x86_64
     code: |
       void add_arrays(float* a, const float* b, const float* c, int n) {
@@ -600,22 +593,18 @@ cases:
       .LBB0_8: 101
       .LBB0_11: 103
       .LBB0_10: 126
-  expected_topics_by_audience:
-    beginner: [loops, array_access, floating_point]
-    intermediate: [vectorization_check, loop_peeling, source_to_assembly_mapping, sse_instructions]
-    expert: [vectorization_strategy, prefetching, alignment_considerations, simd_efficiency]
   difficulty: intermediate
-
 - id: struct_beginner_source
   category: data_structures
   quality: good_example
-  description: "Struct manipulation for beginners with source mapping"
+  description: Struct manipulation for beginners with source mapping
   audience: beginner
   explanation_type: source
   input:
     language: C
-    compiler: "x86-64 gcc 11.2"
-    compilationOptions: ["-O1"]
+    compiler: x86-64 gcc 11.2
+    compilationOptions:
+    - -O1
     instructionSet: x86_64
     code: |
       struct Point {
@@ -641,8 +630,4 @@ cases:
       source:
         line: 8
     labelDefinitions: {}
-  expected_topics_by_audience:
-    beginner: [struct_passing, parameter_registers, addition_optimization, source_mapping]
-    intermediate: [abi_conventions, register_parameter_passing, lea_instruction]
-    expert: [struct_decomposition, calling_convention_optimization]
   difficulty: beginner

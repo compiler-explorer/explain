@@ -136,7 +136,7 @@ class TestProcessRequest:
         assert messages[1]["role"] == "assistant"
         assert len(messages[1]["content"]) == 1
         assert messages[1]["content"][0]["type"] == "text"
-        assert "analysis" in messages[1]["content"][0]["text"]
+        assert "analyze" in messages[1]["content"][0]["text"]
 
         # Check the structured data has expected fields
         structured_data = json.loads(messages[0]["content"][1]["text"])

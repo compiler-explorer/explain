@@ -4,6 +4,7 @@ Command-line interface for prompt testing framework.
 """
 
 import argparse
+import asyncio
 import json
 import sys
 from pathlib import Path
@@ -33,6 +34,7 @@ def cmd_run(args):
     tester = PromptTester(
         args.project_root,
         reviewer_model=args.reviewer_model,
+        max_concurrent_requests=args.max_concurrent,
     )
 
     if args.compare:
@@ -56,8 +58,11 @@ def cmd_run(args):
         if "average_metrics" in summary:
             avg = summary["average_metrics"]
             print(f"  Average score: {avg['overall_score']:.2f}")
-            print(f"  Average accuracy: {avg['accuracy_score']:.2f}")
-            print(f"  Average clarity: {avg['clarity_score']:.2f}")
+            print(f"  Accuracy: {avg['accuracy']:.2f}")
+            print(f"  Relevance: {avg['relevance']:.2f}")
+            print(f"  Conciseness: {avg['conciseness']:.2f}")
+            print(f"  Insight: {avg['insight']:.2f}")
+            print(f"  Appropriateness: {avg['appropriateness']:.2f}")
             print(f"  Average tokens: {avg['average_tokens']:.0f}")
             print(f"  Average response time: {avg['average_response_time']:.0f}ms")
 
@@ -262,8 +267,11 @@ def cmd_analyze(args):
                 if "average_metrics" in summary:
                     avg = summary["average_metrics"]
                     print(f"  Avg score: {avg['overall_score']:.2f}")
-                    print(f"  Avg accuracy: {avg['accuracy_score']:.2f}")
-                    print(f"  Avg clarity: {avg['clarity_score']:.2f}")
+                    print(f"  Accuracy: {avg['accuracy']:.2f}")
+                    print(f"  Relevance: {avg['relevance']:.2f}")
+                    print(f"  Conciseness: {avg['conciseness']:.2f}")
+                    print(f"  Insight: {avg['insight']:.2f}")
+                    print(f"  Appropriateness: {avg['appropriateness']:.2f}")
 
         except Exception as e:
             print(f"  Error reading {result_file.name}: {e}")
@@ -369,11 +377,14 @@ def cmd_enrich(args):
     # Enrich test cases
     with TestCaseEnricher() as enricher:
         try:
-            enricher.enrich_file(
-                input_file,
-                output_file,
-                compiler_map,
-                delay=args.delay,
+            # Use async version with max_concurrent parameter
+            asyncio.run(
+                enricher.enrich_file_async(
+                    input_file,
+                    output_file,
+                    compiler_map,
+                    max_concurrent=args.max_concurrent,
+                )
             )
         except Exception as e:
             print(f"Enrichment failed: {e}")
@@ -583,6 +594,14 @@ Examples:
         help="Claude model to use for reviewing (e.g., claude-sonnet-4-0, claude-3-5-sonnet-20241022)",
     )
 
+    # Parallelism configuration
+    run_parser.add_argument(
+        "--max-concurrent",
+        type=int,
+        default=5,
+        help="Maximum concurrent API requests (default: 5)",
+    )
+
     run_parser.set_defaults(func=cmd_run)
 
     # List command
@@ -636,7 +655,13 @@ Examples:
         "--delay",
         type=float,
         default=0.5,
-        help="Delay between API calls in seconds (default: 0.5)",
+        help="Delay between API calls in seconds (default: 0.5, ignored when using parallel mode)",
+    )
+    enrich_parser.add_argument(
+        "--max-concurrent",
+        type=int,
+        default=3,
+        help="Maximum concurrent CE API requests (default: 3)",
     )
     enrich_parser.set_defaults(func=cmd_enrich)
 

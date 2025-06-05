@@ -154,6 +154,17 @@ Based on this analysis, please suggest specific improvements to the prompts. Foc
 2. **Preventing Incorrect Claims**: What guardrails or instructions would help?
 3. **Improving Weak Areas**: Based on the reviewer notes, what changes would help?
 4. **Concrete Examples**: Provide specific wording changes, not just general advice.
+5. **Targeted Improvements**: Consider whether each suggestion should apply to:
+   - Specific audiences (beginner/intermediate/expert)
+   - Specific explanation types (assembly/source/optimization)
+   - General guidelines (applies to all cases)
+
+IMPORTANT: Avoid prescriptive language that creates checklist-style behavior. Instead of:
+- "Always include X" → "When X would help understanding, explain it"
+- "Explicitly state Y" → "When Y is relevant to the explanation, mention it"
+- "Include Z as a standard part" → "Weave Z into the explanation where it adds value"
+
+The goal is natural, contextual explanations, not formulaic outputs with mandatory sections.
 
 Provide your response in this JSON format:
 ```json
@@ -224,25 +235,20 @@ Provide your response in this JSON format:
 
         suggestions = improvement_suggestions.get("suggestions", {})
 
-        # Apply priority improvements by making the suggested text changes
+        # Apply priority improvements with smart targeting
         if "priority_improvements" in suggestions:
             improvements = suggestions["priority_improvements"]
 
-            # Apply each improvement
+            # Apply each improvement to the appropriate section
             for imp in improvements:
-                if "current_text" in imp and "suggested_text" in imp and "system_prompt" in new_prompt:
-                    new_prompt["system_prompt"] = new_prompt["system_prompt"].replace(
-                        imp["current_text"], imp["suggested_text"]
-                    )
+                if "current_text" in imp and "suggested_text" in imp:
+                    self._apply_targeted_improvement(new_prompt, imp)
 
-        # Apply system prompt additions
+        # Apply system prompt changes with smart targeting
         if "system_prompt_changes" in suggestions:
             changes = suggestions["system_prompt_changes"]
             if "additions" in changes:
-                additions_text = "\n\n# Additional guidance from analysis:\n"
-                for addition in changes["additions"]:
-                    additions_text += f"- {addition}\n"
-                new_prompt["system_prompt"] += additions_text
+                self._apply_targeted_additions(new_prompt, changes["additions"])
 
         # Apply user prompt modifications
         if "user_prompt_changes" in suggestions:
@@ -273,6 +279,117 @@ Provide your response in this JSON format:
         }
 
         return new_prompt
+
+    def _classify_suggestion_target(self, suggestion_text: str) -> dict[str, list[str]]:
+        """Classify where a suggestion should be applied based on its content."""
+        targets = {"audiences": [], "explanation_types": [], "general": False}
+
+        suggestion_lower = suggestion_text.lower()
+
+        # Calling convention - primarily for beginners and assembly explanations
+        if any(term in suggestion_lower for term in ["calling convention", "parameter passing", "register roles"]):
+            targets["audiences"].append("beginner")
+            targets["explanation_types"].append("assembly")
+
+        # Optimization analysis - for optimization explanations and intermediate+ audiences
+        if any(term in suggestion_lower for term in ["optimization", "compare", "level", "-o0", "-o1", "-o2", "-o3"]):
+            targets["explanation_types"].append("optimization")
+            targets["audiences"].extend(["intermediate", "expert"])
+
+        # Performance implications - for intermediate+ audiences
+        if any(term in suggestion_lower for term in ["performance", "practical", "developer", "compiler-friendly"]):
+            targets["audiences"].extend(["intermediate", "expert"])
+
+        # Source mapping - for source explanations
+        if any(term in suggestion_lower for term in ["source", "mapping", "construct", "high-level"]):
+            targets["explanation_types"].append("source")
+
+        # Technical accuracy - applies to general guidelines
+        if any(
+            term in suggestion_lower for term in ["instruction", "operand", "verify", "trace", "accurate", "precise"]
+        ):
+            targets["general"] = True
+
+        # Expert-level content
+        if any(
+            term in suggestion_lower for term in ["microarchitecture", "pipeline", "advanced", "comparative analysis"]
+        ):
+            targets["audiences"].append("expert")
+
+        # Remove duplicates
+        targets["audiences"] = list(set(targets["audiences"]))
+        targets["explanation_types"] = list(set(targets["explanation_types"]))
+
+        return targets
+
+    def _apply_targeted_improvement(self, new_prompt: dict[str, Any], improvement: dict[str, str]) -> None:
+        """Apply an improvement to the appropriate section of the prompt."""
+        current_text = improvement["current_text"]
+        suggested_text = improvement["suggested_text"]
+
+        # Classify the suggestion
+        targets = self._classify_suggestion_target(improvement.get("issue", "") + " " + suggested_text)
+
+        # Apply to system prompt if it's a general improvement or direct system prompt change
+        if (
+            targets["general"] or current_text in new_prompt.get("system_prompt", "")
+        ) and "system_prompt" in new_prompt:
+            new_prompt["system_prompt"] = new_prompt["system_prompt"].replace(current_text, suggested_text)
+
+        # Apply to specific audience levels
+        if targets["audiences"] and "audience_levels" in new_prompt:
+            for audience in targets["audiences"]:
+                if audience in new_prompt["audience_levels"]:
+                    guidance = new_prompt["audience_levels"][audience].get("guidance", "")
+                    if current_text in guidance:
+                        new_prompt["audience_levels"][audience]["guidance"] = guidance.replace(
+                            current_text, suggested_text
+                        )
+
+        # Apply to specific explanation types
+        if targets["explanation_types"] and "explanation_types" in new_prompt:
+            for exp_type in targets["explanation_types"]:
+                if exp_type in new_prompt["explanation_types"]:
+                    focus = new_prompt["explanation_types"][exp_type].get("focus", "")
+                    if current_text in focus:
+                        new_prompt["explanation_types"][exp_type]["focus"] = focus.replace(current_text, suggested_text)
+
+    def _apply_targeted_additions(self, new_prompt: dict[str, Any], additions: list[str]) -> None:
+        """Apply additions to the appropriate sections based on their content."""
+        general_additions = []
+
+        for addition in additions:
+            targets = self._classify_suggestion_target(addition)
+            applied = False
+
+            # Apply to specific audience levels
+            if targets["audiences"] and "audience_levels" in new_prompt:
+                for audience in targets["audiences"]:
+                    if audience in new_prompt["audience_levels"]:
+                        current_guidance = new_prompt["audience_levels"][audience].get("guidance", "")
+                        new_prompt["audience_levels"][audience]["guidance"] = (
+                            current_guidance.rstrip() + f"\n{addition}\n"
+                        )
+                        applied = True
+
+            # Apply to specific explanation types
+            if targets["explanation_types"] and "explanation_types" in new_prompt:
+                for exp_type in targets["explanation_types"]:
+                    if exp_type in new_prompt["explanation_types"]:
+                        current_focus = new_prompt["explanation_types"][exp_type].get("focus", "")
+                        new_prompt["explanation_types"][exp_type]["focus"] = current_focus.rstrip() + f"\n{addition}\n"
+                        applied = True
+
+            # If not applied to specific sections or is general, add to general additions
+            if not applied or targets["general"]:
+                general_additions.append(addition)
+
+        # Apply remaining general additions to system prompt
+        if general_additions and "system_prompt" in new_prompt:
+            additions_text = "\n\n# Additional guidance from analysis:\n"
+            for addition in general_additions:
+                additions_text += f"- {addition}\n"
+            new_prompt["system_prompt"] += additions_text
 
 
 class PromptOptimizer:

@@ -1,14 +1,14 @@
-description: "Basic compiler optimization scenarios"
-
+description: Basic compiler optimization scenarios
 cases:
 - id: basic_loop_001
   category: loop_optimization
   quality: good_example
-  description: "Simple loop with potential for vectorization"
+  description: Simple loop with potential for vectorization
   input:
     language: C++
-    compiler: "x86-64 gcc 13.1"
-    compilationOptions: ["-O2"]
+    compiler: x86-64 gcc 13.1
+    compilationOptions:
+    - -O2
     instructionSet: x86_64
     code: |
       int sum_array(int* arr, int n) {
@@ -71,17 +71,16 @@ cases:
     labelDefinitions:
       .L4: 2
       .L3: 10
-  expected_topics: [loop_optimization, pointer_arithmetic, early_termination]
   difficulty: beginner
-
 - id: basic_inline_001
   category: function_inlining
   quality: good_example
-  description: "Simple function that gets inlined"
+  description: Simple function that gets inlined
   input:
     language: C++
-    compiler: "x86-64 clang 16.0.0"
-    compilationOptions: ["-O2"]
+    compiler: x86-64 clang 16.0.0
+    compilationOptions:
+    - -O2
     instructionSet: x86_64
     code: |
       inline int square(int x) { return x * x; }
@@ -99,17 +98,16 @@ cases:
         line: 2
     - text: ''
     labelDefinitions: {}
-  expected_topics: [function_inlining, arithmetic_optimization]
   difficulty: beginner
-
 - id: basic_const_001
   category: constant_folding
   quality: good_example
-  description: "Compile-time constant computation"
+  description: Compile-time constant computation
   input:
     language: C
-    compiler: "x86-64 gcc 13.1"
-    compilationOptions: ["-O1"]
+    compiler: x86-64 gcc 13.1
+    compilationOptions:
+    - -O1
     instructionSet: x86_64
     code: |
       int compute_constant() {
@@ -124,5 +122,4 @@ cases:
       source:
         line: 3
     labelDefinitions: {}
-  expected_topics: [constant_folding, compile_time_evaluation]
   difficulty: beginner
