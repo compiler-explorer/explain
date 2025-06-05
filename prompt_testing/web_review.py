@@ -228,6 +228,16 @@ class ReviewWebServer:
             reviews = self.review_manager.load_reviews(case_id=case_id)
             return jsonify({"reviews": [review.__dict__ for review in reviews]})
 
+        @self.app.route("/api/reviews/prompt/<prompt_version>")
+        def get_reviews_for_prompt(prompt_version):
+            """Get all existing reviews for a specific prompt version."""
+            reviews = self.review_manager.load_reviews(prompt_version=prompt_version)
+            # Group reviews by case_id for easier frontend consumption
+            reviews_by_case = {}
+            for review in reviews:
+                reviews_by_case[review.case_id] = review.__dict__
+            return jsonify({"reviews_by_case": reviews_by_case, "total_reviews": len(reviews)})
+
     def start(self, open_browser: bool = True):
         """Start the web server."""
         if open_browser:
