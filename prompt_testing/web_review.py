@@ -233,9 +233,18 @@ class ReviewWebServer:
             """Get all existing reviews for a specific prompt version."""
             reviews = self.review_manager.load_reviews(prompt_version=prompt_version)
             # Group reviews by case_id for easier frontend consumption
+            #
+            # Design Note: We use direct assignment (latest review wins) rather than arrays
+            # because this UI is designed for single-reviewer prompt iteration workflows.
+            # The underlying JSONL storage preserves all reviews if multi-reviewer support
+            # is needed later. For current use case (prompt optimization), we want:
+            # - Simple binary state (reviewed/not reviewed)
+            # - Clear completion tracking without reviewer consensus complexity
+            # - UI optimized for iteration speed rather than comprehensive evaluation
+            # If multiple reviewers become common, this can be evolved to support arrays.
             reviews_by_case = {}
             for review in reviews:
-                reviews_by_case[review.case_id] = review.__dict__
+                reviews_by_case[review.case_id] = review.__dict__  # Latest review per case
             return jsonify({"reviews_by_case": reviews_by_case, "total_reviews": len(reviews)})
 
     def start(self, open_browser: bool = True):
