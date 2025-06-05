@@ -18,6 +18,13 @@
         .case-card {
             background: white; margin-bottom: 30px; border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1); overflow: hidden;
+            position: relative;
+        }
+        .case-card.reviewed {
+            border-left: 5px solid #16a34a;
+        }
+        .case-card.not-reviewed {
+            border-left: 5px solid #dc2626;
         }
         .case-header {
             background: #f8f9fa; padding: 15px 20px;
@@ -26,6 +33,24 @@
         }
         .case-id { font-weight: 600; color: #333; }
         .case-meta { font-size: 0.9em; color: #666; }
+        .review-status {
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 4px 12px; border-radius: 16px; font-size: 0.8em; font-weight: 500;
+        }
+        .review-status.reviewed {
+            background: #dcfce7; color: #166534;
+        }
+        .review-status.not-reviewed {
+            background: #fef2f2; color: #dc2626;
+        }
+        .progress-bar {
+            background: #f3f4f6; border-radius: 8px; height: 8px; margin-top: 10px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            background: linear-gradient(90deg, #16a34a, #22c55e);
+            height: 100%; transition: width 0.3s ease;
+        }
         .case-content { padding: 20px; }
         .section { margin-bottom: 25px; }
         .section h4 {
@@ -166,6 +191,13 @@
                {{ "%.2f"|format(data.summary.average_metrics.overall_score) }}</p>
             {% endif %}
             {% endif %}
+
+            <div id="review-progress" style="display: none;">
+                <p><strong>Review Progress:</strong> <span id="progress-text">Loading...</span></p>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+                </div>
+            </div>
         </div>
 
         <div class="reviewer-info">
@@ -185,11 +217,16 @@
         {% if result.success %}
         <div class="case-card">
             <div class="case-header">
-                <div class="case-id">{{ result.case_id }}</div>
-                <div class="case-meta">
-                    {{ result.test_case.language }} | {{ result.test_case.compiler }} |
-                    Audience: {{ result.test_case.audience }} |
-                    Type: {{ result.test_case.explanation_type }}
+                <div>
+                    <div class="case-id">{{ result.case_id }}</div>
+                    <div class="case-meta">
+                        {{ result.test_case.language }} | {{ result.test_case.compiler }} |
+                        Audience: {{ result.test_case.audience }} |
+                        Type: {{ result.test_case.explanation_type }}
+                    </div>
+                </div>
+                <div class="review-status not-reviewed" id="status-{{ result.case_id }}">
+                    <span>⚪</span> Not Reviewed
                 </div>
             </div>
 
@@ -351,6 +388,10 @@
             breaks: true
         });
 
+        // Global state for existing reviews
+        let existingReviews = {};
+        let reviewProgress = { total: 0, reviewed: 0 };
+
         // Initialize page on load
         document.addEventListener('DOMContentLoaded', function() {
             // Load saved reviewer name from localStorage
@@ -364,6 +405,9 @@
                 localStorage.setItem('reviewerName', this.value);
             });
 
+            // Load existing reviews for this prompt version
+            loadExistingReviews();
+
             // Render all markdown responses
             {% for result in data.results %}
             {% if result.success %}
@@ -375,6 +419,116 @@
             {% endif %}
             {% endfor %}
         });
+
+        async function loadExistingReviews() {
+            try {
+                const promptVersion = '{{ data.summary.prompt_version if data.summary else "unknown" }}';
+                const response = await fetch(`/api/reviews/prompt/${encodeURIComponent(promptVersion)}`);
+                const data = await response.json();
+
+                existingReviews = data.reviews_by_case || {};
+
+                // Update UI for each case
+                const caseCards = document.querySelectorAll('.case-card');
+                reviewProgress.total = caseCards.length;
+                reviewProgress.reviewed = 0;
+
+                caseCards.forEach(card => {
+                    const caseId = extractCaseIdFromCard(card);
+                    if (caseId && existingReviews[caseId]) {
+                        updateCaseReviewStatus(caseId, true, existingReviews[caseId]);
+                        reviewProgress.reviewed++;
+                    } else if (caseId) {
+                        updateCaseReviewStatus(caseId, false);
+                    }
+                });
+
+                updateProgressIndicator();
+
+            } catch (error) {
+                console.error('Failed to load existing reviews:', error);
+            }
+        }
+
+        function extractCaseIdFromCard(card) {
+            const statusElement = card.querySelector('[id^="status-"]');
+            if (statusElement) {
+                return statusElement.id.replace('status-', '');
+            }
+            return null;
+        }
+
+        function updateCaseReviewStatus(caseId, isReviewed, reviewData = null) {
+            const card = document.querySelector(`#status-${caseId}`).closest('.case-card');
+            const statusElement = document.getElementById(`status-${caseId}`);
+            const saveButton = document.querySelector(`button[onclick="saveReview('${caseId}')"]`);
+
+            if (isReviewed) {
+                // Mark as reviewed
+                card.classList.remove('not-reviewed');
+                card.classList.add('reviewed');
+                statusElement.classList.remove('not-reviewed');
+                statusElement.classList.add('reviewed');
+                statusElement.innerHTML = '<span>✅</span> Reviewed';
+
+                if (saveButton) {
+                    saveButton.textContent = `Update Review for ${caseId}`;
+                }
+
+                // Pre-populate form if review data available
+                if (reviewData) {
+                    populateReviewForm(caseId, reviewData);
+                }
+            } else {
+                // Mark as not reviewed
+                card.classList.remove('reviewed');
+                card.classList.add('not-reviewed');
+                statusElement.classList.remove('reviewed');
+                statusElement.classList.add('not-reviewed');
+                statusElement.innerHTML = '<span>⚪</span> Not Reviewed';
+
+                if (saveButton) {
+                    saveButton.textContent = `Save Review for ${caseId}`;
+                }
+            }
+        }
+
+        function populateReviewForm(caseId, reviewData) {
+            // Populate numeric scores
+            const fields = ['accuracy', 'relevance', 'conciseness', 'insight', 'appropriateness'];
+            fields.forEach(field => {
+                const input = document.querySelector(`input[name="${field}"][data-case="${caseId}"]`);
+                if (input && reviewData[field]) {
+                    input.value = reviewData[field];
+                }
+            });
+
+            // Populate text areas
+            const textFields = ['strengths', 'weaknesses', 'suggestions', 'overall_comments'];
+            textFields.forEach(field => {
+                const textarea = document.querySelector(`textarea[name="${field}"][data-case="${caseId}"]`);
+                if (textarea && reviewData[field]) {
+                    if (Array.isArray(reviewData[field])) {
+                        textarea.value = reviewData[field].join('\n');
+                    } else {
+                        textarea.value = reviewData[field];
+                    }
+                }
+            });
+        }
+
+        function updateProgressIndicator() {
+            const progressContainer = document.getElementById('review-progress');
+            const progressText = document.getElementById('progress-text');
+            const progressFill = document.getElementById('progress-fill');
+
+            if (reviewProgress.total > 0) {
+                const percentage = Math.round((reviewProgress.reviewed / reviewProgress.total) * 100);
+                progressText.textContent = `${reviewProgress.reviewed}/${reviewProgress.total} cases reviewed (${percentage}%)`;
+                progressFill.style.width = `${percentage}%`;
+                progressContainer.style.display = 'block';
+            }
+        }
 
         async function saveReview(caseId) {
             const reviewerName = document.getElementById('reviewer-name').value.trim();
@@ -429,11 +583,21 @@
                 const result = await response.json();
 
                 if (result.success) {
-                    messageEl.textContent = '✅ Saved!';
+                    const wasUpdate = existingReviews[caseId] !== undefined;
+                    messageEl.textContent = wasUpdate ? '✅ Updated!' : '✅ Saved!';
                     messageEl.className = 'success-msg';
 
-                    const inputs = document.querySelectorAll(`[data-case="${caseId}"]`);
-                    inputs.forEach(input => input.disabled = true);
+                    // Update the global state
+                    existingReviews[caseId] = formData;
+
+                    // Update UI to show reviewed status
+                    if (!wasUpdate) {
+                        reviewProgress.reviewed++;
+                    }
+                    updateCaseReviewStatus(caseId, true, formData);
+                    updateProgressIndicator();
+
+                    // Don't disable inputs for updates, allow further editing
                 } else {
                     throw new Error(result.error || 'Failed to save review');
                 }
@@ -443,7 +607,9 @@
                 messageEl.className = 'error-msg';
             } finally {
                 button.disabled = false;
-                button.textContent = `Save Review for ${caseId}`;
+                // Update button text based on current review status
+                const isReviewed = existingReviews[caseId] !== undefined;
+                button.textContent = isReviewed ? `Update Review for ${caseId}` : `Save Review for ${caseId}`;
             }
         }
     </script>

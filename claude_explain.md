@@ -95,6 +95,10 @@ The prompt testing framework feeds back into the main service by:
 - AWS deployment (handled by Compiler Explorer infrastructure)
 - S3 caching for responses with configurable HTTP Cache-Control headers
 - Cache bypass option for fresh responses
+- Human review integration with web interface for prompt evaluation
+- Interactive review management system with status indicators and progress tracking
+- Automated prompt improvement pipeline using human + AI feedback
+- Version tracking and comparison system for prompt iterations
 
 ### 🔄 In Progress
 - Production API key management
@@ -104,7 +108,6 @@ The prompt testing framework feeds back into the main service by:
 ### 📋 TODO
 - Prompt caching for cost optimization
 - Production monitoring dashboards
-- User feedback collection mechanism
 
 ## Design Decisions
 
@@ -274,10 +277,17 @@ Matt's notes:
 - Pass the explanation type, description, and the audience too (along with explanation) to claude reviewer
 - would be great to validate the YAML and error on broken/missing/extra fields. probably make most fields required and get rid of all the fallbacks like audience etc too
   - probably use pydactic thing to wrap with a strong type?
-- HTML review needs UX work; can't see the comment box at the same time as the thing we're commenting on
-- HTML review nice way to tick off things already done
-- HTML review should use localStorage to save reviewer name and/or get from git
-- UX on HTML review - view the automated output too? (like the nuanced opinion not just numbers)
+COMPLETED ✅:
+- HTML review UX work - completed comprehensive review interface improvements:
+  * Side-by-side code display for better space usage
+  * localStorage integration for reviewer name persistence
+  * 1-5 scale metrics alignment with human evaluation standards
+  * Line-separated input format (more natural than comma-separated)
+  * Visual status indicators showing reviewed vs unreviewed cases
+  * Progress tracking with animated completion bar
+  * Form pre-population with existing review data
+  * Update functionality for modifying existing reviews
+  * Real-time status updates and review management
 
 --- before v4 ---
 
