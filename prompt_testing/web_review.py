@@ -115,7 +115,11 @@ class ReviewWebServer:
 
             results = []
             for result_file in sorted(self.results_dir.glob("*.json"), reverse=True):
-                if result_file.name.startswith("analysis_") or result_file.name.startswith("human_"):
+                if (
+                    result_file.name.startswith("analysis_")
+                    or result_file.name.startswith("human_")
+                    or result_file.name.startswith("comparison_")
+                ):
                     continue
 
                 try:

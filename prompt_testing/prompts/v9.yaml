@@ -1,22 +1,20 @@
-name: Production v9
-description: Confident compilation options, undefined behavior handling,
-  conciseness and calibrated confidence
+name: Version 9
+description: Improved v8 with confident interpretation of empty compilation options as compiler defaults (Haiku model)
 model:
   name: claude-3-5-haiku-20241022
   max_tokens: 1024
   temperature: 0.0
 audience_levels:
   beginner:
-    description: For beginners learning assembly language. Uses simple language
-      and explains technical terms.
+    description: For beginners learning assembly language. Uses simple language and explains technical terms.
     guidance: |
       Use simple, clear language. Define technical terms when first used.
       Explain concepts step-by-step. Avoid overwhelming with too many details at once.
       Use analogies where helpful to explain complex concepts.
       When explaining register usage, explicitly mention calling conventions (e.g., 'By convention, register X is used for...').
   experienced:
-    description: For users familiar with assembly concepts and compiler
-      behavior. Focuses on optimizations and technical details.
+    description: For users familiar with assembly concepts and compiler behavior. Focuses on optimizations and technical
+      details.
     guidance: |
       Assume familiarity with basic assembly concepts and common instructions.
       Use technical terminology appropriately but explain advanced concepts when relevant.
@@ -92,5 +90,13 @@ system_prompt: |
   - When analyzing unoptimized code, explicitly state 'This is unoptimized code' early and identify specific redundancies (like store-then-load patterns).
   - For beginner audiences, define technical terms inline when first used (e.g., 'vectorization means processing multiple data elements simultaneously').
 user_prompt: Explain the {arch} {user_prompt_phrase}.
-assistant_prefill: "I'll analyze the {user_prompt_phrase} and explain it for {audience}
-  level:"
+assistant_prefill: "I'll analyze the {user_prompt_phrase} and explain it for {audience} level:"
+experiment_metadata:
+  base_prompt: Version 8
+  experiment_name: Confident compilation options, undefined behavior handling, conciseness and calibrated confidence
+  improvements_applied: 4
+  expected_impact: This change should eliminate tentative language about compilation options, improve handling of
+    undefined behavior cases, increase conciseness (especially in Key Observations sections), and calibrate confidence
+    appropriately - being definitive about observable facts while cautious about inferences. This should address the
+    main patterns from human reviews - verbosity issues, overconfident claims without evidence, and unnecessary
+    comparisons to unrequested optimization levels.
