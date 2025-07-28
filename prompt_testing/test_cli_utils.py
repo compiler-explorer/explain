@@ -1,7 +1,6 @@
 """Tests for CLI utility functions."""
 
 import json
-from unittest.mock import Mock
 
 from prompt_testing.cli import _filter_compilers, _generate_compiler_mapping
 
@@ -24,11 +23,8 @@ def test_filter_compilers_by_instruction_set(capsys):
         MockCompiler("gcc3", "GCC 3", "x86_64"),
     ]
 
-    # Mock args
-    args = Mock(instruction_set="x86_64", search=None)
-
     # Filter
-    filtered = _filter_compilers(compilers, args)
+    filtered = _filter_compilers(compilers, "x86_64", None)
 
     # Should only have x86_64 compilers
     assert len(filtered) == 2
@@ -48,15 +44,13 @@ def test_filter_compilers_by_search(capsys):
     ]
 
     # Search for "gcc"
-    args = Mock(instruction_set=None, search="gcc")
-    filtered = _filter_compilers(compilers, args)
+    filtered = _filter_compilers(compilers, None, "gcc")
 
     assert len(filtered) == 2
     assert all("gcc" in c.name.lower() for c in filtered)
 
     # Search by ID
-    args = Mock(instruction_set=None, search="clang1500")
-    filtered = _filter_compilers(compilers, args)
+    filtered = _filter_compilers(compilers, None, "clang1500")
 
     assert len(filtered) == 1
     assert filtered[0].id == "clang1500"
@@ -71,8 +65,7 @@ def test_filter_compilers_combined(capsys):
     ]
 
     # Filter by instruction set AND search
-    args = Mock(instruction_set="x86_64", search="gcc")
-    filtered = _filter_compilers(compilers, args)
+    filtered = _filter_compilers(compilers, "x86_64", "gcc")
 
     assert len(filtered) == 1
     assert filtered[0].id == "gcc1"
