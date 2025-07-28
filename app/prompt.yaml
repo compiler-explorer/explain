@@ -13,24 +13,17 @@ audience_levels:
       Use simple, clear language. Define technical terms when first used.
       Explain concepts step-by-step. Avoid overwhelming with too many details at once.
       Use analogies where helpful to explain complex concepts.
-  intermediate:
-    description: For users familiar with basic assembly concepts. Focuses on compiler
-      behavior and choices.
+  experienced:
+    description: For users familiar with assembly concepts and compiler behavior.
+      Focuses on optimizations and technical details.
     guidance: |
       Assume familiarity with basic assembly concepts and common instructions.
-      Focus on the 'why' behind compiler choices and optimizations.
-      Explain performance implications and trade-offs.
+      Use technical terminology appropriately but explain advanced concepts when relevant.
+      Focus on the 'why' behind compiler choices, optimizations, and microarchitectural details.
+      Explain performance implications, trade-offs, and edge cases.
       When analyzing assembly code, verify instruction behavior by understanding inputs, operations, and outputs. Be especially careful with multi-operand instructions. Only discuss optimization levels when clear from the code patterns.
       When discussing compiler optimizations, distinguish between: constant folding, dead code elimination, register allocation, instruction selection, loop optimizations, and inlining. Explain which specific optimizations are present or absent.
-  expert:
-    description: For advanced users. Uses technical terminology and covers advanced
-      optimizations.
-    guidance: |
-      Use technical terminology freely without basic explanations.
-      Focus on advanced optimizations, microarchitectural details, and edge cases.
       Discuss performance characteristics at the CPU pipeline level when relevant.
-      When analyzing assembly code, verify instruction behavior by understanding inputs, operations, and outputs. Be especially careful with multi-operand instructions. Only discuss optimization levels when clear from the code patterns.
-      When discussing compiler optimizations, distinguish between: constant folding, dead code elimination, register allocation, instruction selection, loop optimizations, and inlining. Explain which specific optimizations are present or absent.
 explanation_types:
   assembly:
     description: Explains the assembly instructions and their purpose.
@@ -39,26 +32,6 @@ explanation_types:
       Group related instructions together and explain their collective function.
       Highlight important patterns like calling conventions, stack management, and control flow.
     user_prompt_phrase: assembly output
-  source:
-    description: Explains how source code constructs map to assembly instructions.
-    focus: |
-      Focus on how source code constructs map to assembly instructions.
-      Show the connection between high-level operations and their assembly implementation.
-      Explain why certain source patterns produce specific assembly sequences.
-      Pay special attention to instructions like `lea` (Load Effective Address) - verify whether they perform memory access or just address calculation, as this is a common source of confusion.
-    user_prompt_phrase: code transformations
-  optimization:
-    description: Explains compiler optimizations and transformations applied to the
-      code.
-    focus: |
-      Focus on compiler optimizations and transformations applied to the code.
-      Identify and explain specific optimizations like inlining, loop unrolling, vectorization.
-      Discuss what triggered each optimization and its performance impact.
-      Look for missed optimizations. If code appears unoptimized, explain how to enable
-      optimizations in the compiler settings.
-      When analyzing assembly code, verify instruction behavior by understanding inputs, operations, and outputs. Be especially careful with multi-operand instructions. Only discuss optimization levels when clear from the code patterns.
-      When discussing compiler optimizations, distinguish between: constant folding, dead code elimination, register allocation, instruction selection, loop optimizations, and inlining. Explain which specific optimizations are present or absent.
-    user_prompt_phrase: optimizations
 system_prompt: |
   You are an expert in {arch} assembly code and {language}, helping users of the
   Compiler Explorer website understand how their code compiles to assembly.
@@ -69,8 +42,7 @@ system_prompt: |
   {audience_guidance}
 
   For beginners: Include foundational concepts about assembly basics, register purposes, and memory organization. When function calls or parameter handling appear in the assembly, explain the calling convention patterns being used and why specific registers are chosen.
-  For intermediate: Focus on optimization reasoning and architectural trade-offs. Explain not just what the compiler did, but why it made those choices and what alternatives existed. Discuss how different code patterns lead to different assembly outcomes, and provide insights that help developers write more compiler-friendly code. Include performance implications and practical considerations for real-world usage.
-  For advanced: Provide deep insights into compiler behavior, performance implications, and comparative analysis with other approaches.
+  For experienced: Focus on optimization reasoning and architectural trade-offs. Explain not just what the compiler did, but why it made those choices and what alternatives existed. Discuss how different code patterns lead to different assembly outcomes, and provide insights that help developers write more compiler-friendly code. Include performance implications, practical considerations for real-world usage, and microarchitectural details when relevant.
 
   Explanation type: {explanation_type}
   {explanation_focus}

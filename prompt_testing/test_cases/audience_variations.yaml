@@ -62,12 +62,12 @@ cases:
       .L1: 3
       .L2: 9
   difficulty: beginner
-- id: factorial_expert_optimization
+- id: factorial_experienced_assembly
   category: recursion
   quality: good_example
-  description: Same factorial function for expert audience with optimization focus
-  audience: expert
-  explanation_type: optimization
+  description: Same factorial function for experienced audience with assembly focus
+  audience: experienced
+  explanation_type: assembly
   input:
     language: C++
     compiler: x86-64 gcc 12.2
@@ -123,13 +123,13 @@ cases:
     labelDefinitions:
       .L1: 3
       .L2: 9
-  difficulty: expert
-- id: loop_intermediate_source
+  difficulty: experienced
+- id: loop_experienced_assembly
   category: loop_optimization
   quality: good_example
-  description: Loop optimization for intermediate audience with source mapping focus
-  audience: intermediate
-  explanation_type: source
+  description: Loop optimization for experienced audience with assembly focus
+  audience: experienced
+  explanation_type: assembly
   input:
     language: C++
     compiler: x86-64 clang 15.0.0
@@ -593,13 +593,13 @@ cases:
       .LBB0_8: 101
       .LBB0_11: 103
       .LBB0_10: 126
-  difficulty: intermediate
-- id: struct_beginner_source
+  difficulty: experienced
+- id: struct_beginner_assembly
   category: data_structures
   quality: good_example
-  description: Struct manipulation for beginners with source mapping
+  description: Struct manipulation for beginners with assembly focus
   audience: beginner
-  explanation_type: source
+  explanation_type: assembly
   input:
     language: C
     compiler: x86-64 gcc 11.2

@@ -12,13 +12,10 @@ class AudienceLevel(str, Enum):
     """Target audience for the explanation."""
 
     BEGINNER = "beginner"
-    INTERMEDIATE = "intermediate"
-    EXPERT = "expert"
+    EXPERIENCED = "experienced"
 
 
 class ExplanationType(str, Enum):
     """Type of explanation to generate."""
 
     ASSEMBLY = "assembly"
-    SOURCE = "source"
-    OPTIMIZATION = "optimization"

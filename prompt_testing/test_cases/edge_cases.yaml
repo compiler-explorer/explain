@@ -230,5 +230,5 @@ cases:
     labelDefinitions:
       .L2: 5
       .L3: 40
-  difficulty: intermediate
+  difficulty: experienced
   notes: Should handle truncated assembly gracefully and explain omission markers

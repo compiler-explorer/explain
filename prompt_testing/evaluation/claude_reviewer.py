@@ -89,20 +89,14 @@ _AUDIENCE_LEVEL = {
     AudienceLevel.BEGINNER: """The explanation should be aimed at beginners.
 They will need basic concepts about assembly explained, and may need to know about
 calling conventions and other key information.""",
-    AudienceLevel.INTERMEDIATE: """The explanation should target an intermediate-level audience.
+    AudienceLevel.EXPERIENCED: """The explanation should target an experienced audience.
 They will not need explanation about trivial assembly idioms, calling conventions etc. They
-may need to be told about more esoteric instructions.""",
-    AudienceLevel.EXPERT: """The explanation should target experts.
-Assume the audience knows all instructions.""",
+may need to be told about more esoteric instructions. Assume the audience knows most instructions
+and can handle technical terminology and advanced optimizations.""",
 }
 
 _EXPLANATION_TYPE = {
     ExplanationType.ASSEMBLY: """The explanation should be predominantly about the compiled assembly.""",
-    ExplanationType.SOURCE: """The explanation should be predominantly about the source code,
-with less emphasis on the assembly except where certain source idioms have a clear assembly interpretation.""",
-    ExplanationType.OPTIMIZATION: """The explanation should be predominantly about optimizations.
-We would expect commentary on optimizations the compiler has performed, and importantly missed
-optimization opportunities.""",
 }
 
 

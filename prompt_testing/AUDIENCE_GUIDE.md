@@ -1,20 +1,17 @@
 # Audience and Explanation Type Support in Prompt Testing
 
-This guide describes the new audience and explanation type capabilities added to the prompt testing framework.
+This guide describes the audience and explanation type capabilities in the prompt testing framework.
 
 ## Overview
 
-The prompt testing system now supports testing prompts across different audiences and explanation types, matching the new capabilities added to the main explain API.
+The prompt testing system supports testing prompts across different audiences and explanation types, matching the capabilities in the main explain API.
 
 ### Audience Levels
 - **beginner**: Simple language, technical terms defined, step-by-step explanations
-- **intermediate**: Assumes basic assembly knowledge, focuses on compiler behavior
-- **expert**: Technical terminology, advanced optimizations, architectural details
+- **experienced**: Assumes assembly knowledge, focuses on compiler behavior, optimizations, and architectural details
 
 ### Explanation Types
 - **assembly**: Focus on assembly instructions and their purpose
-- **source**: Focus on source code to assembly mapping
-- **optimization**: Focus on compiler optimizations and transformations
 
 ## Test Case Format
 
@@ -27,8 +24,7 @@ cases:
     explanation_type: assembly   # Optional, defaults to "assembly"
     expected_topics_by_audience: # Optional audience-specific expectations
       beginner: [basic_concepts, simple_terms]
-      intermediate: [compiler_behavior, register_usage]
-      expert: [microarchitecture, advanced_optimizations]
+      experienced: [compiler_behavior, register_usage, microarchitecture, advanced_optimizations]
     # ... rest of test case
 ```
 
@@ -46,7 +42,7 @@ uv run prompt-test run --prompt current --explanation-type optimization
 
 ### Combine filters:
 ```bash
-uv run prompt-test run --prompt current --audience expert --explanation-type optimization
+uv run prompt-test run --prompt current --audience experienced --explanation-type optimization
 ```
 
 ## Scoring Adjustments
@@ -55,7 +51,7 @@ The automatic scorer now adjusts expectations based on audience:
 
 1. **Clarity scoring**:
    - Beginners: Shorter sentences, fewer technical terms, more explanatory language
-   - Experts: Can handle longer sentences and more technical terminology
+   - Experienced: Can handle longer sentences and more technical terminology
 
 2. **Length scoring**:
    - Different target lengths for each audience
@@ -87,8 +83,15 @@ user_prompt: "Explain the {arch} {explanation_type_phrase}."
 
 - Existing test cases without audience/explanation fields default to "beginner" and "assembly"
 - The v1_baseline.yaml prompt remains unchanged for comparison purposes
-- All changes are backward compatible
 
 ## Example Test Cases
 
 See `test_cases/audience_variations.yaml` for examples demonstrating different audience and explanation type combinations.
+
+## Simplified Audience System
+
+The system now uses just two audience levels:
+- **beginner**: For users new to assembly language
+- **experienced**: For users with assembly and compiler knowledge
+
+This simplified approach allows focus on perfecting explanations for these two clear segments while maintaining the technical infrastructure for future expansion.

@@ -60,7 +60,7 @@ A comprehensive prompt testing system has been developed to:
 
 ### Purpose
 - Evaluate and improve prompt quality systematically
-- Test different audiences (beginner/intermediate/expert) and explanation types
+- Test different audiences (beginner/experienced) and explanation types
 - Compare prompt versions and track improvements
 - Ensure consistent quality across various code examples
 

@@ -79,7 +79,7 @@ cases:
           source:
             line: 2
     expected_topics: [vectorization, loop_optimization]
-    difficulty: beginner  # beginner|intermediate|advanced
+    difficulty: beginner  # beginner|experienced
 ```
 
 ## Prompt Format
@@ -98,12 +98,9 @@ audience_levels:
   beginner:
     description: "Novice programmers"
     guidance: "Use simple language, avoid jargon..."
-  intermediate:
-    description: "Experienced developers"
-    guidance: "Assume familiarity with programming concepts..."
-  expert:
-    description: "Systems programmers"
-    guidance: "Use technical terminology freely..."
+  experienced:
+    description: "Experienced developers and systems programmers"
+    guidance: "Assume familiarity with programming concepts, use technical terminology appropriately..."
 
 # Explanation types (required)
 explanation_types:
@@ -393,7 +390,7 @@ uv run prompt-test publish --prompt v7
 
 - **Use real examples**: Generate assembly from actual code using Compiler Explorer
 - **Cover edge cases**: Include empty functions, undefined behavior, truncated assembly
-- **Vary difficulty**: Mix beginner, intermediate, and advanced examples
+- **Vary difficulty**: Mix beginner and experienced examples
 - **Quality labels**: Mark cases as good/bad examples to test robustness
 
 ### Prompt Development

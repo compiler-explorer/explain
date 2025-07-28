@@ -116,7 +116,7 @@ class TestProcessRequest:
 
         # Verify the system prompt contains appropriate instructions
         system_prompt = kwargs["system"]
-        assert "expert" in system_prompt.lower()
+        assert "beginner" in system_prompt.lower()
         assert "assembly" in system_prompt.lower()
         assert "c++" in system_prompt.lower()
         assert "amd64" in system_prompt.lower()

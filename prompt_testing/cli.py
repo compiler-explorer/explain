@@ -12,6 +12,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from app.explain_api import AssemblyItem, ExplainRequest
+from app.explanation_types import AudienceLevel, ExplanationType
 from app.prompt import Prompt
 from prompt_testing.ce_api import CompilerExplorerClient
 from prompt_testing.enricher import TestCaseEnricher
@@ -741,11 +742,11 @@ Examples:
 
     # Audience and explanation type filtering
     run_parser.add_argument(
-        "--audience", choices=["beginner", "intermediate", "expert"], help="Filter test cases by target audience"
+        "--audience", choices=[level.value for level in AudienceLevel], help="Filter test cases by target audience"
     )
     run_parser.add_argument(
         "--explanation-type",
-        choices=["assembly", "source", "optimization"],
+        choices=[exp_type.value for exp_type in ExplanationType],
         help="Filter test cases by explanation type",
     )
 
