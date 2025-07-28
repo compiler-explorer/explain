@@ -8,6 +8,7 @@ dependencies = [
     "anthropic>=0.51.0",
     "aws-embedded-metrics>=3.3.0",
     "boto3>=1.35.0",
+    "click>=8.1.0",
     "fastapi",
     "flask>=3.0.0",
     "humanfriendly>=10.0",
