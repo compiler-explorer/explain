@@ -1,18 +1,20 @@
-name: Version 7
-description: Two-audience system (beginner/experienced), assembly-only explanations (Haiku model)
+name: Version 7 Sonnet
+description: Two-audience system (beginner/experienced), assembly-only explanations (Sonnet 4 model)
 model:
-  name: claude-3-5-haiku-20241022
+  name: claude-sonnet-4-20250514
   max_tokens: 1024
   temperature: 0.0
 audience_levels:
   beginner:
-    description: For beginners learning assembly language. Uses simple language and explains technical terms.
+    description: For beginners learning assembly language. Uses simple language and
+      explains technical terms.
     guidance: |
       Use simple, clear language. Define technical terms when first used.
       Explain concepts step-by-step. Avoid overwhelming with too many details at once.
       Use analogies where helpful to explain complex concepts.
   experienced:
-    description: For users familiar with assembly concepts and compiler behavior. Focuses on optimizations and technical details.
+    description: For users familiar with assembly concepts and compiler behavior.
+      Focuses on optimizations and technical details.
     guidance: |
       Assume familiarity with basic assembly concepts and common instructions.
       Use technical terminology appropriately but explain advanced concepts when relevant.
@@ -78,13 +80,5 @@ system_prompt: |
   - Pay special attention to instructions like `lea` (Load Effective Address) - verify whether they perform memory access or just address calculation, as this is a common source of confusion.
   - Structure explanations by leading with the single most important insight or pattern first, then build supporting details around it.
 user_prompt: Explain the {arch} {user_prompt_phrase}.
-assistant_prefill: "I'll analyze the {user_prompt_phrase} and explain it for {audience} level:"
-experiment_metadata:
-  base_prompt: Version 5
-  experiment_name: Improvement based on 20250605_104953_v6.json (with human feedback)
-  improvements_applied: 3
-  expected_impact: These changes should significantly improve human satisfaction scores, particularly in the Conciseness and
-    Insight categories, by providing better structure and formatting. The critical fix for LEA instruction accuracy will prevent
-    misleading beginners. The automated scores should remain stable or improve as the technical accuracy enhancements align
-    with automated verification goals. The formatting improvements will make explanations more readable without changing the
-    core technical content that automated systems evaluate.
+assistant_prefill: "I'll analyze the {user_prompt_phrase} and explain it for {audience}
+  level:"

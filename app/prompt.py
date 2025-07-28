@@ -215,6 +215,12 @@ class Prompt:
             user_prompt_phrase=explanation_meta["user_prompt_phrase"],
         )
 
+        # Format the assistant prefill
+        assistant_prefill = self.assistant_prefill.format(
+            user_prompt_phrase=explanation_meta["user_prompt_phrase"],
+            audience=request.audience.value,
+        )
+
         # Build messages array
         messages = [
             {
@@ -227,7 +233,7 @@ class Prompt:
             {
                 "role": "assistant",
                 "content": [
-                    {"type": "text", "text": self.assistant_prefill},
+                    {"type": "text", "text": assistant_prefill},
                 ],
             },
         ]
