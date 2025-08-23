@@ -97,6 +97,8 @@ and can handle technical terminology and advanced optimizations.""",
 
 _EXPLANATION_TYPE = {
     ExplanationType.ASSEMBLY: """The explanation should be predominantly about the compiled assembly.""",
+    ExplanationType.HAIKU: """The explanation should be in the form of a haiku,
+    capturing the essence of the code's behavior in a poetic way.""",
 }
 
 
@@ -160,7 +162,7 @@ Explanation type: {explanation_type.value}
 
 Test case description: {test_case.get("description", "No description provided")}
 
-## NEW METRICS SYSTEM
+## METRICS SYSTEM
 
 Evaluate the explanation on these 5 dimensions:
 

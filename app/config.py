@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     cache_s3_prefix: str = "explain-cache/"
     cache_ttl: str = "2d"  # HTTP Cache-Control max-age (e.g., "2d", "48h", "172800s")
     cache_ttl_seconds: int = 172800  # Computed from cache_ttl for Cache-Control header
+    log_level: str = "INFO"  # Logging level (DEBUG, INFO, WARNING, ERROR)
     model_config = SettingsConfigDict(env_file=".env")
 
     @field_validator("cache_ttl_seconds", mode="before")

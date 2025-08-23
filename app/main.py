@@ -20,9 +20,12 @@ from app.explanation_types import AudienceLevel, ExplanationType
 from app.metrics import get_metrics_provider
 from app.prompt import Prompt
 
-logging.basicConfig(level=logging.INFO)
+# Configure logging based on settings
+settings = get_settings()
+log_level = getattr(logging, settings.log_level.upper(), logging.INFO)
+logging.basicConfig(level=log_level)
 logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+logger.setLevel(log_level)
 
 app = FastAPI(root_path=get_settings().root_path)
 
