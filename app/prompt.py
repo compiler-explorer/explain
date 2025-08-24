@@ -46,13 +46,51 @@ class Prompt:
         self.audience_levels = self.config["audience_levels"]
         self.explanation_types = self.config["explanation_types"]
 
-    def get_audience_metadata(self, audience: str) -> dict[str, str]:
-        """Get metadata for an audience level."""
-        return self.audience_levels[audience]
+    def get_audience_metadata(self, audience: str, for_explanation: str | None = None) -> dict[str, str]:
+        """Get metadata for an audience level (and optionally an explanation type)."""
+        return self.get_audience_metadata_from_dict(self.config, audience, for_explanation)
 
     def get_explanation_metadata(self, explanation: str) -> dict[str, str]:
         """Get metadata for an explanation type."""
         return self.explanation_types[explanation]
+
+    @classmethod
+    def get_audience_metadata_from_dict(
+        cls, prompt_dict: dict[str, Any], audience: str, for_explanation: str | None = None
+    ) -> dict[str, str]:
+        """Get audience metadata from a prompt dict structure (for use by prompt_advisor).
+
+        This is a class method version of get_audience_metadata that works with
+        raw prompt dictionaries instead of Prompt instances.
+        """
+        if "audience_levels" not in prompt_dict:
+            return {}
+
+        audience_metadata = prompt_dict["audience_levels"].get(audience, {})
+
+        if for_explanation and "explanation_types" in prompt_dict:
+            explanation_config = prompt_dict["explanation_types"].get(for_explanation, {})
+            if "audience_levels" in explanation_config:
+                explanation_audience = explanation_config["audience_levels"].get(audience, {})
+                if explanation_audience:
+                    # Merge base audience metadata with explanation-specific overrides
+                    audience_metadata = {**audience_metadata, **explanation_audience}
+
+        return audience_metadata
+
+    @classmethod
+    def has_audience_override(cls, prompt_dict: dict[str, Any], explanation: str, audience: str) -> bool:
+        """Check if an explanation type has audience-specific overrides."""
+        return (
+            "explanation_types" in prompt_dict
+            and explanation in prompt_dict["explanation_types"]
+            and "audience_levels" in prompt_dict["explanation_types"][explanation]
+            and audience in prompt_dict["explanation_types"][explanation]["audience_levels"]
+        )
+
+    # Note: In the future, prompt_advisor may need the ability to create new
+    # explanation-specific audience overrides (like we did manually for haiku).
+    # This would involve adding new audience_levels sections within explanation_types.
 
     def select_important_assembly(
         self, asm_array: list[dict], label_definitions: dict, max_lines: int = MAX_ASSEMBLY_LINES
@@ -192,34 +230,23 @@ class Prompt:
         - structured_data: The prepared data (for reference/debugging)
         """
         # Get metadata
-        audience_meta = self.get_audience_metadata(request.audience.value)
         explanation_meta = self.get_explanation_metadata(request.explanation.value)
-
-        # Prepare structured data
+        audience_meta = self.get_audience_metadata(request.audience.value, request.explanation.value)
         structured_data = self.prepare_structured_data(request)
 
-        # Format the system prompt
-        arch = request.instruction_set_with_default
-        system_prompt = self.system_prompt_template.format(
-            arch=arch,
-            language=request.language,
-            audience=request.audience.value,
-            audience_guidance=audience_meta["guidance"],
-            explanation_type=request.explanation.value,
-            explanation_focus=explanation_meta["focus"],
-        )
-
-        # Format the user prompt
-        user_prompt = self.user_prompt_template.format(
-            arch=arch,
-            user_prompt_phrase=explanation_meta["user_prompt_phrase"],
-        )
-
-        # Format the assistant prefill
-        assistant_prefill = self.assistant_prefill.format(
-            user_prompt_phrase=explanation_meta["user_prompt_phrase"],
-            audience=request.audience.value,
-        )
+        prompt_dictionary = {
+            "arch": request.instruction_set_with_default,
+            "audience_guidance": audience_meta["guidance"],
+            "audience": request.audience.value,
+            "explanation_focus": explanation_meta["focus"],
+            "explanation_type": request.explanation.value,
+            "language": request.language,
+            "user_prompt_phrase": explanation_meta["user_prompt_phrase"],
+        }
+        # Format the prompts and prefill
+        system_prompt = self.system_prompt_template.format(**prompt_dictionary)
+        user_prompt = self.user_prompt_template.format(**prompt_dictionary)
+        assistant_prefill = self.assistant_prefill.format(**prompt_dictionary)
 
         # Build messages array
         messages = [

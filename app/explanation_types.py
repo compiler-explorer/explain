@@ -19,3 +19,4 @@ class ExplanationType(str, Enum):
     """Type of explanation to generate."""
 
     ASSEMBLY = "assembly"
+    HAIKU = "haiku"

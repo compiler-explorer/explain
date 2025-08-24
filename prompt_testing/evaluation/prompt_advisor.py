@@ -622,15 +622,31 @@ Provide your analysis in this JSON format:
         ) and "system_prompt" in new_prompt:
             new_prompt["system_prompt"] = new_prompt["system_prompt"].replace(current_text, suggested_text)
 
-        # Apply to specific audience levels
-        if targets["audiences"] and "audience_levels" in new_prompt:
+        # Apply to specific audience levels (check both base and explanation-specific locations)
+        # TODO: In the future, we may need to create new explanation-specific audience overrides
+        if targets["audiences"]:
             for audience in targets["audiences"]:
-                if audience in new_prompt["audience_levels"]:
+                # Check base audience level
+                if "audience_levels" in new_prompt and audience in new_prompt["audience_levels"]:
                     guidance = new_prompt["audience_levels"][audience].get("guidance", "")
                     if current_text in guidance:
                         new_prompt["audience_levels"][audience]["guidance"] = guidance.replace(
                             current_text, suggested_text
                         )
+
+                # Check explanation-specific audience overrides
+                if "explanation_types" in new_prompt:
+                    for exp_config in new_prompt["explanation_types"].values():
+                        if (
+                            isinstance(exp_config, dict)
+                            and "audience_levels" in exp_config
+                            and audience in exp_config["audience_levels"]
+                        ):
+                            guidance = exp_config["audience_levels"][audience].get("guidance", "")
+                            if current_text in guidance:
+                                exp_config["audience_levels"][audience]["guidance"] = guidance.replace(
+                                    current_text, suggested_text
+                                )
 
         # Apply to specific explanation types
         if targets["explanation_types"] and "explanation_types" in new_prompt:
@@ -648,15 +664,30 @@ Provide your analysis in this JSON format:
             targets = self._classify_suggestion_target(addition)
             applied = False
 
-            # Apply to specific audience levels
-            if targets["audiences"] and "audience_levels" in new_prompt:
+            # Apply to specific audience levels (check both base and explanation-specific locations)
+            if targets["audiences"]:
                 for audience in targets["audiences"]:
-                    if audience in new_prompt["audience_levels"]:
+                    # Check base audience level
+                    if "audience_levels" in new_prompt and audience in new_prompt["audience_levels"]:
                         current_guidance = new_prompt["audience_levels"][audience].get("guidance", "")
                         new_prompt["audience_levels"][audience]["guidance"] = (
                             current_guidance.rstrip() + f"\n{addition}\n"
                         )
                         applied = True
+
+                    # Check explanation-specific audience overrides
+                    if "explanation_types" in new_prompt:
+                        for exp_config in new_prompt["explanation_types"].values():
+                            if (
+                                isinstance(exp_config, dict)
+                                and "audience_levels" in exp_config
+                                and audience in exp_config["audience_levels"]
+                            ):
+                                current_guidance = exp_config["audience_levels"][audience].get("guidance", "")
+                                exp_config["audience_levels"][audience]["guidance"] = (
+                                    current_guidance.rstrip() + f"\n{addition}\n"
+                                )
+                                applied = True
 
             # Apply to specific explanation types
             if targets["explanation_types"] and "explanation_types" in new_prompt:

@@ -97,6 +97,8 @@ and can handle technical terminology and advanced optimizations.""",
 
 _EXPLANATION_TYPE = {
     ExplanationType.ASSEMBLY: """The explanation should be predominantly about the compiled assembly.""",
+    ExplanationType.HAIKU: """The explanation should be in the form of a haiku,
+    capturing the essence of the code's behavior in a poetic way.""",
 }
 
 
@@ -125,6 +127,15 @@ class ClaudeReviewer:
         explanation_type: ExplanationType,
     ) -> str:
         """Build the evaluation prompt for Claude."""
+
+        # Use the same criteria for all explanation types
+        criteria = {
+            "accuracy": self.criteria.accuracy,
+            "relevance": self.criteria.relevance,
+            "conciseness": self.criteria.conciseness,
+            "insight": self.criteria.insight,
+            "appropriateness": self.criteria.appropriateness,
+        }
 
         prompt = f"""You are an expert in compiler technology and technical education.
 Your task is to evaluate an AI-generated explanation of Compiler Explorer's output using our metrics.
@@ -160,24 +171,24 @@ Explanation type: {explanation_type.value}
 
 Test case description: {test_case.get("description", "No description provided")}
 
-## NEW METRICS SYSTEM
+## METRICS SYSTEM
 
 Evaluate the explanation on these 5 dimensions:
 
 1. **Accuracy (0-100)**
-{self.criteria.accuracy}
+{criteria["accuracy"]}
 
 2. **Relevance (0-100)**
-{self.criteria.relevance}
+{criteria["relevance"]}
 
 3. **Conciseness (0-100)**
-{self.criteria.conciseness}
+{criteria["conciseness"]}
 
 4. **Insight (0-100)**
-{self.criteria.insight}
+{criteria["insight"]}
 
 5. **Appropriateness (0-100)**
-{self.criteria.appropriateness}
+{criteria["appropriateness"]}
 
 """
 

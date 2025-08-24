@@ -1,0 +1,331 @@
+description: Test cases for haiku explanation type across different code complexities
+cases:
+- id: factorial_beginner_haiku
+  category: recursion
+  quality: good_example
+  description: Simple recursive factorial function for haiku generation
+  audience: beginner
+  explanation_type: haiku
+  input:
+    language: C++
+    compiler: x86-64 gcc 12.2
+    compilationOptions:
+    - -O2
+    instructionSet: x86_64
+    code: |
+      int factorial(int n) {
+          if (n <= 1) return 1;
+          return n * factorial(n - 1);
+      }
+    asm:
+    - text: 'factorial(int):'
+    - text: '        cmp     edi, 1'
+      source:
+        line: 2
+    - text: '        jle     .L4'
+      source:
+        line: 2
+      labels:
+      - name: .L4
+        range:
+          startCol: 17
+          endCol: 20
+    - text: '        push    rbx'
+      source:
+        line: 3
+    - text: '        mov     ebx, edi'
+      source:
+        line: 3
+    - text: '        lea     edi, [rdi-1]'
+      source:
+        line: 3
+    - text: '        call    factorial(int)'
+      source:
+        line: 3
+    - text: '        imul    eax, ebx'
+      source:
+        line: 3
+    - text: '        pop     rbx'
+      source:
+        line: 3
+    - text: '        ret'
+      source:
+        line: 3
+    - text: '.L4:'
+    - text: '        mov     eax, 1'
+      source:
+        line: 2
+    - text: '        ret'
+      source:
+        line: 2
+    labelDefinitions:
+      factorial(int): 0
+      .L4: 9
+
+- id: factorial_experienced_haiku
+  category: recursion
+  quality: good_example
+  description: Same factorial but for experienced audience - should produce same haiku
+  audience: experienced
+  explanation_type: haiku
+  input:
+    language: C++
+    compiler: x86-64 gcc 12.2
+    compilationOptions:
+    - -O2
+    instructionSet: x86_64
+    code: |
+      int factorial(int n) {
+          if (n <= 1) return 1;
+          return n * factorial(n - 1);
+      }
+    asm:
+    - text: 'factorial(int):'
+    - text: '        cmp     edi, 1'
+      source:
+        line: 2
+    - text: '        jle     .L4'
+      source:
+        line: 2
+      labels:
+      - name: .L4
+        range:
+          startCol: 17
+          endCol: 20
+    - text: '        push    rbx'
+      source:
+        line: 3
+    - text: '        mov     ebx, edi'
+      source:
+        line: 3
+    - text: '        lea     edi, [rdi-1]'
+      source:
+        line: 3
+    - text: '        call    factorial(int)'
+      source:
+        line: 3
+    - text: '        imul    eax, ebx'
+      source:
+        line: 3
+    - text: '        pop     rbx'
+      source:
+        line: 3
+    - text: '        ret'
+      source:
+        line: 3
+    - text: '.L4:'
+    - text: '        mov     eax, 1'
+      source:
+        line: 2
+    - text: '        ret'
+      source:
+        line: 2
+    labelDefinitions:
+      factorial(int): 0
+      .L4: 9
+
+- id: simple_loop_haiku
+  category: loops
+  quality: good_example
+  description: Simple loop for haiku generation
+  audience: beginner
+  explanation_type: haiku
+  input:
+    language: C++
+    compiler: x86-64 gcc 12.2
+    compilationOptions:
+    - -O2
+    instructionSet: x86_64
+    code: |
+      int sum_array(int* arr, int n) {
+          int sum = 0;
+          for (int i = 0; i < n; i++) {
+              sum += arr[i];
+          }
+          return sum;
+      }
+    asm:
+    - text: 'sum_array(int*, int):'
+    - text: '        test    esi, esi'
+      source:
+        line: 3
+    - text: '        jle     .L4'
+      source:
+        line: 3
+    - text: '        lea     eax, [rsi-1]'
+      source:
+        line: 3
+    - text: '        lea     rdx, [rdi+4+rax*4]'
+      source:
+        line: 4
+    - text: '        xor     eax, eax'
+      source:
+        line: 2
+    - text: '.L3:'
+      source:
+        line: 3
+    - text: '        add     eax, DWORD PTR [rdi]'
+      source:
+        line: 4
+    - text: '        add     rdi, 4'
+      source:
+        line: 3
+    - text: '        cmp     rdi, rdx'
+      source:
+        line: 3
+    - text: '        jne     .L3'
+      source:
+        line: 3
+    - text: '        ret'
+      source:
+        line: 6
+    - text: '.L4:'
+    - text: '        xor     eax, eax'
+      source:
+        line: 2
+    - text: '        ret'
+      source:
+        line: 6
+    labelDefinitions:
+      sum_array(int*, int): 0
+      .L3: 6
+      .L4: 12
+
+- id: empty_function_haiku
+  category: edge_cases
+  quality: edge_case
+  description: Empty function edge case for haiku
+  audience: beginner
+  explanation_type: haiku
+  input:
+    language: C++
+    compiler: x86-64 gcc 12.2
+    compilationOptions:
+    - -O2
+    instructionSet: x86_64
+    code: |
+      void empty() {
+      }
+    asm:
+    - text: 'empty():'
+    - text: '        ret'
+      source:
+        line: 2
+    labelDefinitions:
+      empty(): 0
+
+- id: complex_sorting_haiku
+  category: algorithms
+  quality: challenging
+  description: More complex algorithm for haiku creativity test
+  audience: experienced
+  explanation_type: haiku
+  input:
+    language: C++
+    compiler: x86-64 gcc 12.2
+    compilationOptions:
+    - -O2
+    instructionSet: x86_64
+    code: |
+      void bubble_sort(int* arr, int n) {
+          for (int i = 0; i < n-1; i++) {
+              for (int j = 0; j < n-i-1; j++) {
+                  if (arr[j] > arr[j+1]) {
+                      int temp = arr[j];
+                      arr[j] = arr[j+1];
+                      arr[j+1] = temp;
+                  }
+              }
+          }
+      }
+    asm:
+    - text: 'bubble_sort(int*, int):'
+    - text: '        cmp     esi, 2'
+      source:
+        line: 2
+    - text: '        jle     .L1'
+      source:
+        line: 2
+    - text: '        push    r12'
+    - text: '        lea     r10d, [rsi-1]'
+      source:
+        line: 2
+    - text: '        push    rbp'
+    - text: '        push    rbx'
+    - text: '        mov     rbx, rdi'
+    - text: '        xor     r12d, r12d'
+      source:
+        line: 2
+    - text: '.L6:'
+    - text: '        mov     eax, r10d'
+      source:
+        line: 3
+    - text: '        sub     eax, r12d'
+      source:
+        line: 3
+    - text: '        test    eax, eax'
+      source:
+        line: 3
+    - text: '        jle     .L3'
+      source:
+        line: 3
+    - text: '        mov     rdx, rbx'
+      source:
+        line: 3
+    - text: '        lea     ecx, [rax-1]'
+      source:
+        line: 3
+    - text: '        lea     rdi, [rbx+4+rcx*4]'
+      source:
+        line: 3
+    - text: '.L4:'
+    - text: '        mov     eax, DWORD PTR [rdx]'
+      source:
+        line: 4
+    - text: '        cmp     eax, DWORD PTR [rdx+4]'
+      source:
+        line: 4
+    - text: '        jle     .L5'
+      source:
+        line: 4
+    - text: '        mov     ecx, DWORD PTR [rdx+4]'
+      source:
+        line: 5
+    - text: '        mov     DWORD PTR [rdx], ecx'
+      source:
+        line: 6
+    - text: '        mov     DWORD PTR [rdx+4], eax'
+      source:
+        line: 7
+    - text: '.L5:'
+    - text: '        add     rdx, 4'
+      source:
+        line: 3
+    - text: '        cmp     rdx, rdi'
+      source:
+        line: 3
+    - text: '        jne     .L4'
+      source:
+        line: 3
+    - text: '.L3:'
+    - text: '        add     r12d, 1'
+      source:
+        line: 2
+    - text: '        cmp     r12d, r10d'
+      source:
+        line: 2
+    - text: '        jne     .L6'
+      source:
+        line: 2
+    - text: '        pop     rbx'
+    - text: '        pop     rbp'
+    - text: '        pop     r12'
+    - text: '.L1:'
+    - text: '        ret'
+    labelDefinitions:
+      bubble_sort(int*, int): 0
+      .L6: 8
+      .L4: 16
+      .L5: 22
+      .L3: 25
+      .L1: 31

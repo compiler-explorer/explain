@@ -1,9 +1,10 @@
 import logging
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from anthropic import Anthropic
 from anthropic import __version__ as anthropic_version
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from mangum import Mangum
 
@@ -20,11 +21,47 @@ from app.explanation_types import AudienceLevel, ExplanationType
 from app.metrics import get_metrics_provider
 from app.prompt import Prompt
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
 
-app = FastAPI(root_path=get_settings().root_path)
+def configure_logging(log_level: str) -> None:
+    """Configure logging with the specified level."""
+    level = getattr(logging, log_level.upper(), logging.INFO)
+    logging.basicConfig(
+        level=level,
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        force=True,  # Reconfigure if already configured
+    )
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Configure app on startup, cleanup on shutdown."""
+    # Startup
+    settings = get_settings()
+    configure_logging(settings.log_level)
+    logger = logging.getLogger(__name__)
+
+    # Store shared resources in app.state
+    app.state.settings = settings
+    app.state.anthropic_client = Anthropic(api_key=settings.anthropic_api_key)
+
+    # Load the prompt configuration
+    prompt_config_path = Path(__file__).parent / "prompt.yaml"
+    app.state.prompt = Prompt(prompt_config_path)
+
+    logger.info(f"Application started with log level: {settings.log_level}")
+    logger.info(f"Anthropic SDK version: {anthropic_version}")
+    logger.info(f"Loaded prompt configuration from {prompt_config_path}")
+
+    yield
+
+    # Shutdown
+    logger.info("Application shutting down")
+
+
+# Get settings once for app-level configuration
+# This is acceptable since these settings don't change during runtime
+_app_settings = get_settings()
+app = FastAPI(root_path=_app_settings.root_path, lifespan=lifespan)
 
 # Configure CORS - allows all origins for public API
 app.add_middleware(
@@ -37,18 +74,10 @@ app.add_middleware(
 )
 handler = Mangum(app)
 
-anthropic_client = Anthropic(api_key=get_settings().anthropic_api_key)
-logger.info(f"Anthropic SDK version: {anthropic_version}")
 
-# Load the prompt configuration
-prompt_config_path = Path(__file__).parent / "prompt.yaml"
-prompt = Prompt(prompt_config_path)
-logger.info(f"Loaded prompt configuration from {prompt_config_path}")
-
-
-def get_cache_provider():
+def get_cache_provider(settings) -> NoOpCacheProvider | S3CacheProvider:
     """Get the configured cache provider."""
-    settings = get_settings()
+    logger = logging.getLogger(__name__)
 
     if not settings.cache_enabled:
         logger.info("Caching disabled by configuration")
@@ -70,8 +99,9 @@ def get_cache_provider():
 
 
 @app.get("/", response_model=AvailableOptions)
-async def get_options() -> AvailableOptions:
+async def get_options(request: Request) -> AvailableOptions:
     """Get available options for the explain API."""
+    prompt = request.app.state.prompt
     async with get_metrics_provider() as metrics_provider:
         metrics_provider.put_metric("ClaudeExplainOptionsRequest", 1)
         return AvailableOptions(
@@ -93,8 +123,14 @@ async def get_options() -> AvailableOptions:
 
 
 @app.post("/")
-async def explain(request: ExplainRequest) -> ExplainResponse:
+async def explain(explain_request: ExplainRequest, request: Request) -> ExplainResponse:
     """Explain a Compiler Explorer compilation from its source and output assembly."""
     async with get_metrics_provider() as metrics_provider:
-        cache_provider = get_cache_provider()
-        return await process_request(request, anthropic_client, prompt, metrics_provider, cache_provider)
+        cache_provider = get_cache_provider(request.app.state.settings)
+        return await process_request(
+            explain_request,
+            request.app.state.anthropic_client,
+            request.app.state.prompt,
+            metrics_provider,
+            cache_provider,
+        )

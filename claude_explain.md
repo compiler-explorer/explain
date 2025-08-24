@@ -31,7 +31,8 @@ This dual-mode design provides excellent developer experience while maintaining 
 3. **Claude Integration**
    - Uses Claude 3.5 Haiku model for improved accuracy
    - Structured JSON input preserving source-to-assembly mappings
-   - Configurable audience levels and explanation types
+   - Configurable audience levels (beginner, experienced) and explanation types (assembly, haiku)
+   - Flexible prompt composition with explanation-type overrides for audience guidance
    - Token usage and cost metrics
 
 4. **Infrastructure** (when deployed to AWS)
@@ -54,6 +55,52 @@ This dual-mode design provides excellent developer experience while maintaining 
 - Cost breakdown
 - Model information
 
+## Explanation Types and Audience Configuration
+
+The service supports multiple explanation types with flexible audience targeting:
+
+### Explanation Types
+
+1. **Assembly Explanations** (`assembly`)
+   - Detailed technical explanations of the compiled assembly code
+   - Focuses on instruction behavior, compiler optimizations, and performance analysis
+   - Uses full audience-specific guidance for appropriate depth and terminology
+
+2. **Haiku Explanations** (`haiku`)
+   - Poetic 3-line summaries capturing the essence of the code's behavior
+   - Uses vivid imagery and concise language to convey meaning
+   - Minimal audience differentiation - both beginners and experienced users receive the same poetic treatment
+
+### Audience Levels
+
+- **Beginner**: Simple language, foundational concepts, calling convention explanations
+- **Experienced**: Technical terminology, optimization focus, advanced microarchitectural details
+
+### Flexible Prompt Composition
+
+The prompt system supports explanation-type specific audience overrides:
+
+- **Base audience guidance**: Defined in `audience_levels` section of prompt configuration
+- **Type-specific overrides**: Explanation types can override audience guidance via nested `audience_levels` sections
+- **Template variable system**: All prompt components (system, user, assistant prefill) use shared template variables
+
+Example configuration structure:
+```yaml
+audience_levels:
+  beginner:
+    guidance: "Base guidance for beginners..."
+
+explanation_types:
+  haiku:
+    audience_levels:
+      beginner:
+        guidance: ""  # Override to disable assembly-specific guidance
+      experienced:
+        guidance: ""  # Same minimal guidance for both audiences
+```
+
+This system allows haiku explanations to bypass technical assembly guidance while assembly explanations retain full audience differentiation.
+
 ## Prompt Testing Framework
 
 A comprehensive prompt testing system has been developed to:
@@ -65,11 +112,11 @@ A comprehensive prompt testing system has been developed to:
 - Ensure consistent quality across various code examples
 
 ### Architecture
-- **Test Cases**: YAML-based test scenarios with expected topics
-- **Prompts**: Versioned prompt templates with variable substitution
+- **Test Cases**: YAML-based test scenarios with expected topics, including haiku-specific test cases
+- **Prompts**: Versioned prompt templates with flexible variable substitution and explanation-type overrides
 - **Scoring**: Multiple evaluation methods:
   - Automatic scoring based on heuristics
-  - Claude-based evaluation for accuracy and clarity
+  - Claude-based evaluation with explanation-type specific criteria (assembly vs haiku)
   - Human review interface for manual assessment
 - **Enrichment**: Integration with Compiler Explorer API to fetch real assembly data
 

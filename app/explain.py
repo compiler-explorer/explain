@@ -80,8 +80,17 @@ async def _call_anthropic_api(
     # Generate messages using the Prompt instance
     prompt_data = prompt.generate_messages(body)
 
+    # Debug logging for prompts
+    LOGGER.debug(f"=== PROMPT DEBUG FOR {body.explanation.value.upper()} (audience: {body.audience.value}) ===")
+    LOGGER.debug("=== SYSTEM PROMPT ===")
+    LOGGER.debug(prompt_data["system"])
+    LOGGER.debug("=== MESSAGES ===")
+    for message in prompt_data["messages"]:
+        LOGGER.debug(message)
+    LOGGER.debug("=== END PROMPT DEBUG ===")
+
     # Call Claude API
-    LOGGER.info(f"Using Anthropic client with model: {prompt_data['model']}")
+    LOGGER.info("Using Anthropic client with model: %s", {prompt_data["model"]})
 
     message = client.messages.create(
         model=prompt_data["model"],
