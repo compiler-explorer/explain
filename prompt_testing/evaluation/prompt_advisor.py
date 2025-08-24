@@ -8,6 +8,7 @@ from typing import Any
 
 from anthropic import Anthropic
 
+from app.prompt import Prompt
 from prompt_testing.evaluation.reviewer import HumanReview, ReviewManager
 from prompt_testing.yaml_utils import create_yaml_dumper, load_yaml_file
 
@@ -602,6 +603,10 @@ Provide your analysis in this JSON format:
         ):
             targets["audiences"].append("expert")
 
+        # Haiku-specific suggestions
+        if any(term in suggestion_lower for term in ["haiku", "poetry", "imagery", "vivid", "concise", "three-line"]):
+            targets["explanation_types"].append("haiku")
+
         # Remove duplicates
         targets["audiences"] = list(set(targets["audiences"]))
         targets["explanation_types"] = list(set(targets["explanation_types"]))
@@ -622,15 +627,26 @@ Provide your analysis in this JSON format:
         ) and "system_prompt" in new_prompt:
             new_prompt["system_prompt"] = new_prompt["system_prompt"].replace(current_text, suggested_text)
 
-        # Apply to specific audience levels
-        if targets["audiences"] and "audience_levels" in new_prompt:
+        # Apply to specific audience levels (including nested ones in explanation types)
+        if targets["audiences"]:
             for audience in targets["audiences"]:
-                if audience in new_prompt["audience_levels"]:
-                    guidance = new_prompt["audience_levels"][audience].get("guidance", "")
-                    if current_text in guidance:
-                        new_prompt["audience_levels"][audience]["guidance"] = guidance.replace(
-                            current_text, suggested_text
-                        )
+                # Get all locations where this audience guidance might be stored
+                audience_locations = Prompt.get_all_audience_locations(new_prompt, audience)
+
+                for location_path in audience_locations:
+                    # Navigate to the guidance using the path
+                    current_section = new_prompt
+                    for key in location_path:
+                        if key in current_section:
+                            current_section = current_section[key]
+                        else:
+                            current_section = None
+                            break
+
+                    if current_section and isinstance(current_section, dict):
+                        guidance = current_section.get("guidance", "")
+                        if current_text in guidance:
+                            current_section["guidance"] = guidance.replace(current_text, suggested_text)
 
         # Apply to specific explanation types
         if targets["explanation_types"] and "explanation_types" in new_prompt:
@@ -648,15 +664,26 @@ Provide your analysis in this JSON format:
             targets = self._classify_suggestion_target(addition)
             applied = False
 
-            # Apply to specific audience levels
-            if targets["audiences"] and "audience_levels" in new_prompt:
+            # Apply to specific audience levels (including nested ones in explanation types)
+            if targets["audiences"]:
                 for audience in targets["audiences"]:
-                    if audience in new_prompt["audience_levels"]:
-                        current_guidance = new_prompt["audience_levels"][audience].get("guidance", "")
-                        new_prompt["audience_levels"][audience]["guidance"] = (
-                            current_guidance.rstrip() + f"\n{addition}\n"
-                        )
-                        applied = True
+                    # Get all locations where this audience guidance might be stored
+                    audience_locations = Prompt.get_all_audience_locations(new_prompt, audience)
+
+                    for location_path in audience_locations:
+                        # Navigate to the guidance using the path
+                        current_section = new_prompt
+                        for key in location_path:
+                            if key in current_section:
+                                current_section = current_section[key]
+                            else:
+                                current_section = None
+                                break
+
+                        if current_section and isinstance(current_section, dict):
+                            current_guidance = current_section.get("guidance", "")
+                            current_section["guidance"] = current_guidance.rstrip() + f"\n{addition}\n"
+                            applied = True
 
             # Apply to specific explanation types
             if targets["explanation_types"] and "explanation_types" in new_prompt:

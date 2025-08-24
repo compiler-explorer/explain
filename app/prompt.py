@@ -59,6 +59,65 @@ class Prompt:
         """Get metadata for an explanation type."""
         return self.explanation_types[explanation]
 
+    @classmethod
+    def get_audience_metadata_from_dict(
+        cls, prompt_dict: dict[str, Any], audience: str, for_explanation: str | None = None
+    ) -> dict[str, str]:
+        """Get audience metadata from a prompt dict structure (for use by prompt_advisor).
+
+        This is a class method version of get_audience_metadata that works with
+        raw prompt dictionaries instead of Prompt instances.
+        """
+        if "audience_levels" not in prompt_dict:
+            return {}
+
+        audience_metadata = prompt_dict["audience_levels"].get(audience, {})
+
+        if for_explanation and "explanation_types" in prompt_dict:
+            explanation_config = prompt_dict["explanation_types"].get(for_explanation, {})
+            if "audience_levels" in explanation_config:
+                explanation_audience = explanation_config["audience_levels"].get(audience, {})
+                if explanation_audience:
+                    # Merge base audience metadata with explanation-specific overrides
+                    audience_metadata = {**audience_metadata, **explanation_audience}
+
+        return audience_metadata
+
+    @classmethod
+    def has_audience_override(cls, prompt_dict: dict[str, Any], explanation: str, audience: str) -> bool:
+        """Check if an explanation type has audience-specific overrides."""
+        return (
+            "explanation_types" in prompt_dict
+            and explanation in prompt_dict["explanation_types"]
+            and "audience_levels" in prompt_dict["explanation_types"][explanation]
+            and audience in prompt_dict["explanation_types"][explanation]["audience_levels"]
+        )
+
+    @classmethod
+    def get_all_audience_locations(cls, prompt_dict: dict[str, Any], audience: str) -> list[tuple[str, ...]]:
+        """Get all locations in the prompt dict where audience guidance might be found.
+
+        Returns a list of key paths as tuples, e.g.:
+        [("audience_levels", "beginner"), ("explanation_types", "haiku", "audience_levels", "beginner")]
+        """
+        locations = []
+
+        # Base audience location
+        if "audience_levels" in prompt_dict and audience in prompt_dict["audience_levels"]:
+            locations.append(("audience_levels", audience))
+
+        # Explanation-specific audience overrides
+        if "explanation_types" in prompt_dict:
+            for exp_type, exp_config in prompt_dict["explanation_types"].items():
+                if (
+                    isinstance(exp_config, dict)
+                    and "audience_levels" in exp_config
+                    and audience in exp_config["audience_levels"]
+                ):
+                    locations.append(("explanation_types", exp_type, "audience_levels", audience))
+
+        return locations
+
     def select_important_assembly(
         self, asm_array: list[dict], label_definitions: dict, max_lines: int = MAX_ASSEMBLY_LINES
     ) -> list[dict]:
