@@ -48,12 +48,7 @@ class Prompt:
 
     def get_audience_metadata(self, audience: str, for_explanation: str | None = None) -> dict[str, str]:
         """Get metadata for an audience level (and optionally an explanation type)."""
-        audience_metadata = self.audience_levels[audience]
-        if for_explanation and (
-            explanation_audience := self.explanation_types[for_explanation].get("audience_levels", {}).get(audience)
-        ):
-            audience_metadata = {**audience_metadata, **explanation_audience}
-        return audience_metadata
+        return self.get_audience_metadata_from_dict(self.config, audience, for_explanation)
 
     def get_explanation_metadata(self, explanation: str) -> dict[str, str]:
         """Get metadata for an explanation type."""
@@ -93,30 +88,9 @@ class Prompt:
             and audience in prompt_dict["explanation_types"][explanation]["audience_levels"]
         )
 
-    @classmethod
-    def get_all_audience_locations(cls, prompt_dict: dict[str, Any], audience: str) -> list[tuple[str, ...]]:
-        """Get all locations in the prompt dict where audience guidance might be found.
-
-        Returns a list of key paths as tuples, e.g.:
-        [("audience_levels", "beginner"), ("explanation_types", "haiku", "audience_levels", "beginner")]
-        """
-        locations = []
-
-        # Base audience location
-        if "audience_levels" in prompt_dict and audience in prompt_dict["audience_levels"]:
-            locations.append(("audience_levels", audience))
-
-        # Explanation-specific audience overrides
-        if "explanation_types" in prompt_dict:
-            for exp_type, exp_config in prompt_dict["explanation_types"].items():
-                if (
-                    isinstance(exp_config, dict)
-                    and "audience_levels" in exp_config
-                    and audience in exp_config["audience_levels"]
-                ):
-                    locations.append(("explanation_types", exp_type, "audience_levels", audience))
-
-        return locations
+    # Note: In the future, prompt_advisor may need the ability to create new
+    # explanation-specific audience overrides (like we did manually for haiku).
+    # This would involve adding new audience_levels sections within explanation_types.
 
     def select_important_assembly(
         self, asm_array: list[dict], label_definitions: dict, max_lines: int = MAX_ASSEMBLY_LINES

@@ -84,60 +84,6 @@ class ReviewCriteria:
     - Content matches the requested explanation type
     """
 
-    def get_haiku_criteria(self) -> dict[str, str]:
-        """Get haiku-specific evaluation criteria."""
-        return {
-            "accuracy": """
-            Evaluate technical accuracy (0-100):
-            - Does the haiku capture the actual behavior of the code?
-            - No false claims about what the code does
-            - Correctly identifies key actions (recursion, loops, data manipulation)
-            - Avoids technical inaccuracies even in poetic form
-            """,
-            "relevance": """
-            Evaluate relevance to the actual code (0-100):
-            - Captures the essence of THIS specific code's behavior
-            - Reflects key patterns (recursion, optimization, simplicity)
-            - Not generic poetry that could apply to any code
-            - Connects to the actual assembly operations
-            """,
-            "conciseness": """
-            Evaluate haiku format adherence (0-100):
-            - Exactly three lines
-            - Appropriate syllable structure (approximately 5-7-5)
-            - No extra text beyond the haiku
-            - Each line contributes meaningfully
-            """,
-            "insight": """
-            Evaluate poetic insight and imagery (0-100):
-            - Uses vivid, concrete imagery
-            - Captures deeper meaning of the code's purpose
-            - Creative metaphors that illuminate the code's nature
-            - Poetic language that enhances understanding
-            """,
-            "appropriateness": """
-            Evaluate haiku quality and appropriateness (0-100):
-            - Maintains the spirit and form of traditional haiku
-            - Balances technical accuracy with poetic expression
-            - Language is evocative and memorable
-            - Successfully bridges code analysis and poetry
-            """,
-        }
-
-    def get_criteria_for_type(self, explanation_type: ExplanationType) -> dict[str, str]:
-        """Get criteria appropriate for the explanation type."""
-        if explanation_type == ExplanationType.HAIKU:
-            return self.get_haiku_criteria()
-
-        # Default assembly criteria
-        return {
-            "accuracy": self.accuracy,
-            "relevance": self.relevance,
-            "conciseness": self.conciseness,
-            "insight": self.insight,
-            "appropriateness": self.appropriateness,
-        }
-
 
 _AUDIENCE_LEVEL = {
     AudienceLevel.BEGINNER: """The explanation should be aimed at beginners.
@@ -182,8 +128,14 @@ class ClaudeReviewer:
     ) -> str:
         """Build the evaluation prompt for Claude."""
 
-        # Get type-specific criteria
-        criteria = self.criteria.get_criteria_for_type(explanation_type)
+        # Use the same criteria for all explanation types
+        criteria = {
+            "accuracy": self.criteria.accuracy,
+            "relevance": self.criteria.relevance,
+            "conciseness": self.criteria.conciseness,
+            "insight": self.criteria.insight,
+            "appropriateness": self.criteria.appropriateness,
+        }
 
         prompt = f"""You are an expert in compiler technology and technical education.
 Your task is to evaluate an AI-generated explanation of Compiler Explorer's output using our metrics.

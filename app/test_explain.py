@@ -116,10 +116,14 @@ class TestProcessRequest:
 
         # Verify the system prompt contains appropriate instructions
         system_prompt = kwargs["system"]
-        assert "beginner" in system_prompt.lower()
         assert "assembly" in system_prompt.lower()
         assert "c++" in system_prompt.lower()
         assert "amd64" in system_prompt.lower()
+
+        # Check that audience information is in the user prompt (messages)
+        messages = kwargs["messages"]
+        user_message = messages[0]["content"][0]["text"]
+        assert "beginner" in user_message.lower()
 
         # Check that the messages array contains user and assistant messages
         messages = kwargs["messages"]
