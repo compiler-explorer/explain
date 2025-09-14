@@ -107,7 +107,7 @@ class TestProcessRequest:
 
         # Verify the mock was called correctly
         mock_anthropic_client.messages.create.assert_called_once()
-        args, kwargs = mock_anthropic_client.messages.create.call_args
+        _args, kwargs = mock_anthropic_client.messages.create.call_args
 
         # Check that key parameters were passed
         assert kwargs["model"] == test_prompt.model
