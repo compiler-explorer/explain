@@ -92,7 +92,7 @@ class TestGetModelCost:
 
     def test_unknown_model(self):
         """Test that unknown models raise ValueError."""
-        with pytest.raises(ValueError, match="Model family .* not found"):
+        with pytest.raises(ValueError, match=r"Model family .* not found"):
             get_model_cost("claude-unknown-1-0")
 
 

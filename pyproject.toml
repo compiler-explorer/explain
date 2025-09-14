@@ -5,29 +5,29 @@ description = "Explain Compiler Explorer output using AI"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "anthropic>=0.51.0",
+    "anthropic>=0.67.0",
     "aws-embedded-metrics>=3.3.0",
-    "boto3>=1.35.0",
-    "click>=8.1.0",
-    "fastapi",
-    "flask>=3.0.0",
+    "boto3>=1.40.30",
+    "click>=8.2.1",
+    "fastapi>=0.116.1",
+    "flask>=3.1.2",
     "humanfriendly>=10.0",
-    "jinja2>=3.1.0",
-    "mangum",
-    "pydantic-settings>=2.9.1",
-    "python-dotenv>=1.1.0",
-    "requests>=2.31.0",
-    "ruamel.yaml>=0.18.0",
+    "jinja2>=3.1.6",
+    "mangum>=0.19.0",
+    "pydantic-settings>=2.10.1",
+    "python-dotenv>=1.1.1",
+    "requests>=2.32.5",
+    "ruamel.yaml>=0.18.15",
 ]
 
 [dependency-groups]
 dev = [
     # In development mode, include the FastAPI development server.
-    "fastapi[standard]>=0.115",
-    "pre-commit>=4.2.0",
-    "pytest>=8.3.5",
-    "pytest-asyncio>=0.24.0",
-    "ruff>=0.11.10",
+    "fastapi[standard]>=0.116.1",
+    "pre-commit>=4.3.0",
+    "pytest>=8.4.2",
+    "pytest-asyncio>=1.2.0",
+    "ruff>=0.13.0",
 ]
 
 [tool.ruff]
