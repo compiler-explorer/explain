@@ -2,6 +2,9 @@
 
 This module provides a flexible way to look up model costs based on
 model names, using pattern matching to handle various naming schemes.
+
+Note: Anthropic does not provide a programmatic API for retrieving pricing
+information, so costs are maintained manually based on published pricing.
 """
 
 import re
@@ -16,7 +19,9 @@ class ModelCost(NamedTuple):
 
 
 # Model family costs in USD per million tokens
+# Updated: 2025-09-16 based on https://claude.com/pricing
 MODEL_FAMILIES = {
+    "opus-4.1": ModelCost(15.0, 75.0),
     "opus-4": ModelCost(15.0, 75.0),
     "sonnet-4": ModelCost(3.0, 15.0),
     "sonnet-3.7": ModelCost(3.0, 15.0),
@@ -35,6 +40,7 @@ def normalize_model_name(model: str) -> str:
         claude-3-opus-20240229 -> opus-3
         claude-sonnet-4-0 -> sonnet-4
         claude-3-5-sonnet-20241022 -> sonnet-3.5
+        claude-opus-4-1-20250805 -> opus-4.1
     """
     # Convert to lowercase for consistent matching
     model = model.lower()
@@ -59,7 +65,15 @@ def normalize_model_name(model: str) -> str:
             return f"{family}-{major}"
         return f"{family}-{major}.{minor}"
 
-    # Pattern 4: claude-family-X (e.g., claude-opus-4)
+    # Pattern 4: claude-family-X-Y-date (e.g., claude-opus-4-1-20250805)
+    match = re.match(r"claude-(\w+)-(\d+)-(\d+)-\d+", model)
+    if match:
+        family, major, minor = match.groups()
+        if minor == "0":
+            return f"{family}-{major}"
+        return f"{family}-{major}.{minor}"
+
+    # Pattern 5: claude-family-X (e.g., claude-opus-4)
     match = re.match(r"claude-(\w+)-(\d+)$", model)
     if match:
         family, major = match.groups()

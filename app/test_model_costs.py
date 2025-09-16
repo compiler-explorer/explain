@@ -29,6 +29,10 @@ class TestNormalizeModelName:
         assert normalize_model_name("claude-opus-4") == "opus-4"
         assert normalize_model_name("claude-haiku-3") == "haiku-3"
 
+    def test_claude_family_version_date_pattern(self):
+        """Test claude-family-X-Y-date pattern."""
+        assert normalize_model_name("claude-opus-4-1-20250805") == "opus-4.1"
+
     def test_case_insensitive(self):
         """Test that normalization is case-insensitive."""
         assert normalize_model_name("Claude-3-5-Haiku-20241022") == "haiku-3.5"
@@ -87,6 +91,12 @@ class TestGetModelCost:
     def test_opus_4_cost(self):
         """Test Claude 4 Opus costs."""
         input_cost, output_cost = get_model_cost("claude-opus-4-0")
+        assert input_cost == 15.0 / 1_000_000  # $15 per million
+        assert output_cost == 75.0 / 1_000_000  # $75 per million
+
+    def test_opus_4_1_cost(self):
+        """Test Claude 4.1 Opus costs."""
+        input_cost, output_cost = get_model_cost("claude-opus-4-1-20250805")
         assert input_cost == 15.0 / 1_000_000  # $15 per million
         assert output_cost == 75.0 / 1_000_000  # $75 per million
 
