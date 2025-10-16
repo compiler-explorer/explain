@@ -23,6 +23,7 @@ class TestNormalizeModelName:
         assert normalize_model_name("claude-sonnet-4-0") == "sonnet-4"
         assert normalize_model_name("claude-opus-4-0") == "opus-4"
         assert normalize_model_name("claude-sonnet-3-7") == "sonnet-3.7"
+        assert normalize_model_name("claude-haiku-4-5") == "haiku-4.5"
 
     def test_claude_family_major_pattern(self):
         """Test claude-family-X pattern."""
@@ -57,6 +58,12 @@ class TestNormalizeModelName:
 
 class TestGetModelCost:
     """Test model cost lookup."""
+
+    def test_haiku_4_5_cost(self):
+        """Test Claude 4.5 Haiku costs."""
+        input_cost, output_cost = get_model_cost("claude-haiku-4-5")
+        assert input_cost == 1.0 / 1_000_000  # $1.00 per million
+        assert output_cost == 5.0 / 1_000_000  # $5.00 per million
 
     def test_haiku_3_5_cost(self):
         """Test Claude 3.5 Haiku costs."""

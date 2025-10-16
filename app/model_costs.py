@@ -19,13 +19,14 @@ class ModelCost(NamedTuple):
 
 
 # Model family costs in USD per million tokens
-# Updated: 2025-09-16 based on https://claude.com/pricing
+# Updated: 2025-10-15 based on https://claude.com/pricing
 MODEL_FAMILIES = {
     "opus-4.1": ModelCost(15.0, 75.0),
     "opus-4": ModelCost(15.0, 75.0),
     "sonnet-4": ModelCost(3.0, 15.0),
     "sonnet-3.7": ModelCost(3.0, 15.0),
     "sonnet-3.5": ModelCost(3.0, 15.0),
+    "haiku-4.5": ModelCost(1.0, 5.0),
     "haiku-3.5": ModelCost(0.80, 4.0),
     "opus-3": ModelCost(15.0, 75.0),
     "haiku-3": ModelCost(0.25, 1.25),
