@@ -1,5 +1,5 @@
-name: Production Haiku 4.5
-description: Haiku 4.5 first introduced
+name: Haiku 4.5 Evaluation
+description: Testing Claude Haiku 4.5 with production prompt (identical to current except model)
 model:
   name: claude-haiku-4-5
   max_tokens: 1024
