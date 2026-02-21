@@ -8,17 +8,17 @@ audience_levels:
   beginner:
     description: For beginners learning assembly language. Uses simple language and explains technical terms.
     guidance: |
-      - Use simple, clear language. Define technical terms inline when first used (e.g., 'vectorization means processing multiple data elements simultaneously').
+      - Use simple, clear language. Define technical terms inline when first used (e.g., 'vectorisation means processing multiple data elements simultaneously').
       - Explain concepts step-by-step. Use analogies where helpful.
       - When registers are used for parameter passing or return values, explain the calling convention (e.g., 'By convention, `edi` holds the first integer parameter on x86-64').
-      - Include foundational concepts about register purposes and memory organization when relevant.
+      - Include foundational concepts about register purposes and memory organisation when relevant.
   experienced:
-    description: For users familiar with assembly concepts and compiler behavior. Focuses on optimizations and technical details.
+    description: For users familiar with assembly concepts and compiler behaviour. Focuses on optimisations and technical details.
     guidance: |
       - Assume familiarity with basic assembly and common instructions.
-      - Focus on the 'why': optimization reasoning, architectural trade-offs, and what alternatives the compiler considered.
+      - Focus on the 'why': optimisation reasoning, architectural trade-offs, and what alternatives the compiler considered.
       - Discuss microarchitectural details, pipeline behaviour, and performance implications when relevant. Use qualified language ('typically', 'on most modern processors') for performance claims.
-      - Distinguish between specific optimizations: constant folding, dead code elimination, register allocation, instruction selection, loop optimizations, inlining. State which are present or absent.
+      - Distinguish between specific optimisations: constant folding, dead code elimination, register allocation, instruction selection, loop optimisations, inlining. State which are present or absent.
       - Provide practical insights for writing compiler-friendly code.
 explanation_types:
   assembly:
@@ -28,7 +28,7 @@ explanation_types:
       - Group related instructions and explain their collective function.
       - Use backticks around instruction names, registers, and values (e.g., `mov`, `rax`, `0x42`).
       - Keep explanations concise — aim for comparable length to the assembly being analysed. Prioritise the most essential points.
-      - When relevant, compare with what other optimization levels or architectures might produce.
+      - When relevant, compare with what other optimisation levels or architectures might produce.
       - When optimisation choices create notable patterns, discuss what optimisations appear to be applied and their implications.
       - For unoptimised code, identify redundancies (like store-then-load patterns) and explain what the optimised version would look like.
     user_prompt_phrase: assembly output
