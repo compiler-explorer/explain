@@ -1,6 +1,6 @@
 import logging
 
-from anthropic import Anthropic
+from anthropic import AsyncAnthropic
 
 from app.cache import CacheProvider, cache_response, get_cached_response
 from app.explain_api import CostBreakdown, ExplainRequest, ExplainResponse, TokenUsage
@@ -19,7 +19,7 @@ MAX_ASM_LENGTH = 20000  # 20K chars for assembly output
 
 async def process_request(
     body: ExplainRequest,
-    client: Anthropic,
+    client: AsyncAnthropic,
     prompt: Prompt,
     metrics_provider: MetricsProvider,
     cache_provider: CacheProvider | None = None,
@@ -31,7 +31,7 @@ async def process_request(
 
     Args:
         body: The request body as a Pydantic model
-        client: Anthropic client instance
+        client: AsyncAnthropic client instance
         prompt: Prompt instance for generating messages
         metrics_provider: metrics provider for tracking stats
         cache_provider: cache provider for storing/retrieving responses
@@ -69,7 +69,7 @@ async def process_request(
 
 async def _call_anthropic_api(
     body: ExplainRequest,
-    client: Anthropic,
+    client: AsyncAnthropic,
     prompt: Prompt,
     metrics_provider: MetricsProvider,
 ) -> ExplainResponse:
@@ -92,7 +92,7 @@ async def _call_anthropic_api(
     # Call Claude API
     LOGGER.info("Using Anthropic client with model: %s", {prompt_data["model"]})
 
-    message = client.messages.create(
+    message = await client.messages.create(
         model=prompt_data["model"],
         max_tokens=prompt_data["max_tokens"],
         temperature=prompt_data["temperature"],

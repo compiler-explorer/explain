@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -65,7 +65,7 @@ def mock_anthropic_client():
     mock_message.usage.input_tokens = 100
     mock_message.usage.output_tokens = 50
 
-    mock_client.messages.create.return_value = mock_message
+    mock_client.messages.create = AsyncMock(return_value=mock_message)
     return mock_client
 
 

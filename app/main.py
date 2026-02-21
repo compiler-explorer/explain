@@ -2,7 +2,7 @@ import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from anthropic import Anthropic
+from anthropic import AsyncAnthropic
 from anthropic import __version__ as anthropic_version
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -42,7 +42,7 @@ async def lifespan(app: FastAPI):
 
     # Store shared resources in app.state
     app.state.settings = settings
-    app.state.anthropic_client = Anthropic(api_key=settings.anthropic_api_key)
+    app.state.anthropic_client = AsyncAnthropic(api_key=settings.anthropic_api_key)
 
     # Load the prompt configuration
     prompt_config_path = Path(__file__).parent / "prompt.yaml"
