@@ -125,9 +125,10 @@ class TestProcessRequest:
         user_message = messages[0]["content"][0]["text"]
         assert "beginner" in user_message.lower()
 
-        # Check that the messages array contains user and assistant messages
+        # Check that the messages array contains at least the user message
+        # (assistant prefill is optional — omitted when empty, e.g. for Sonnet 4.6)
         messages = kwargs["messages"]
-        assert len(messages) == 2
+        assert len(messages) >= 1
 
         # Check user message
         assert messages[0]["role"] == "user"
@@ -136,11 +137,11 @@ class TestProcessRequest:
         assert "amd64" in messages[0]["content"][0]["text"]
         assert messages[0]["content"][1]["type"] == "text"
 
-        # Check assistant message
-        assert messages[1]["role"] == "assistant"
-        assert len(messages[1]["content"]) == 1
-        assert messages[1]["content"][0]["type"] == "text"
-        assert "analyze" in messages[1]["content"][0]["text"]
+        # Check assistant prefill if present
+        if len(messages) == 2:
+            assert messages[1]["role"] == "assistant"
+            assert len(messages[1]["content"]) == 1
+            assert messages[1]["content"][0]["type"] == "text"
 
         # Check the structured data has expected fields
         structured_data = json.loads(messages[0]["content"][1]["text"])
