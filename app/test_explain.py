@@ -507,3 +507,103 @@ class TestValidation:
         assert request.asm[2].source.file is None
         assert request.asm[2].source.line == 0
         assert request.asm[2].source.column is None  # This was the missing field
+
+
+class TestStructuredOutput:
+    """Test structured output format."""
+
+    @pytest.fixture
+    def structured_mock_client(self):
+        """Create a mock that returns structured JSON."""
+        mock_client = MagicMock()
+        mock_message = MagicMock()
+        mock_content = MagicMock()
+        mock_content.text = json.dumps(
+            {
+                "summary": "A simple square function",
+                "sections": [
+                    {
+                        "title": "Multiply",
+                        "asmStartLine": 1,
+                        "asmEndLine": 1,
+                        "content": "Multiplies edi by itself",
+                    },
+                    {
+                        "title": "Return",
+                        "asmStartLine": 2,
+                        "asmEndLine": 3,
+                        "content": "Moves result to eax and returns",
+                    },
+                ],
+                "keyInsight": "The function is just three instructions",
+            }
+        )
+        mock_message.content = [mock_content]
+        mock_message.usage = MagicMock()
+        mock_message.usage.input_tokens = 100
+        mock_message.usage.output_tokens = 80
+        mock_client.messages.create = AsyncMock(return_value=mock_message)
+        return mock_client
+
+    @pytest.mark.asyncio
+    async def test_structured_output_returns_structured_explanation(
+        self, sample_request, structured_mock_client, noop_metrics
+    ):
+        """Structured format returns structuredExplanation, not explanation."""
+        sample_request.format = "structured"
+        test_prompt = Prompt(Path(__file__).parent / "prompt.yaml")
+        response = await process_request(sample_request, structured_mock_client, test_prompt, noop_metrics)
+        assert response.status == "success"
+        assert response.structuredExplanation is not None
+        assert response.explanation is None
+        assert response.structuredExplanation.summary == "A simple square function"
+        assert len(response.structuredExplanation.sections) == 2
+        assert response.structuredExplanation.sections[0].asmStartLine == 1
+        assert response.structuredExplanation.keyInsight == "The function is just three instructions"
+
+    @pytest.mark.asyncio
+    async def test_structured_output_uses_output_config(self, sample_request, structured_mock_client, noop_metrics):
+        """Structured format passes output_config to the API."""
+        sample_request.format = "structured"
+        test_prompt = Prompt(Path(__file__).parent / "prompt.yaml")
+        await process_request(sample_request, structured_mock_client, test_prompt, noop_metrics)
+        _args, kwargs = structured_mock_client.messages.create.call_args
+        assert "output_config" in kwargs
+        assert kwargs["output_config"]["format"]["type"] == "json_schema"
+
+    @pytest.mark.asyncio
+    async def test_markdown_format_unchanged(self, sample_request, noop_metrics):
+        """Default markdown format still works as before."""
+        mock_client = MagicMock()
+        mock_message = MagicMock()
+        mock_content = MagicMock()
+        mock_content.text = "This is a markdown explanation"
+        mock_message.content = [mock_content]
+        mock_message.usage = MagicMock()
+        mock_message.usage.input_tokens = 100
+        mock_message.usage.output_tokens = 50
+        mock_client.messages.create = AsyncMock(return_value=mock_message)
+
+        test_prompt = Prompt(Path(__file__).parent / "prompt.yaml")
+        response = await process_request(sample_request, mock_client, test_prompt, noop_metrics)
+        assert response.status == "success"
+        assert response.explanation == "This is a markdown explanation"
+        assert response.structuredExplanation is None
+
+    @pytest.mark.asyncio
+    async def test_markdown_format_no_output_config(self, sample_request, noop_metrics):
+        """Default markdown format does not send output_config."""
+        mock_client = MagicMock()
+        mock_message = MagicMock()
+        mock_content = MagicMock()
+        mock_content.text = "Explanation"
+        mock_message.content = [mock_content]
+        mock_message.usage = MagicMock()
+        mock_message.usage.input_tokens = 100
+        mock_message.usage.output_tokens = 50
+        mock_client.messages.create = AsyncMock(return_value=mock_message)
+
+        test_prompt = Prompt(Path(__file__).parent / "prompt.yaml")
+        await process_request(sample_request, mock_client, test_prompt, noop_metrics)
+        _args, kwargs = mock_client.messages.create.call_args
+        assert "output_config" not in kwargs

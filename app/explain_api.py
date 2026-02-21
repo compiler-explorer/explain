@@ -4,6 +4,8 @@ Defines request and response types based on the API specification
 in claude_explain.md.
 """
 
+from enum import Enum
+
 from pydantic import BaseModel, Field
 
 from app.explanation_types import AudienceLevel, ExplanationType
@@ -40,6 +42,13 @@ class AssemblyItem(BaseModel):
     isOmissionMarker: bool | None = None  # Added for truncated assembly
 
 
+class ExplanationFormat(str, Enum):
+    """Output format for explanations."""
+
+    MARKDOWN = "markdown"
+    STRUCTURED = "structured"
+
+
 class ExplainRequest(BaseModel):
     """Request body for the Claude Explain API."""
 
@@ -56,12 +65,37 @@ class ExplainRequest(BaseModel):
     explanation: ExplanationType = Field(
         default=ExplanationType.ASSEMBLY, description="Type of explanation to generate"
     )
+    format: ExplanationFormat = Field(
+        default=ExplanationFormat.MARKDOWN,
+        description="Output format: 'markdown' (default) or 'structured' (JSON with assembly line mappings)",
+    )
     bypassCache: bool = Field(default=False, description="If true, skip reading from cache but still write to cache")
 
     @property
     def instruction_set_with_default(self) -> str:
         """Get the instruction set with fallback to 'unknown' if None."""
         return self.instructionSet or "unknown"
+
+
+class ExplanationSection(BaseModel):
+    """A section of a structured explanation, mapped to assembly lines."""
+
+    model_config = {"json_schema_extra": {"additionalProperties": False}}
+
+    title: str = Field(..., description="Section heading")
+    asmStartLine: int = Field(..., description="0-indexed start line in the assembly listing")
+    asmEndLine: int = Field(..., description="0-indexed end line (inclusive) in the assembly listing")
+    content: str = Field(..., description="Explanation of this group of instructions (markdown)")
+
+
+class StructuredExplanation(BaseModel):
+    """Structured explanation with assembly line mappings."""
+
+    model_config = {"json_schema_extra": {"additionalProperties": False}}
+
+    summary: str = Field(..., description="One-sentence overview of what the compiler did")
+    sections: list[ExplanationSection] = Field(..., description="Explanation sections mapped to assembly lines")
+    keyInsight: str = Field(..., description="The single most important takeaway")
 
 
 class TokenUsage(BaseModel):
@@ -83,7 +117,10 @@ class CostBreakdown(BaseModel):
 class ExplainResponse(BaseModel):
     """Response from the Claude Explain API."""
 
-    explanation: str | None = Field(None, description="The generated explanation")
+    explanation: str | None = Field(None, description="The generated explanation (markdown format)")
+    structuredExplanation: StructuredExplanation | None = Field(
+        None, description="Structured explanation with assembly line mappings (structured format)"
+    )
     status: str = Field(..., description="'success' or 'error'")
     message: str | None = Field(None, description="Error message (only present on error)")
     model: str | None = Field(None, description="The Claude model used")

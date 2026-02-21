@@ -3,7 +3,14 @@ import logging
 from anthropic import AsyncAnthropic
 
 from app.cache import CacheProvider, cache_response, get_cached_response
-from app.explain_api import CostBreakdown, ExplainRequest, ExplainResponse, TokenUsage
+from app.explain_api import (
+    CostBreakdown,
+    ExplainRequest,
+    ExplainResponse,
+    ExplanationFormat,
+    StructuredExplanation,
+    TokenUsage,
+)
 from app.metrics import MetricsProvider
 from app.model_costs import get_model_cost
 from app.prompt import Prompt
@@ -92,16 +99,42 @@ async def _call_anthropic_api(
     # Call Claude API
     LOGGER.info("Using Anthropic client with model: %s", {prompt_data["model"]})
 
-    message = await client.messages.create(
-        model=prompt_data["model"],
-        max_tokens=prompt_data["max_tokens"],
-        temperature=prompt_data["temperature"],
-        system=prompt_data["system"],
-        messages=prompt_data["messages"],
-    )
+    use_structured = body.format == ExplanationFormat.STRUCTURED
 
-    # Get explanation and strip leading/trailing whitespace
-    explanation = message.content[0].text.strip()
+    api_kwargs: dict = {
+        "model": prompt_data["model"],
+        "max_tokens": prompt_data["max_tokens"],
+        "temperature": prompt_data["temperature"],
+        "system": prompt_data["system"],
+        "messages": prompt_data["messages"],
+    }
+
+    if use_structured:
+        # For structured output: skip assistant prefill, add line indexing
+        # hint, and use output_config with JSON schema
+        api_kwargs["messages"] = [prompt_data["messages"][0]]  # user only
+        api_kwargs["system"] += (
+            "\n\nThe assembly listing is 0-indexed. Reference specific line ranges in your response."
+        )
+        api_kwargs["max_tokens"] = max(prompt_data["max_tokens"], 2048)
+        api_kwargs["output_config"] = {
+            "format": {
+                "type": "json_schema",
+                "schema": StructuredExplanation.model_json_schema(),
+            }
+        }
+
+    message = await client.messages.create(**api_kwargs)
+
+    # Parse response based on format
+    raw_text = message.content[0].text.strip()
+    explanation_text: str | None = None
+    structured: StructuredExplanation | None = None
+
+    if use_structured:
+        structured = StructuredExplanation.model_validate_json(raw_text)
+    else:
+        explanation_text = raw_text
 
     # Extract usage information
     input_tokens = message.usage.input_tokens
@@ -130,7 +163,8 @@ async def _call_anthropic_api(
     # Create and return ExplainResponse object
     return ExplainResponse(
         status="success",
-        explanation=explanation,
+        explanation=explanation_text,
+        structuredExplanation=structured,
         model=prompt_data["model"],
         usage=TokenUsage(
             inputTokens=input_tokens,
