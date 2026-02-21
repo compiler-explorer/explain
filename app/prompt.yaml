@@ -2,7 +2,7 @@ name: Production Sonnet 4.6
 description: Sonnet 4.6 with deduplicated, tighter prompts
 model:
   name: claude-sonnet-4-6
-  max_tokens: 1024
+  max_tokens: 1536
   temperature: 0.0
 audience_levels:
   beginner:
