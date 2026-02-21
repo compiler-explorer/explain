@@ -3,6 +3,8 @@
 Simple commands:
   prompt-test run                  Run all test cases, save results
   prompt-test run --cases foo bar  Run specific cases
+  prompt-test run --review         Also run Opus correctness review
+  prompt-test review results.json  Review existing results with Opus
   prompt-test compare A B          Compare two result files side by side
   prompt-test list                 List available test cases
   prompt-test enrich               Enrich test cases with real CE assembly
@@ -40,8 +42,10 @@ def cli(ctx, project_root):
 @click.option("--categories", multiple=True, help="Filter by category")
 @click.option("--output", help="Output filename")
 @click.option("--max-concurrent", type=int, default=5)
+@click.option("--review", is_flag=True, help="Also run Opus correctness review on results")
+@click.option("--review-model", default="claude-opus-4-6", help="Model for correctness review")
 @click.pass_context
-def run(ctx, prompt, cases, categories, output, max_concurrent):
+def run(ctx, prompt, cases, categories, output, max_concurrent, review, review_model):
     """Run test cases and save results for review."""
     tester = PromptTester(ctx.obj["project_root"], max_concurrent=max_concurrent)
     results = tester.run(
@@ -49,12 +53,18 @@ def run(ctx, prompt, cases, categories, output, max_concurrent):
         case_ids=list(cases) if cases else None,
         categories=list(categories) if categories else None,
     )
+
+    if review:
+        results = asyncio.run(_run_reviews(ctx.obj["project_root"], results, review_model))
+
     tester.save(results, output)
 
     # Summary
     click.echo(
         f"\n{results['successful']}/{results['total_cases']} succeeded, total cost: ${results['total_cost_usd']:.4f}"
     )
+    if review:
+        _print_review_summary(results)
 
 
 @cli.command()
@@ -182,6 +192,84 @@ def compilers(ctx, language, search, limit):  # noqa: ARG001
             click.echo(f"{c.id:25} {c.name}")
         if len(results) > limit:
             click.echo(f"... and {len(results) - limit} more")
+
+
+async def _run_reviews(project_root: Path, results: dict, model: str) -> dict:
+    """Run correctness reviews on all successful results."""
+    from prompt_testing.reviewer import CorrectnessReviewer
+
+    reviewer = CorrectnessReviewer(model=model)
+    test_dir = project_root / "prompt_testing" / "test_cases"
+    all_cases = load_all_test_cases(str(test_dir))
+    cases_by_id = {c["id"]: c for c in all_cases}
+
+    successful = [r for r in results["results"] if r["success"]]
+    click.echo(f"\nReviewing {len(successful)} results with {model}...")
+
+    review_cost = 0.0
+    errors_found = 0
+
+    for i, result in enumerate(successful, 1):
+        case = cases_by_id.get(result["case_id"])
+        if not case:
+            continue
+
+        review = await reviewer.review_test_result(case, result["explanation"])
+        result["review"] = review
+
+        status = "✓" if review.get("correct") else "✗"
+        n_issues = len(review.get("issues", []))
+        if not review.get("correct"):
+            errors_found += 1
+        # Opus pricing: $15/M in, $75/M out
+        cost = review.get("reviewer_input_tokens", 0) * 15 / 1e6 + review.get("reviewer_output_tokens", 0) * 75 / 1e6
+        review_cost += cost
+        click.echo(f"  [{i}/{len(successful)}] {status} {result['case_id']} ({n_issues} issues, ${cost:.4f})")
+
+    results["review_model"] = model
+    results["review_cost_usd"] = round(review_cost, 6)
+    results["total_cost_usd"] = round(results["total_cost_usd"] + review_cost, 6)
+    results["errors_found"] = errors_found
+    return results
+
+
+def _print_review_summary(results: dict) -> None:
+    """Print a summary of correctness reviews."""
+    reviewed = [r for r in results["results"] if r.get("review")]
+    correct = sum(1 for r in reviewed if r["review"].get("correct"))
+    incorrect = len(reviewed) - correct
+
+    click.echo(f"\nCorrectness: {correct}/{len(reviewed)} passed")
+    if incorrect:
+        click.echo(f"\n⚠ {incorrect} case(s) with issues:")
+        for r in reviewed:
+            review = r["review"]
+            if not review.get("correct"):
+                click.echo(f"\n  {r['case_id']}:")
+                for issue in review.get("issues", []):
+                    sev = "🔴" if issue["severity"] == "error" else "🟡"
+                    click.echo(f"    {sev} {issue['claim']}")
+                    click.echo(f"       → {issue['correction']}")
+
+    click.echo(f"\nReview cost: ${results.get('review_cost_usd', 0):.4f} ({results.get('review_model', '?')})")
+
+
+@cli.command()
+@click.argument("results_file")
+@click.option("--model", default="claude-opus-4-6", help="Reviewer model")
+@click.pass_context
+def review(ctx, results_file, model):
+    """Run Opus correctness review on existing results."""
+    results_dir = ctx.obj["project_root"] / "prompt_testing" / "results"
+    path = results_dir / results_file if not Path(results_file).is_absolute() else Path(results_file)
+
+    results = json.loads(path.read_text())
+    results = asyncio.run(_run_reviews(ctx.obj["project_root"], results, model))
+
+    # Save updated results
+    path.write_text(json.dumps(results, indent=2))
+    click.echo(f"\nUpdated {path}")
+    _print_review_summary(results)
 
 
 def main():

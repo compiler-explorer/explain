@@ -8,9 +8,15 @@ Simple framework for testing prompt changes against curated test cases.
 # Run all test cases with the current production prompt
 uv run prompt-test run
 
+# Run with Opus correctness review (catches factual errors)
+uv run prompt-test run --review
+
 # Run specific cases or categories
-uv run prompt-test run --cases basic_loop_001 basic_inline_001
+uv run prompt-test run --cases basic_loop_001 --cases basic_inline_001
 uv run prompt-test run --categories loop_optimization
+
+# Review existing results with Opus
+uv run prompt-test review results/20250221_120000_current.json
 
 # Compare two result files
 uv run prompt-test compare results_a.json results_b.json
@@ -23,10 +29,20 @@ uv run prompt-test list
 
 1. **Test cases** live in `test_cases/*.yaml` — each has source code, compiler flags, and real assembly output
 2. `prompt-test run` sends each case to the Claude API using the current prompt and saves all outputs
-3. You read the outputs and decide if they're good
-4. To compare prompt changes: run once before, once after, then `prompt-test compare`
+3. `--review` flag runs each output through Opus for **correctness checking** — it identifies specific factual errors rather than giving abstract scores
+4. You read the outputs (and any flagged issues) and decide if they're good
+5. To compare prompt changes: run once before, once after, then `prompt-test compare`
 
-No automated scoring, no Claude-as-judge, no web UI. The human is the judge.
+### Correctness Review
+
+The `--review` flag uses Claude Opus to check explanations for factual errors. Unlike generic scoring, it looks for specific issues:
+
+- **Instruction semantics**: Is `lea` correctly described as address computation, not memory access?
+- **Complexity claims**: Does it claim O(n) when it's actually O(2^n)?
+- **Optimisation characterisation**: Does it correctly identify unoptimised code?
+- **Register usage**: Are calling conventions right?
+
+Each issue is flagged as an **error** (would mislead a student) or **warning** (imprecise but not wrong).
 
 ## Test Case Format
 
@@ -68,6 +84,7 @@ prompt_testing/
 ├── results/          # Saved test run outputs (JSON, gitignored)
 ├── ce_api/           # Compiler Explorer API client
 ├── runner.py         # Test runner
+├── reviewer.py       # Opus correctness checker
 ├── cli.py            # CLI commands
 ├── enricher.py       # CE API enrichment
 ├── file_utils.py     # File I/O helpers
