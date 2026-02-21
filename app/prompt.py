@@ -257,13 +257,19 @@ class Prompt:
                     {"type": "text", "text": json.dumps(structured_data)},
                 ],
             },
-            {
-                "role": "assistant",
-                "content": [
-                    {"type": "text", "text": assistant_prefill},
-                ],
-            },
         ]
+
+        # Only include assistant prefill if non-empty (some models like
+        # Sonnet 4.6 don't support assistant message prefill)
+        if assistant_prefill:
+            messages.append(
+                {
+                    "role": "assistant",
+                    "content": [
+                        {"type": "text", "text": assistant_prefill},
+                    ],
+                }
+            )
 
         return {
             "model": self.model,
