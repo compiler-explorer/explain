@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from prompt_testing.yaml_utils import create_yaml_dumper, load_yaml_file
+from prompt_testing.yaml_utils import create_yaml_dumper, create_yaml_loader, load_yaml_file
 
 
 def ensure_directory(path: Path) -> Path:
@@ -123,3 +123,24 @@ def save_prompt_file(prompt_data: dict[str, Any], output_path: Path) -> None:
             yaml.dump(prompt_data, f)
     except OSError as e:
         raise RuntimeError(f"Failed to save prompt to {output_path}: {e}") from e
+
+
+def load_all_test_cases(test_cases_dir: str) -> list[dict[str, Any]]:
+    """Load all test cases from YAML files in a directory.
+
+    Args:
+        test_cases_dir: Path to directory containing test case YAML files
+
+    Returns:
+        List of test case dicts
+    """
+    all_cases = []
+    test_dir = Path(test_cases_dir)
+    yaml = create_yaml_loader()
+
+    for file_path in sorted(test_dir.glob("*.yaml")):
+        with file_path.open(encoding="utf-8") as f:
+            data = yaml.load(f)
+            all_cases.extend(data["cases"])
+
+    return all_cases
