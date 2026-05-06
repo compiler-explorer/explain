@@ -22,3 +22,6 @@ node_modules
 # Package build artifacts
 *.egg-info/
 *.backup
+
+# Claude Code local session state
+.claude/scheduled_tasks.lock
