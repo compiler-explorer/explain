@@ -57,6 +57,15 @@ class ExplainRequest(BaseModel):
         default=ExplanationType.ASSEMBLY, description="Type of explanation to generate"
     )
     bypassCache: bool = Field(default=False, description="If true, skip reading from cache but still write to cache")
+    useThinking: bool = Field(
+        default=False,
+        description=(
+            "If true, enable adaptive extended thinking on the explainer. "
+            "Improves correctness on complex inputs at the cost of significant "
+            "extra latency (often +10s, sometimes much more on large inputs). "
+            "May exceed the Lambda 30s timeout on the largest queries."
+        ),
+    )
 
     @property
     def instruction_set_with_default(self) -> str:

@@ -80,8 +80,7 @@ async def _call_anthropic_api(
 
     This is the original process_request logic, extracted for clarity.
     """
-    # Generate messages using the Prompt instance
-    prompt_data = prompt.generate_messages(body)
+    prompt_data = prompt.generate_messages_for_request(body)
 
     # Debug logging for prompts
     LOGGER.debug(f"=== PROMPT DEBUG FOR {body.explanation.value.upper()} (audience: {body.audience.value}) ===")
@@ -93,7 +92,11 @@ async def _call_anthropic_api(
     LOGGER.debug("=== END PROMPT DEBUG ===")
 
     # Call Claude API
-    LOGGER.info("Using Anthropic client with model: %s", prompt_data["model"])
+    LOGGER.info(
+        "Using Anthropic client with model: %s (thinking=%s)",
+        prompt_data["model"],
+        bool(prompt_data.get("thinking")),
+    )
 
     api_kwargs: dict[str, Any] = {
         "model": prompt_data["model"],

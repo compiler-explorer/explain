@@ -134,8 +134,10 @@ def generate_cache_key(request: ExplainRequest, prompt: Prompt) -> str:
     Returns:
         A SHA-256 hash string to use as cache key
     """
-    # Generate the full message data that would be sent to Anthropic
-    prompt_data = prompt.generate_messages(request)
+    # Generate the full message data that would be sent to Anthropic,
+    # including any per-request overrides (e.g. useThinking) so cache hits
+    # split correctly between thinking-on and thinking-off requests.
+    prompt_data = prompt.generate_messages_for_request(request)
 
     # Create a deterministic representation of all cache-affecting data
     cache_data = {
