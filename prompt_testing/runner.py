@@ -69,20 +69,28 @@ class PromptTester:
             request = self._to_request(test_case)
             prompt_data = prompt.generate_messages(request)
 
+            api_kwargs: dict[str, Any] = {
+                "model": prompt_data["model"],
+                "max_tokens": prompt_data["max_tokens"],
+                "system": prompt_data["system"],
+                "messages": prompt_data["messages"],
+            }
+            if prompt_data.get("thinking"):
+                # Extended thinking: temperature must be 1 / unset.
+                api_kwargs["thinking"] = prompt_data["thinking"]
+            else:
+                api_kwargs["temperature"] = prompt_data["temperature"]
+
             start = time.time()
             try:
-                msg = await self.async_client.messages.create(
-                    model=prompt_data["model"],
-                    max_tokens=prompt_data["max_tokens"],
-                    temperature=prompt_data["temperature"],
-                    system=prompt_data["system"],
-                    messages=prompt_data["messages"],
-                )
+                msg = await self.async_client.messages.create(**api_kwargs)
                 elapsed_ms = int((time.time() - start) * 1000)
+                text_blocks = [c for c in msg.content if getattr(c, "type", None) == "text"]
+                explanation = text_blocks[-1].text.strip() if text_blocks else ""
                 return {
                     "case_id": case_id,
                     "success": True,
-                    "explanation": msg.content[-1].text.strip(),
+                    "explanation": explanation,
                     "model": prompt_data["model"],
                     "input_tokens": msg.usage.input_tokens,
                     "output_tokens": msg.usage.output_tokens,

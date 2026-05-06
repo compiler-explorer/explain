@@ -92,16 +92,24 @@ async def _call_anthropic_api(
     # Call Claude API
     LOGGER.info("Using Anthropic client with model: %s", {prompt_data["model"]})
 
-    message = await client.messages.create(
-        model=prompt_data["model"],
-        max_tokens=prompt_data["max_tokens"],
-        temperature=prompt_data["temperature"],
-        system=prompt_data["system"],
-        messages=prompt_data["messages"],
-    )
+    api_kwargs: dict = {
+        "model": prompt_data["model"],
+        "max_tokens": prompt_data["max_tokens"],
+        "system": prompt_data["system"],
+        "messages": prompt_data["messages"],
+    }
+    if prompt_data.get("thinking"):
+        # Extended thinking: API requires temperature to be unset.
+        api_kwargs["thinking"] = prompt_data["thinking"]
+    else:
+        api_kwargs["temperature"] = prompt_data["temperature"]
 
-    # Get explanation and strip leading/trailing whitespace
-    explanation = message.content[0].text.strip()
+    message = await client.messages.create(**api_kwargs)
+
+    # Pick the last text block — when thinking is enabled the response
+    # contains thinking blocks before the final text block.
+    text_blocks = [c for c in message.content if getattr(c, "type", None) == "text"]
+    explanation = text_blocks[-1].text.strip() if text_blocks else ""
 
     # Extract usage information
     input_tokens = message.usage.input_tokens

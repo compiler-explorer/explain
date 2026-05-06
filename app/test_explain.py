@@ -57,6 +57,7 @@ def mock_anthropic_client():
     mock_client = MagicMock()
     mock_message = MagicMock()
     mock_content = MagicMock()
+    mock_content.type = "text"
     mock_content.text = "This assembly code implements a simple square function..."
     mock_message.content = [mock_content]
 

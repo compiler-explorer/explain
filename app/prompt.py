@@ -36,6 +36,10 @@ class Prompt:
         self.model = self.config["model"]["name"]
         self.max_tokens = self.config["model"]["max_tokens"]
         self.temperature = self.config["model"].get("temperature", 0.0)
+        # Optional extended-thinking config, e.g. {"type": "adaptive"} or
+        # {"type": "enabled", "budget_tokens": 2000}. When set, callers
+        # should drop `temperature` (the API requires it to be unset/1).
+        self.thinking = self.config["model"].get("thinking")
 
         # Extract prompt templates
         self.system_prompt_template = self.config["system_prompt"]
@@ -275,6 +279,7 @@ class Prompt:
             "model": self.model,
             "max_tokens": self.max_tokens,
             "temperature": self.temperature,
+            "thinking": self.thinking,
             "system": system_prompt,
             "messages": messages,
             "structured_data": structured_data,  # Include for reference
