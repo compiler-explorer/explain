@@ -70,8 +70,8 @@ call → response with metrics. See `claude_explain.md` for detailed architectur
 
 - **`max_tokens` includes thinking tokens.** When a prompt YAML sets `model.thinking: {type: adaptive}` (or
   `{type: enabled, budget_tokens: N}`), thinking counts against `max_tokens`. The production value `1536` silently
-  starves the visible text output on complex cases when thinking is on — bump to ≥4096 (8192 worked in past
-  experiments) before enabling thinking on any explainer prompt.
+  starves the visible text output on complex cases when thinking is on. `Prompt.__init__` now refuses to load a
+  thinking-enabled config with `max_tokens < 4096`; ≥4096 (8192 worked in past experiments) is the floor.
 - **The reviewer model rejects `temperature`.** Opus 4.7 deprecated the parameter, so `prompt_testing/reviewer.py`
   omits it. The Sonnet explainer still accepts `temperature`. If you swap the reviewer to a model that requires
   it, restore the param.
@@ -84,7 +84,14 @@ call → response with metrics. See `claude_explain.md` for detailed architectur
   explicit latency/quality decision.
 - **Multi-block responses.** When thinking is enabled the API returns thinking blocks before the text block.
   `app/explain.py` and `prompt_testing/runner.py` both pick the last text block via `getattr(c, "type", None) ==
-  "text"`. Preserve that pattern for any new code that consumes responses.
+  "text"`. Preserve that pattern for any new code that consumes responses. The API may also return
+  `redacted_thinking` blocks (encrypted reasoning when safety filters trip); the same filter excludes them
+  correctly, but be aware "no text block" can mean either max_tokens starvation *or* a redacted-thinking-only
+  response — the error message is the same.
+- **Empty responses are not 500s.** When the model returns no text block, `app/explain.py` returns
+  `ExplainResponse(status="error")` with `usage` populated and emits `ClaudeExplainEmptyResponse`. The cache
+  layer skips storing error responses so retries hit the API. Don't change this to raise — the structured error
+  is what the CE frontend can render.
 
 ## Code Style Guidelines
 

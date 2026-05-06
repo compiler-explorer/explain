@@ -16,6 +16,7 @@ import json
 import sys
 from collections import defaultdict
 from pathlib import Path
+from typing import Any
 
 import click
 from dotenv import load_dotenv
@@ -202,7 +203,7 @@ def compilers(ctx, language, search, limit):  # noqa: ARG001
             click.echo(f"... and {len(results) - limit} more")
 
 
-async def _run_reviews(project_root: Path, results: dict, model: str, thinking: dict | None = None) -> dict:
+async def _run_reviews(project_root: Path, results: dict, model: str, thinking: dict[str, Any] | None = None) -> dict:
     """Run correctness reviews on all successful results."""
     from prompt_testing.reviewer import CorrectnessReviewer
 
@@ -216,6 +217,7 @@ async def _run_reviews(project_root: Path, results: dict, model: str, thinking: 
 
     review_cost = 0.0
     errors_found = 0
+    review_failures = 0
     cost_per_input_token, cost_per_output_token = get_model_cost(model)
 
     for i, result in enumerate(successful, 1):
@@ -226,10 +228,19 @@ async def _run_reviews(project_root: Path, results: dict, model: str, thinking: 
         review = await reviewer.review_test_result(case, result["explanation"])
         result["review"] = review
 
-        status = "✓" if review.get("correct") else "✗"
-        n_issues = len(review.get("issues", []))
-        if not review.get("correct"):
+        # `correct`: True = passed, False = real factual error,
+        # None = reviewer infrastructure failure (parse/empty response).
+        # Distinguish so suite metrics don't conflate the two.
+        correct = review.get("correct")
+        if correct is True:
+            status = "✓"
+        elif correct is False:
+            status = "✗"
             errors_found += 1
+        else:
+            status = "?"
+            review_failures += 1
+        n_issues = len(review.get("issues", []))
         cost = (
             review.get("reviewer_input_tokens", 0) * cost_per_input_token
             + review.get("reviewer_output_tokens", 0) * cost_per_output_token
@@ -241,26 +252,33 @@ async def _run_reviews(project_root: Path, results: dict, model: str, thinking: 
     results["review_cost_usd"] = round(review_cost, 6)
     results["total_cost_usd"] = round(results["total_cost_usd"] + review_cost, 6)
     results["errors_found"] = errors_found
+    results["review_failures"] = review_failures
     return results
 
 
-def _print_review_summary(results: dict) -> None:
+def _print_review_summary(results: dict[str, Any]) -> None:
     """Print a summary of correctness reviews."""
     reviewed = [r for r in results["results"] if r.get("review")]
-    correct = sum(1 for r in reviewed if r["review"].get("correct"))
-    incorrect = len(reviewed) - correct
+    passed = sum(1 for r in reviewed if r["review"].get("correct") is True)
+    failed = sum(1 for r in reviewed if r["review"].get("correct") is False)
+    review_failures = sum(1 for r in reviewed if r["review"].get("correct") is None)
 
-    click.echo(f"\nCorrectness: {correct}/{len(reviewed)} passed")
-    if incorrect:
-        click.echo(f"\n⚠ {incorrect} case(s) with issues:")
+    click.echo(f"\nCorrectness: {passed}/{len(reviewed)} passed")
+    if failed:
+        click.echo(f"\n⚠ {failed} case(s) with issues:")
         for r in reviewed:
             review = r["review"]
-            if not review.get("correct"):
+            if review.get("correct") is False:
                 click.echo(f"\n  {r['case_id']}:")
                 for issue in review.get("issues", []):
                     sev = "🔴" if issue["severity"] == "error" else "🟡"
                     click.echo(f"    {sev} {issue['claim']}")
                     click.echo(f"       → {issue['correction']}")
+    if review_failures:
+        click.echo(f"\n⚠ {review_failures} review(s) failed to run (likely max_tokens starvation):")
+        for r in reviewed:
+            if r["review"].get("correct") is None:
+                click.echo(f"  {r['case_id']}: {r['review'].get('summary', '?')}")
 
     click.echo(f"\nReview cost: ${results.get('review_cost_usd', 0):.4f} ({results.get('review_model', '?')})")
 

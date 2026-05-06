@@ -1,4 +1,5 @@
 import logging
+from typing import Any
 
 from anthropic import AsyncAnthropic
 
@@ -59,8 +60,10 @@ async def process_request(
     # Cache miss or no cache - proceed with Anthropic API call
     response = await _call_anthropic_api(body, client, prompt, metrics_provider)
 
-    # Cache the response (if cache provider is available)
-    if cache_provider is not None:
+    # Cache the response (if cache provider is available). Don't cache
+    # error responses — they consume real tokens but produce no useful
+    # content, and we want a retry to hit the API rather than the cache.
+    if cache_provider is not None and response.status == "success":
         await cache_response(body, prompt, response, cache_provider)
         metrics_provider.put_metric("ClaudeExplainCacheMiss", 1)
 
@@ -92,7 +95,7 @@ async def _call_anthropic_api(
     # Call Claude API
     LOGGER.info("Using Anthropic client with model: %s", prompt_data["model"])
 
-    api_kwargs: dict = {
+    api_kwargs: dict[str, Any] = {
         "model": prompt_data["model"],
         "max_tokens": prompt_data["max_tokens"],
         "system": prompt_data["system"],
@@ -106,22 +109,44 @@ async def _call_anthropic_api(
 
     message = await client.messages.create(**api_kwargs)
 
+    # Extract usage information
+    input_tokens = message.usage.input_tokens
+    output_tokens = message.usage.output_tokens
+    total_tokens = input_tokens + output_tokens
+
     # Pick the last text block — when thinking is enabled the response
     # contains thinking blocks before the final text block.
     text_blocks = [c for c in message.content if getattr(c, "type", None) == "text"]
     explanation = text_blocks[-1].text.strip() if text_blocks else ""
     if not explanation:
         # Can happen if extended thinking exhausts max_tokens before any
-        # text block is emitted. Don't cache or return an empty response.
-        raise RuntimeError(
-            f"Claude returned no text content (stop_reason={message.stop_reason}). "
+        # text block is emitted. Surface the failure to the caller with
+        # token usage populated, and emit a metric so this is visible on
+        # dashboards rather than buried in a generic 500.
+        message_text = (
+            f"Claude returned no text content "
+            f"(stop_reason={message.stop_reason}, in={input_tokens}, out={output_tokens}). "
             f"If thinking is enabled, max_tokens may be too low."
         )
-
-    # Extract usage information
-    input_tokens = message.usage.input_tokens
-    output_tokens = message.usage.output_tokens
-    total_tokens = input_tokens + output_tokens
+        LOGGER.warning(message_text)
+        metrics_provider.set_property("language", body.language)
+        metrics_provider.set_property("compiler", body.compiler)
+        metrics_provider.set_property("instructionSet", body.instructionSet or "unknown")
+        metrics_provider.set_property("cached", "false")
+        metrics_provider.put_metric("ClaudeExplainRequest", 1)
+        metrics_provider.put_metric("ClaudeExplainEmptyResponse", 1)
+        metrics_provider.put_metric("ClaudeExplainInputTokens", input_tokens)
+        metrics_provider.put_metric("ClaudeExplainOutputTokens", output_tokens)
+        return ExplainResponse(
+            status="error",
+            message=message_text,
+            model=prompt_data["model"],
+            usage=TokenUsage(
+                inputTokens=input_tokens,
+                outputTokens=output_tokens,
+                totalTokens=total_tokens,
+            ),
+        )
 
     # Calculate costs based on model
     cost_per_input_token, cost_per_output_token = get_model_cost(prompt_data["model"])

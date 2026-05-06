@@ -178,9 +178,10 @@ class TestProcessRequest:
         assert response.explanation == "Final explanation here."
 
     @pytest.mark.asyncio
-    async def test_raises_when_no_text_block(self, sample_request, noop_metrics):
+    async def test_returns_error_when_no_text_block(self, sample_request, noop_metrics):
         """A response with no text block (e.g. thinking exhausted max_tokens)
-        should raise rather than silently caching an empty explanation."""
+        should return status='error' with token usage populated, not raise.
+        Production must surface a structured error rather than a generic 500."""
         thinking_block = MagicMock()
         thinking_block.type = "thinking"
         thinking_block.thinking = "..."
@@ -194,8 +195,47 @@ class TestProcessRequest:
         mock_client.messages.create = AsyncMock(return_value=mock_message)
 
         test_prompt = Prompt(Path("app/prompt.yaml"))
-        with pytest.raises(RuntimeError, match="no text content"):
-            await process_request(sample_request, mock_client, test_prompt, noop_metrics)
+        response = await process_request(sample_request, mock_client, test_prompt, noop_metrics)
+
+        assert response.status == "error"
+        assert response.explanation is None
+        assert "no text content" in response.message
+        # Real tokens were spent — surface them so callers can see the cost.
+        assert response.usage is not None
+        assert response.usage.inputTokens == 100
+        assert response.usage.outputTokens == 50
+
+
+class TestPromptValidation:
+    """Validation rules enforced at Prompt construction."""
+
+    def test_thinking_requires_min_max_tokens(self):
+        """A prompt YAML that enables thinking must also bump max_tokens."""
+        with pytest.raises(ValueError, match="too low for thinking"):
+            Prompt(
+                {
+                    "model": {"name": "test", "max_tokens": 1536, "thinking": {"type": "adaptive"}},
+                    "system_prompt": "",
+                    "user_prompt": "",
+                    "assistant_prefill": "",
+                    "audience_levels": {},
+                    "explanation_types": {},
+                }
+            )
+
+    def test_thinking_with_sufficient_max_tokens_is_ok(self):
+        """At/above the floor (4096), thinking-enabled prompts load fine."""
+        prompt = Prompt(
+            {
+                "model": {"name": "test", "max_tokens": 4096, "thinking": {"type": "adaptive"}},
+                "system_prompt": "",
+                "user_prompt": "",
+                "assistant_prefill": "",
+                "audience_levels": {},
+                "explanation_types": {},
+            }
+        )
+        assert prompt.thinking == {"type": "adaptive"}
 
 
 class TestSelectImportantAssembly:

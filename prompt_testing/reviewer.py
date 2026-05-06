@@ -120,22 +120,35 @@ class CorrectnessReviewer:
         text_blocks = [c for c in msg.content if getattr(c, "type", None) == "text"]
         text = text_blocks[-1].text.strip() if text_blocks else ""
 
-        # Parse JSON response
-        try:
-            result = json.loads(text)
-        except json.JSONDecodeError:
-            # Try to extract JSON from markdown fencing
-            if "```" in text:
-                json_part = text.split("```")[1]
-                if json_part.startswith("json"):
-                    json_part = json_part[4:]
-                result = json.loads(json_part.strip())
-            else:
-                result = {
-                    "correct": None,
-                    "issues": [],
-                    "summary": f"Failed to parse reviewer response: {text[:200]}",
-                }
+        if not text:
+            # Likely thinking exhausted max_tokens before any text block.
+            # Surface stop_reason/usage so this is diagnosable rather than a
+            # generic JSON parse failure.
+            result: dict[str, Any] = {
+                "correct": None,
+                "issues": [],
+                "summary": (
+                    f"Reviewer returned no text (stop_reason={msg.stop_reason}, "
+                    f"in={msg.usage.input_tokens}, out={msg.usage.output_tokens})."
+                ),
+            }
+        else:
+            # Parse JSON response
+            try:
+                result = json.loads(text)
+            except json.JSONDecodeError:
+                # Try to extract JSON from markdown fencing
+                if "```" in text:
+                    json_part = text.split("```")[1]
+                    if json_part.startswith("json"):
+                        json_part = json_part[4:]
+                    result = json.loads(json_part.strip())
+                else:
+                    result = {
+                        "correct": None,
+                        "issues": [],
+                        "summary": f"Failed to parse reviewer response: {text[:200]}",
+                    }
 
         result["reviewer_model"] = self.model
         result["reviewer_input_tokens"] = msg.usage.input_tokens

@@ -90,7 +90,8 @@ class PromptTester:
                 if not explanation:
                     # Treat empty output as a failure so suite metrics aren't
                     # skewed. Common cause: thinking exhausting max_tokens
-                    # before any text block is emitted.
+                    # before any text block is emitted. Tokens were still
+                    # spent — capture them so cost reporting stays accurate.
                     return {
                         "case_id": case_id,
                         "success": False,
@@ -98,6 +99,10 @@ class PromptTester:
                             f"empty response (stop_reason={msg.stop_reason}, "
                             f"in={msg.usage.input_tokens}, out={msg.usage.output_tokens})"
                         ),
+                        "model": prompt_data["model"],
+                        "input_tokens": msg.usage.input_tokens,
+                        "output_tokens": msg.usage.output_tokens,
+                        "elapsed_ms": elapsed_ms,
                     }
                 return {
                     "case_id": case_id,
@@ -144,9 +149,11 @@ class PromptTester:
             print(f"  [{i}/{len(cases)}] {status} {result['case_id']} ({tokens})")
 
         successful = [r for r in results if r["success"]]
+        # Cost includes failures that consumed tokens (e.g. thinking exhausted
+        # max_tokens before any text was emitted) — those aren't free.
         total_cost = sum(
-            r["input_tokens"] * 3 / 1e6 + r["output_tokens"] * 15 / 1e6  # Sonnet pricing
-            for r in successful
+            r.get("input_tokens", 0) * 3 / 1e6 + r.get("output_tokens", 0) * 15 / 1e6  # Sonnet pricing
+            for r in results
         )
 
         return {
