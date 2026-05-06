@@ -19,21 +19,31 @@ class ModelCost(NamedTuple):
 
 
 # Model family costs in USD per million tokens
-# Updated: 2025-10-15 based on https://claude.com/pricing
+# Updated: 2026-05-06 based on https://platform.claude.com/docs/en/about-claude/pricing
+#
+# Notes:
+# - Opus 4.5+ moved to a new lower price tier ($5/$25) and now bundle the 1M
+#   context window at flat rates. Opus 4.1 and earlier remain at the old
+#   $15/$75 pricing until retirement.
+# - Sonnet 4.x stays at $3/$15 with 1M context included on 4.6.
+# - Retired models (Opus 3, Haiku 3, Sonnet 3.5, Sonnet 3.7) have been removed
+#   from the lookup; the regex normaliser still parses their names so callers
+#   get a clear "not found" error rather than a parse failure.
 MODEL_FAMILIES = {
-    "opus-4.6": ModelCost(15.0, 75.0),
-    "opus-4.5": ModelCost(15.0, 75.0),
+    # Opus 4.5+: new pricing tier, 1M context bundled
+    "opus-4.7": ModelCost(5.0, 25.0),
+    "opus-4.6": ModelCost(5.0, 25.0),
+    "opus-4.5": ModelCost(5.0, 25.0),
+    # Opus 4.0/4.1: legacy pricing, 200K context
     "opus-4.1": ModelCost(15.0, 75.0),
     "opus-4": ModelCost(15.0, 75.0),
+    # Sonnet 4.x
     "sonnet-4.6": ModelCost(3.0, 15.0),
     "sonnet-4.5": ModelCost(3.0, 15.0),
     "sonnet-4": ModelCost(3.0, 15.0),
-    "sonnet-3.7": ModelCost(3.0, 15.0),
-    "sonnet-3.5": ModelCost(3.0, 15.0),
+    # Haiku
     "haiku-4.5": ModelCost(1.0, 5.0),
     "haiku-3.5": ModelCost(0.80, 4.0),
-    "opus-3": ModelCost(15.0, 75.0),
-    "haiku-3": ModelCost(0.25, 1.25),
 }
 
 
