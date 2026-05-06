@@ -142,6 +142,7 @@ def generate_cache_key(request: ExplainRequest, prompt: Prompt) -> str:
         "model": prompt_data["model"],
         "max_tokens": prompt_data["max_tokens"],
         "temperature": prompt_data["temperature"],
+        "thinking": prompt_data.get("thinking"),
         "system": prompt_data["system"],
         "messages": prompt_data["messages"],
         # Include a hash of the prompt config to invalidate cache when prompts change

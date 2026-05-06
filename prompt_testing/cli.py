@@ -16,6 +16,7 @@ import json
 import sys
 from collections import defaultdict
 from pathlib import Path
+from typing import Any
 
 import click
 from dotenv import load_dotenv
@@ -45,8 +46,14 @@ def cli(ctx, project_root):
 @click.option("--max-concurrent", type=int, default=5)
 @click.option("--review", is_flag=True, help="Also run Opus correctness review on results")
 @click.option("--review-model", default="claude-opus-4-7", help="Model for correctness review")
+@click.option(
+    "--reviewer-thinking",
+    type=click.Choice(["off", "adaptive"]),
+    default="adaptive",
+    help="Extended thinking on the reviewer. Default 'adaptive' improves rigor at ~70% extra reviewer cost.",
+)
 @click.pass_context
-def run(ctx, prompt, cases, categories, output, max_concurrent, review, review_model):
+def run(ctx, prompt, cases, categories, output, max_concurrent, review, review_model, reviewer_thinking):
     """Run test cases and save results for review."""
     tester = PromptTester(ctx.obj["project_root"], max_concurrent=max_concurrent)
     results = tester.run(
@@ -56,7 +63,8 @@ def run(ctx, prompt, cases, categories, output, max_concurrent, review, review_m
     )
 
     if review:
-        results = asyncio.run(_run_reviews(ctx.obj["project_root"], results, review_model))
+        thinking = {"type": "adaptive"} if reviewer_thinking == "adaptive" else None
+        results = asyncio.run(_run_reviews(ctx.obj["project_root"], results, review_model, thinking))
 
     tester.save(results, output)
 
@@ -195,11 +203,11 @@ def compilers(ctx, language, search, limit):  # noqa: ARG001
             click.echo(f"... and {len(results) - limit} more")
 
 
-async def _run_reviews(project_root: Path, results: dict, model: str) -> dict:
+async def _run_reviews(project_root: Path, results: dict, model: str, thinking: dict[str, Any] | None = None) -> dict:
     """Run correctness reviews on all successful results."""
     from prompt_testing.reviewer import CorrectnessReviewer
 
-    reviewer = CorrectnessReviewer(model=model)
+    reviewer = CorrectnessReviewer(model=model, thinking=thinking)
     test_dir = project_root / "prompt_testing" / "test_cases"
     all_cases = load_all_test_cases(str(test_dir))
     cases_by_id = {c["id"]: c for c in all_cases}
@@ -209,6 +217,7 @@ async def _run_reviews(project_root: Path, results: dict, model: str) -> dict:
 
     review_cost = 0.0
     errors_found = 0
+    review_failures = 0
     cost_per_input_token, cost_per_output_token = get_model_cost(model)
 
     for i, result in enumerate(successful, 1):
@@ -219,10 +228,19 @@ async def _run_reviews(project_root: Path, results: dict, model: str) -> dict:
         review = await reviewer.review_test_result(case, result["explanation"])
         result["review"] = review
 
-        status = "✓" if review.get("correct") else "✗"
-        n_issues = len(review.get("issues", []))
-        if not review.get("correct"):
+        # `correct`: True = passed, False = real factual error,
+        # None = reviewer infrastructure failure (parse/empty response).
+        # Distinguish so suite metrics don't conflate the two.
+        correct = review.get("correct")
+        if correct is True:
+            status = "✓"
+        elif correct is False:
+            status = "✗"
             errors_found += 1
+        else:
+            status = "?"
+            review_failures += 1
+        n_issues = len(review.get("issues", []))
         cost = (
             review.get("reviewer_input_tokens", 0) * cost_per_input_token
             + review.get("reviewer_output_tokens", 0) * cost_per_output_token
@@ -234,26 +252,33 @@ async def _run_reviews(project_root: Path, results: dict, model: str) -> dict:
     results["review_cost_usd"] = round(review_cost, 6)
     results["total_cost_usd"] = round(results["total_cost_usd"] + review_cost, 6)
     results["errors_found"] = errors_found
+    results["review_failures"] = review_failures
     return results
 
 
-def _print_review_summary(results: dict) -> None:
+def _print_review_summary(results: dict[str, Any]) -> None:
     """Print a summary of correctness reviews."""
     reviewed = [r for r in results["results"] if r.get("review")]
-    correct = sum(1 for r in reviewed if r["review"].get("correct"))
-    incorrect = len(reviewed) - correct
+    passed = sum(1 for r in reviewed if r["review"].get("correct") is True)
+    failed = sum(1 for r in reviewed if r["review"].get("correct") is False)
+    review_failures = sum(1 for r in reviewed if r["review"].get("correct") is None)
 
-    click.echo(f"\nCorrectness: {correct}/{len(reviewed)} passed")
-    if incorrect:
-        click.echo(f"\n⚠ {incorrect} case(s) with issues:")
+    click.echo(f"\nCorrectness: {passed}/{len(reviewed)} passed")
+    if failed:
+        click.echo(f"\n⚠ {failed} case(s) with issues:")
         for r in reviewed:
             review = r["review"]
-            if not review.get("correct"):
+            if review.get("correct") is False:
                 click.echo(f"\n  {r['case_id']}:")
                 for issue in review.get("issues", []):
                     sev = "🔴" if issue["severity"] == "error" else "🟡"
                     click.echo(f"    {sev} {issue['claim']}")
                     click.echo(f"       → {issue['correction']}")
+    if review_failures:
+        click.echo(f"\n⚠ {review_failures} review(s) failed to run (likely max_tokens starvation):")
+        for r in reviewed:
+            if r["review"].get("correct") is None:
+                click.echo(f"  {r['case_id']}: {r['review'].get('summary', '?')}")
 
     click.echo(f"\nReview cost: ${results.get('review_cost_usd', 0):.4f} ({results.get('review_model', '?')})")
 
@@ -261,14 +286,21 @@ def _print_review_summary(results: dict) -> None:
 @cli.command()
 @click.argument("results_file")
 @click.option("--model", default="claude-opus-4-7", help="Reviewer model")
+@click.option(
+    "--thinking",
+    type=click.Choice(["off", "adaptive"]),
+    default="adaptive",
+    help="Extended thinking on the reviewer (default 'adaptive' for tighter rigor).",
+)
 @click.pass_context
-def review(ctx, results_file, model):
+def review(ctx, results_file, model, thinking):
     """Run Opus correctness review on existing results."""
     results_dir = ctx.obj["project_root"] / "prompt_testing" / "results"
     path = results_dir / results_file if not Path(results_file).is_absolute() else Path(results_file)
 
+    thinking_cfg = {"type": "adaptive"} if thinking == "adaptive" else None
     results = json.loads(path.read_text())
-    results = asyncio.run(_run_reviews(ctx.obj["project_root"], results, model))
+    results = asyncio.run(_run_reviews(ctx.obj["project_root"], results, model, thinking_cfg))
 
     # Save updated results
     path.write_text(json.dumps(results, indent=2))

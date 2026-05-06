@@ -57,6 +57,7 @@ def mock_anthropic_client():
     mock_client = MagicMock()
     mock_message = MagicMock()
     mock_content = MagicMock()
+    mock_content.type = "text"
     mock_content.text = "This assembly code implements a simple square function..."
     mock_message.content = [mock_content]
 
@@ -148,6 +149,93 @@ class TestProcessRequest:
         assert structured_data["language"] == "c++"
         assert structured_data["compiler"] == "g++"
         assert structured_data["sourceCode"] == "int square(int x) {\n  return x * x;\n}"
+
+    @pytest.mark.asyncio
+    async def test_picks_last_text_block_with_thinking(self, sample_request, noop_metrics):
+        """When thinking is enabled, the response has thinking blocks before the
+        final text block. The handler should select the text block, not the
+        thinking block."""
+        thinking_block = MagicMock()
+        thinking_block.type = "thinking"
+        thinking_block.thinking = "Let me trace through the imul..."
+
+        text_block = MagicMock()
+        text_block.type = "text"
+        text_block.text = "Final explanation here."
+
+        mock_message = MagicMock()
+        mock_message.content = [thinking_block, text_block]
+        mock_message.usage = MagicMock(input_tokens=100, output_tokens=50)
+        mock_message.stop_reason = "end_turn"
+
+        mock_client = MagicMock()
+        mock_client.messages.create = AsyncMock(return_value=mock_message)
+
+        test_prompt = Prompt(Path("app/prompt.yaml"))
+        response = await process_request(sample_request, mock_client, test_prompt, noop_metrics)
+
+        assert response.status == "success"
+        assert response.explanation == "Final explanation here."
+
+    @pytest.mark.asyncio
+    async def test_returns_error_when_no_text_block(self, sample_request, noop_metrics):
+        """A response with no text block (e.g. thinking exhausted max_tokens)
+        should return status='error' with token usage populated, not raise.
+        Production must surface a structured error rather than a generic 500."""
+        thinking_block = MagicMock()
+        thinking_block.type = "thinking"
+        thinking_block.thinking = "..."
+
+        mock_message = MagicMock()
+        mock_message.content = [thinking_block]
+        mock_message.usage = MagicMock(input_tokens=100, output_tokens=50)
+        mock_message.stop_reason = "max_tokens"
+
+        mock_client = MagicMock()
+        mock_client.messages.create = AsyncMock(return_value=mock_message)
+
+        test_prompt = Prompt(Path("app/prompt.yaml"))
+        response = await process_request(sample_request, mock_client, test_prompt, noop_metrics)
+
+        assert response.status == "error"
+        assert response.explanation is None
+        assert "no text content" in response.message
+        # Real tokens were spent — surface them so callers can see the cost.
+        assert response.usage is not None
+        assert response.usage.inputTokens == 100
+        assert response.usage.outputTokens == 50
+
+
+class TestPromptValidation:
+    """Validation rules enforced at Prompt construction."""
+
+    def test_thinking_requires_min_max_tokens(self):
+        """A prompt YAML that enables thinking must also bump max_tokens."""
+        with pytest.raises(ValueError, match="too low for thinking"):
+            Prompt(
+                {
+                    "model": {"name": "test", "max_tokens": 1536, "thinking": {"type": "adaptive"}},
+                    "system_prompt": "",
+                    "user_prompt": "",
+                    "assistant_prefill": "",
+                    "audience_levels": {},
+                    "explanation_types": {},
+                }
+            )
+
+    def test_thinking_with_sufficient_max_tokens_is_ok(self):
+        """At/above the floor (4096), thinking-enabled prompts load fine."""
+        prompt = Prompt(
+            {
+                "model": {"name": "test", "max_tokens": 4096, "thinking": {"type": "adaptive"}},
+                "system_prompt": "",
+                "user_prompt": "",
+                "assistant_prefill": "",
+                "audience_levels": {},
+                "explanation_types": {},
+            }
+        )
+        assert prompt.thinking == {"type": "adaptive"}
 
 
 class TestSelectImportantAssembly:

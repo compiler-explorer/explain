@@ -15,6 +15,11 @@ from app.explain_api import ExplainRequest
 # Constants from explain.py that are needed for data preparation
 MAX_ASSEMBLY_LINES = 300  # Maximum number of assembly lines to process
 
+# Minimum max_tokens that's safe to pair with extended thinking. Below this,
+# adaptive thinking can consume the whole budget on complex inputs and leave
+# nothing for the visible response.
+MIN_MAX_TOKENS_WITH_THINKING = 4096
+
 
 class Prompt:
     """Manages prompt templates and generates messages for Claude API."""
@@ -36,6 +41,18 @@ class Prompt:
         self.model = self.config["model"]["name"]
         self.max_tokens = self.config["model"]["max_tokens"]
         self.temperature = self.config["model"].get("temperature", 0.0)
+        # Optional extended-thinking config, e.g. {"type": "adaptive"} or
+        # {"type": "enabled", "budget_tokens": 2000}. When set, callers
+        # should drop `temperature` (the API requires it to be unset/1).
+        self.thinking = self.config["model"].get("thinking")
+        if self.thinking and self.max_tokens < MIN_MAX_TOKENS_WITH_THINKING:
+            # Adaptive thinking happily consumes the entire token budget on
+            # complex inputs and leaves nothing for the visible text block.
+            # Fail loudly here rather than silently returning empty responses.
+            raise ValueError(
+                f"max_tokens={self.max_tokens} is too low for thinking; "
+                f"use at least {MIN_MAX_TOKENS_WITH_THINKING} when model.thinking is set."
+            )
 
         # Extract prompt templates
         self.system_prompt_template = self.config["system_prompt"]
@@ -275,6 +292,7 @@ class Prompt:
             "model": self.model,
             "max_tokens": self.max_tokens,
             "temperature": self.temperature,
+            "thinking": self.thinking,
             "system": system_prompt,
             "messages": messages,
             "structured_data": structured_data,  # Include for reference

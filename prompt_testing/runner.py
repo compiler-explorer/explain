@@ -15,6 +15,7 @@ from dotenv import load_dotenv
 
 from app.explain_api import AssemblyItem, ExplainRequest
 from app.explanation_types import AudienceLevel, ExplanationType
+from app.model_costs import get_model_cost
 from app.prompt import Prompt
 from prompt_testing.file_utils import load_all_test_cases
 
@@ -69,20 +70,45 @@ class PromptTester:
             request = self._to_request(test_case)
             prompt_data = prompt.generate_messages(request)
 
+            api_kwargs: dict[str, Any] = {
+                "model": prompt_data["model"],
+                "max_tokens": prompt_data["max_tokens"],
+                "system": prompt_data["system"],
+                "messages": prompt_data["messages"],
+            }
+            if prompt_data.get("thinking"):
+                # Extended thinking: temperature must be 1 / unset.
+                api_kwargs["thinking"] = prompt_data["thinking"]
+            else:
+                api_kwargs["temperature"] = prompt_data["temperature"]
+
             start = time.time()
             try:
-                msg = await self.async_client.messages.create(
-                    model=prompt_data["model"],
-                    max_tokens=prompt_data["max_tokens"],
-                    temperature=prompt_data["temperature"],
-                    system=prompt_data["system"],
-                    messages=prompt_data["messages"],
-                )
+                msg = await self.async_client.messages.create(**api_kwargs)
                 elapsed_ms = int((time.time() - start) * 1000)
+                text_blocks = [c for c in msg.content if getattr(c, "type", None) == "text"]
+                explanation = text_blocks[-1].text.strip() if text_blocks else ""
+                if not explanation:
+                    # Treat empty output as a failure so suite metrics aren't
+                    # skewed. Common cause: thinking exhausting max_tokens
+                    # before any text block is emitted. Tokens were still
+                    # spent — capture them so cost reporting stays accurate.
+                    return {
+                        "case_id": case_id,
+                        "success": False,
+                        "error": (
+                            f"empty response (stop_reason={msg.stop_reason}, "
+                            f"in={msg.usage.input_tokens}, out={msg.usage.output_tokens})"
+                        ),
+                        "model": prompt_data["model"],
+                        "input_tokens": msg.usage.input_tokens,
+                        "output_tokens": msg.usage.output_tokens,
+                        "elapsed_ms": elapsed_ms,
+                    }
                 return {
                     "case_id": case_id,
                     "success": True,
-                    "explanation": msg.content[-1].text.strip(),
+                    "explanation": explanation,
                     "model": prompt_data["model"],
                     "input_tokens": msg.usage.input_tokens,
                     "output_tokens": msg.usage.output_tokens,
@@ -124,9 +150,14 @@ class PromptTester:
             print(f"  [{i}/{len(cases)}] {status} {result['case_id']} ({tokens})")
 
         successful = [r for r in results if r["success"]]
+        # Cost includes failures that consumed tokens (e.g. thinking exhausted
+        # max_tokens before any text was emitted) — those aren't free.
+        # Use the prompt's actual model rather than hardcoded rates so the
+        # number stays correct across explainer-model experiments.
+        cost_per_input_token, cost_per_output_token = get_model_cost(prompt.model)
         total_cost = sum(
-            r["input_tokens"] * 3 / 1e6 + r["output_tokens"] * 15 / 1e6  # Sonnet pricing
-            for r in successful
+            r.get("input_tokens", 0) * cost_per_input_token + r.get("output_tokens", 0) * cost_per_output_token
+            for r in results
         )
 
         return {

@@ -66,8 +66,17 @@ REVIEW_USER_TEMPLATE = """\
 class CorrectnessReviewer:
     """Reviews explanations for factual correctness using a powerful model."""
 
-    def __init__(self, model: str = "claude-opus-4-7"):
+    def __init__(self, model: str = "claude-opus-4-7", thinking: dict[str, Any] | None = None):
+        """Initialise the reviewer.
+
+        Args:
+            model: Claude model id to use for review.
+            thinking: Optional extended-thinking config, e.g.
+                ``{"type": "adaptive"}`` or
+                ``{"type": "enabled", "budget_tokens": 2000}``.
+        """
         self.model = model
+        self.thinking = thinking
         self.client = AsyncAnthropic()
 
     async def review(
@@ -96,31 +105,50 @@ class CorrectnessReviewer:
         )
 
         # Opus 4.7+ rejects `temperature`; rely on the model's own default.
-        msg = await self.client.messages.create(
-            model=self.model,
-            max_tokens=2048,
-            system=REVIEW_SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": user_prompt}],
-        )
+        api_kwargs: dict[str, Any] = {
+            "model": self.model,
+            "max_tokens": 2048,
+            "system": REVIEW_SYSTEM_PROMPT,
+            "messages": [{"role": "user", "content": user_prompt}],
+        }
+        if self.thinking:
+            api_kwargs["thinking"] = self.thinking
+        msg = await self.client.messages.create(**api_kwargs)
 
-        text = msg.content[0].text.strip()
+        # When thinking is enabled the response contains thinking blocks
+        # before the final text block; pick the last text block.
+        text_blocks = [c for c in msg.content if getattr(c, "type", None) == "text"]
+        text = text_blocks[-1].text.strip() if text_blocks else ""
 
-        # Parse JSON response
-        try:
-            result = json.loads(text)
-        except json.JSONDecodeError:
-            # Try to extract JSON from markdown fencing
-            if "```" in text:
-                json_part = text.split("```")[1]
-                if json_part.startswith("json"):
-                    json_part = json_part[4:]
-                result = json.loads(json_part.strip())
-            else:
-                result = {
-                    "correct": None,
-                    "issues": [],
-                    "summary": f"Failed to parse reviewer response: {text[:200]}",
-                }
+        if not text:
+            # Likely thinking exhausted max_tokens before any text block.
+            # Surface stop_reason/usage so this is diagnosable rather than a
+            # generic JSON parse failure.
+            result: dict[str, Any] = {
+                "correct": None,
+                "issues": [],
+                "summary": (
+                    f"Reviewer returned no text (stop_reason={msg.stop_reason}, "
+                    f"in={msg.usage.input_tokens}, out={msg.usage.output_tokens})."
+                ),
+            }
+        else:
+            # Parse JSON response
+            try:
+                result = json.loads(text)
+            except json.JSONDecodeError:
+                # Try to extract JSON from markdown fencing
+                if "```" in text:
+                    json_part = text.split("```")[1]
+                    if json_part.startswith("json"):
+                        json_part = json_part[4:]
+                    result = json.loads(json_part.strip())
+                else:
+                    result = {
+                        "correct": None,
+                        "issues": [],
+                        "summary": f"Failed to parse reviewer response: {text[:200]}",
+                    }
 
         result["reviewer_model"] = self.model
         result["reviewer_input_tokens"] = msg.usage.input_tokens
