@@ -11,7 +11,7 @@ from app.explain_api import (
     SourceMapping,
 )
 from app.metrics import NoopMetricsProvider
-from app.prompt import MAX_ASSEMBLY_LINES, Prompt
+from app.prompt import MAX_ASSEMBLY_LINES, MIN_MAX_TOKENS_WITH_THINKING, Prompt
 
 
 @pytest.fixture
@@ -192,22 +192,7 @@ class TestProcessRequest:
         # When thinking is set, temperature must NOT be passed (API rejects it).
         assert "temperature" not in kwargs
         # max_tokens bumped to at least the documented floor.
-        assert kwargs["max_tokens"] >= 4096
-
-    @pytest.mark.asyncio
-    async def test_use_thinking_changes_cache_key(self, sample_request):
-        """Cache keys must split on `useThinking` so a thinking-enabled
-        request doesn't collide with a thinking-off cached response."""
-        from app.cache import generate_cache_key
-
-        test_prompt = Prompt(Path("app/prompt.yaml"))
-
-        sample_request.useThinking = False
-        key_off = generate_cache_key(sample_request, test_prompt)
-        sample_request.useThinking = True
-        key_on = generate_cache_key(sample_request, test_prompt)
-
-        assert key_off != key_on
+        assert kwargs["max_tokens"] >= MIN_MAX_TOKENS_WITH_THINKING
 
     @pytest.mark.asyncio
     async def test_returns_error_when_no_text_block(self, sample_request, noop_metrics):

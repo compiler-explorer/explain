@@ -265,6 +265,36 @@ class TestCacheKeyGeneration:
         key2 = generate_cache_key(request2, test_prompt)
         assert key1 == key2  # bypass_cache shouldn't affect cache key
 
+    def test_generate_cache_key_use_thinking_splits(self, test_prompt):
+        """useThinking changes the API call payload, so it must change the
+        cache key. Confirms cache hits don't bleed across thinking-on/off."""
+        base_kwargs = {
+            "language": "c++",
+            "compiler": "g++",
+            "code": "int test() { return 0; }",
+            "asm": [AssemblyItem(text="test:", source=None)],
+        }
+        request_off = ExplainRequest(**base_kwargs, useThinking=False)
+        request_on = ExplainRequest(**base_kwargs, useThinking=True)
+
+        assert generate_cache_key(request_off, test_prompt) != generate_cache_key(request_on, test_prompt)
+
+    def test_generate_cache_key_use_thinking_default_matches_omitted(self, test_prompt):
+        """A request with useThinking absent (Pydantic default) must produce
+        the same key as one with useThinking=False explicit. This is the
+        invariant that lets us add the field without invalidating the
+        existing S3 cache."""
+        base_kwargs = {
+            "language": "c++",
+            "compiler": "g++",
+            "code": "int test() { return 0; }",
+            "asm": [AssemblyItem(text="test:", source=None)],
+        }
+        request_default = ExplainRequest(**base_kwargs)  # useThinking absent
+        request_explicit = ExplainRequest(**base_kwargs, useThinking=False)
+
+        assert generate_cache_key(request_default, test_prompt) == generate_cache_key(request_explicit, test_prompt)
+
 
 class TestCacheHighLevelFunctions:
     """Test the high-level cache functions."""

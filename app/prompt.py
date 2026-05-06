@@ -235,21 +235,21 @@ class Prompt:
 
         return structured_data
 
-    def generate_messages_for_request(self, request: ExplainRequest) -> dict[str, Any]:
-        """Generate API payload, applying per-request overrides.
+    def build_api_payload(self, request: ExplainRequest) -> dict[str, Any]:
+        """Build the API call payload, applying per-request runtime overrides.
 
         This is the entry point used by both the explain handler and the
         cache-key generator so they stay in sync. Currently the only
         override is ``useThinking``: when set, enable adaptive extended
         thinking and bump ``max_tokens`` to satisfy the floor.
+
+        Always returns a fresh dict so callers can mutate without affecting
+        prompt internals or each other.
         """
-        prompt_data = self.generate_messages(request)
+        prompt_data = dict(self.generate_messages(request))
         if request.useThinking:
-            prompt_data = {
-                **prompt_data,
-                "thinking": {"type": "adaptive"},
-                "max_tokens": max(prompt_data["max_tokens"], MIN_MAX_TOKENS_WITH_THINKING),
-            }
+            prompt_data["thinking"] = {"type": "adaptive"}
+            prompt_data["max_tokens"] = max(prompt_data["max_tokens"], MIN_MAX_TOKENS_WITH_THINKING)
         return prompt_data
 
     def generate_messages(self, request: ExplainRequest) -> dict[str, Any]:

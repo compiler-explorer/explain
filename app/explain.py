@@ -80,7 +80,7 @@ async def _call_anthropic_api(
 
     This is the original process_request logic, extracted for clarity.
     """
-    prompt_data = prompt.generate_messages_for_request(body)
+    prompt_data = prompt.build_api_payload(body)
 
     # Debug logging for prompts
     LOGGER.debug(f"=== PROMPT DEBUG FOR {body.explanation.value.upper()} (audience: {body.audience.value}) ===")
