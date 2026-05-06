@@ -90,7 +90,7 @@ async def _call_anthropic_api(
     LOGGER.debug("=== END PROMPT DEBUG ===")
 
     # Call Claude API
-    LOGGER.info("Using Anthropic client with model: %s", {prompt_data["model"]})
+    LOGGER.info("Using Anthropic client with model: %s", prompt_data["model"])
 
     api_kwargs: dict = {
         "model": prompt_data["model"],
@@ -110,6 +110,13 @@ async def _call_anthropic_api(
     # contains thinking blocks before the final text block.
     text_blocks = [c for c in message.content if getattr(c, "type", None) == "text"]
     explanation = text_blocks[-1].text.strip() if text_blocks else ""
+    if not explanation:
+        # Can happen if extended thinking exhausts max_tokens before any
+        # text block is emitted. Don't cache or return an empty response.
+        raise RuntimeError(
+            f"Claude returned no text content (stop_reason={message.stop_reason}). "
+            f"If thinking is enabled, max_tokens may be too low."
+        )
 
     # Extract usage information
     input_tokens = message.usage.input_tokens

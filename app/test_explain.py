@@ -150,6 +150,53 @@ class TestProcessRequest:
         assert structured_data["compiler"] == "g++"
         assert structured_data["sourceCode"] == "int square(int x) {\n  return x * x;\n}"
 
+    @pytest.mark.asyncio
+    async def test_picks_last_text_block_with_thinking(self, sample_request, noop_metrics):
+        """When thinking is enabled, the response has thinking blocks before the
+        final text block. The handler should select the text block, not the
+        thinking block."""
+        thinking_block = MagicMock()
+        thinking_block.type = "thinking"
+        thinking_block.thinking = "Let me trace through the imul..."
+
+        text_block = MagicMock()
+        text_block.type = "text"
+        text_block.text = "Final explanation here."
+
+        mock_message = MagicMock()
+        mock_message.content = [thinking_block, text_block]
+        mock_message.usage = MagicMock(input_tokens=100, output_tokens=50)
+        mock_message.stop_reason = "end_turn"
+
+        mock_client = MagicMock()
+        mock_client.messages.create = AsyncMock(return_value=mock_message)
+
+        test_prompt = Prompt(Path("app/prompt.yaml"))
+        response = await process_request(sample_request, mock_client, test_prompt, noop_metrics)
+
+        assert response.status == "success"
+        assert response.explanation == "Final explanation here."
+
+    @pytest.mark.asyncio
+    async def test_raises_when_no_text_block(self, sample_request, noop_metrics):
+        """A response with no text block (e.g. thinking exhausted max_tokens)
+        should raise rather than silently caching an empty explanation."""
+        thinking_block = MagicMock()
+        thinking_block.type = "thinking"
+        thinking_block.thinking = "..."
+
+        mock_message = MagicMock()
+        mock_message.content = [thinking_block]
+        mock_message.usage = MagicMock(input_tokens=100, output_tokens=50)
+        mock_message.stop_reason = "max_tokens"
+
+        mock_client = MagicMock()
+        mock_client.messages.create = AsyncMock(return_value=mock_message)
+
+        test_prompt = Prompt(Path("app/prompt.yaml"))
+        with pytest.raises(RuntimeError, match="no text content"):
+            await process_request(sample_request, mock_client, test_prompt, noop_metrics)
+
 
 class TestSelectImportantAssembly:
     """Test the select_important_assembly function."""

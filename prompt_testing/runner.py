@@ -87,6 +87,18 @@ class PromptTester:
                 elapsed_ms = int((time.time() - start) * 1000)
                 text_blocks = [c for c in msg.content if getattr(c, "type", None) == "text"]
                 explanation = text_blocks[-1].text.strip() if text_blocks else ""
+                if not explanation:
+                    # Treat empty output as a failure so suite metrics aren't
+                    # skewed. Common cause: thinking exhausting max_tokens
+                    # before any text block is emitted.
+                    return {
+                        "case_id": case_id,
+                        "success": False,
+                        "error": (
+                            f"empty response (stop_reason={msg.stop_reason}, "
+                            f"in={msg.usage.input_tokens}, out={msg.usage.output_tokens})"
+                        ),
+                    }
                 return {
                     "case_id": case_id,
                     "success": True,
