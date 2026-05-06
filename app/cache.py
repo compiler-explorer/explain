@@ -134,19 +134,11 @@ def generate_cache_key(request: ExplainRequest, prompt: Prompt) -> str:
     Returns:
         A SHA-256 hash string to use as cache key
     """
-    # Use the same payload-building path the API call uses so cache hits
-    # split correctly on per-request overrides (e.g. useThinking).
-    prompt_data = prompt.build_api_payload(request)
-
-    # Create a deterministic representation of all cache-affecting data
+    # The payload IS the cache-affecting data — the same dict that gets
+    # spread into messages.create. Add prompt_version on top so changes
+    # to the YAML invalidate cached responses.
     cache_data = {
-        "model": prompt_data["model"],
-        "max_tokens": prompt_data["max_tokens"],
-        "temperature": prompt_data["temperature"],
-        "thinking": prompt_data.get("thinking"),
-        "system": prompt_data["system"],
-        "messages": prompt_data["messages"],
-        # Include a hash of the prompt config to invalidate cache when prompts change
+        **prompt.build_api_payload(request),
         "prompt_version": _get_prompt_config_hash(prompt.config),
     }
 

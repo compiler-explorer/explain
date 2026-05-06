@@ -236,21 +236,34 @@ class Prompt:
         return structured_data
 
     def build_api_payload(self, request: ExplainRequest) -> dict[str, Any]:
-        """Build the API call payload, applying per-request runtime overrides.
+        """Return the exact kwargs to pass to ``client.messages.create``.
 
-        This is the entry point used by both the explain handler and the
-        cache-key generator so they stay in sync. Currently the only
-        override is ``useThinking``: when set, enable adaptive extended
-        thinking and bump ``max_tokens`` to satisfy the floor.
+        Single source of truth: the API call splats this dict directly,
+        and the cache-key generator hashes it. Per-request runtime
+        overrides (currently just ``useThinking``) are resolved here, and
+        mutually-exclusive fields like ``thinking`` vs ``temperature``
+        are decided here too — callers don't need to re-derive anything.
 
-        Always returns a fresh dict so callers can mutate without affecting
-        prompt internals or each other.
+        Always returns a fresh dict so callers can mutate freely.
         """
-        prompt_data = dict(self.generate_messages(request))
-        if request.useThinking:
-            prompt_data["thinking"] = {"type": "adaptive"}
-            prompt_data["max_tokens"] = max(prompt_data["max_tokens"], MIN_MAX_TOKENS_WITH_THINKING)
-        return prompt_data
+        base = self.generate_messages(request)
+        payload: dict[str, Any] = {
+            "model": base["model"],
+            "max_tokens": base["max_tokens"],
+            "system": base["system"],
+            "messages": base["messages"],
+        }
+        # Resolve thinking config: per-request override wins over the YAML.
+        thinking = {"type": "adaptive"} if request.useThinking else base.get("thinking")
+        if thinking is not None:
+            payload["thinking"] = thinking
+            # Thinking and temperature are mutually exclusive (the API
+            # rejects temperature when thinking is set). Floor max_tokens
+            # so adaptive thinking can't starve the visible text.
+            payload["max_tokens"] = max(payload["max_tokens"], MIN_MAX_TOKENS_WITH_THINKING)
+        else:
+            payload["temperature"] = base["temperature"]
+        return payload
 
     def generate_messages(self, request: ExplainRequest) -> dict[str, Any]:
         """Generate the complete message structure for Claude API.
