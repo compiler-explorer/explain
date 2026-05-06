@@ -15,6 +15,7 @@ from dotenv import load_dotenv
 
 from app.explain_api import AssemblyItem, ExplainRequest
 from app.explanation_types import AudienceLevel, ExplanationType
+from app.model_costs import get_model_cost
 from app.prompt import Prompt
 from prompt_testing.file_utils import load_all_test_cases
 
@@ -151,8 +152,11 @@ class PromptTester:
         successful = [r for r in results if r["success"]]
         # Cost includes failures that consumed tokens (e.g. thinking exhausted
         # max_tokens before any text was emitted) — those aren't free.
+        # Use the prompt's actual model rather than hardcoded rates so the
+        # number stays correct across explainer-model experiments.
+        cost_per_input_token, cost_per_output_token = get_model_cost(prompt.model)
         total_cost = sum(
-            r.get("input_tokens", 0) * 3 / 1e6 + r.get("output_tokens", 0) * 15 / 1e6  # Sonnet pricing
+            r.get("input_tokens", 0) * cost_per_input_token + r.get("output_tokens", 0) * cost_per_output_token
             for r in results
         )
 

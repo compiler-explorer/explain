@@ -142,16 +142,16 @@ def generate_cache_key(request: ExplainRequest, prompt: Prompt) -> str:
         "model": prompt_data["model"],
         "max_tokens": prompt_data["max_tokens"],
         "temperature": prompt_data["temperature"],
-        # Thinking config affects the API response so it must affect the cache
-        # key. Currently captured via `prompt_version` too, but listing it
-        # explicitly keeps the contract clear if thinking ever gets set
-        # outside the YAML (e.g. per-request override).
-        "thinking": prompt_data.get("thinking"),
         "system": prompt_data["system"],
         "messages": prompt_data["messages"],
         # Include a hash of the prompt config to invalidate cache when prompts change
         "prompt_version": _get_prompt_config_hash(prompt.config),
     }
+    # Thinking config affects the API response so it must affect the cache
+    # key. Only include when set to avoid invalidating the existing S3 cache
+    # for production prompts that don't use thinking.
+    if prompt_data.get("thinking") is not None:
+        cache_data["thinking"] = prompt_data["thinking"]
 
     # Convert to JSON with consistent ordering for deterministic hashing
     cache_json = json.dumps(cache_data, sort_keys=True, ensure_ascii=True, separators=(",", ":"))
