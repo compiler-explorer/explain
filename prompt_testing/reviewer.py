@@ -66,7 +66,7 @@ REVIEW_USER_TEMPLATE = """\
 class CorrectnessReviewer:
     """Reviews explanations for factual correctness using a powerful model."""
 
-    def __init__(self, model: str = "claude-opus-4-6"):
+    def __init__(self, model: str = "claude-opus-4-7"):
         self.model = model
         self.client = AsyncAnthropic()
 
@@ -95,10 +95,10 @@ class CorrectnessReviewer:
             explanation=explanation,
         )
 
+        # Opus 4.7+ rejects `temperature`; rely on the model's own default.
         msg = await self.client.messages.create(
             model=self.model,
             max_tokens=2048,
-            temperature=0.0,
             system=REVIEW_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_prompt}],
         )
