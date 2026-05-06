@@ -1,5 +1,4 @@
 import logging
-from typing import Any
 
 from anthropic import AsyncAnthropic
 
@@ -80,8 +79,7 @@ async def _call_anthropic_api(
 
     This is the original process_request logic, extracted for clarity.
     """
-    # Generate messages using the Prompt instance
-    prompt_data = prompt.generate_messages(body)
+    prompt_data = prompt.build_api_payload(body)
 
     # Debug logging for prompts
     LOGGER.debug(f"=== PROMPT DEBUG FOR {body.explanation.value.upper()} (audience: {body.audience.value}) ===")
@@ -92,22 +90,15 @@ async def _call_anthropic_api(
         LOGGER.debug(message)
     LOGGER.debug("=== END PROMPT DEBUG ===")
 
-    # Call Claude API
-    LOGGER.info("Using Anthropic client with model: %s", prompt_data["model"])
-
-    api_kwargs: dict[str, Any] = {
-        "model": prompt_data["model"],
-        "max_tokens": prompt_data["max_tokens"],
-        "system": prompt_data["system"],
-        "messages": prompt_data["messages"],
-    }
-    if prompt_data.get("thinking"):
-        # Extended thinking: API requires temperature to be unset.
-        api_kwargs["thinking"] = prompt_data["thinking"]
-    else:
-        api_kwargs["temperature"] = prompt_data["temperature"]
-
-    message = await client.messages.create(**api_kwargs)
+    # Call Claude API. `prompt_data` is already exactly the kwargs
+    # `messages.create` expects — `build_api_payload` resolved the
+    # thinking-vs-temperature exclusivity for us.
+    LOGGER.info(
+        "Using Anthropic client with model: %s (thinking=%s)",
+        prompt_data["model"],
+        bool(prompt_data.get("thinking")),
+    )
+    message = await client.messages.create(**prompt_data)
 
     # Extract usage information
     input_tokens = message.usage.input_tokens

@@ -11,7 +11,7 @@ from app.explain_api import (
     SourceMapping,
 )
 from app.metrics import NoopMetricsProvider
-from app.prompt import MAX_ASSEMBLY_LINES, Prompt
+from app.prompt import MAX_ASSEMBLY_LINES, MIN_MAX_TOKENS_WITH_THINKING, Prompt
 
 
 @pytest.fixture
@@ -176,6 +176,23 @@ class TestProcessRequest:
 
         assert response.status == "success"
         assert response.explanation == "Final explanation here."
+
+    @pytest.mark.asyncio
+    async def test_use_thinking_overrides_prompt(self, sample_request, mock_anthropic_client, noop_metrics):
+        """Setting `useThinking=True` on the request must enable adaptive
+        thinking and bump max_tokens to satisfy the floor, even when the
+        loaded prompt has no thinking config."""
+        sample_request.useThinking = True
+
+        test_prompt = Prompt(Path("app/prompt.yaml"))
+        await process_request(sample_request, mock_anthropic_client, test_prompt, noop_metrics)
+
+        _args, kwargs = mock_anthropic_client.messages.create.call_args
+        assert kwargs.get("thinking") == {"type": "adaptive"}
+        # When thinking is set, temperature must NOT be passed (API rejects it).
+        assert "temperature" not in kwargs
+        # max_tokens bumped to at least the documented floor.
+        assert kwargs["max_tokens"] >= MIN_MAX_TOKENS_WITH_THINKING
 
     @pytest.mark.asyncio
     async def test_returns_error_when_no_text_block(self, sample_request, noop_metrics):

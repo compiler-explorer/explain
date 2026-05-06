@@ -78,10 +78,13 @@ call → response with metrics. See `claude_explain.md` for detailed architectur
 - **Reviewer thinking is on by default.** `prompt-test run --review` and `prompt-test review` default to
   `--reviewer-thinking adaptive` / `--thinking adaptive`. It catches factual errors the no-think reviewer misses
   but adds ~70% to review cost. Pass `off` to compare runs or save money on large batches.
-- **Production explainer thinking is intentionally off.** Adaptive thinking on Sonnet 4.6 measurably improves
-  factual accuracy (e.g. eliminates the recurring `imul eax, edi, edi` invention) but adds ~11s end-to-end
-  latency, which is too much for the interactive endpoint. Don't enable it in `app/prompt.yaml` without an
-  explicit latency/quality decision.
+- **Production explainer thinking is opt-in per request.** Adaptive thinking on Sonnet 4.6 measurably improves
+  factual accuracy (e.g. eliminates the recurring `imul eax, edi, edi` invention) but adds ~10s+ latency on
+  small/medium queries and can push large queries past the **30s Lambda + API Gateway v2 timeout** entirely (no
+  raising that — HTTP API has a 30s ceiling). Callers opt in by sending `useThinking: true` on the request; the
+  default (no field, or `false`) preserves current latency. Cache keys split on the flag, so on/off requests
+  cache independently. If we ever want default-on, we need either a smaller fixed thinking budget *or* an async
+  response architecture (Lambda Function URL with response streaming, SQS poll, etc.).
 - **Multi-block responses.** When thinking is enabled the API returns thinking blocks before the text block.
   `app/explain.py` and `prompt_testing/runner.py` both pick the last text block via `getattr(c, "type", None) ==
   "text"`. Preserve that pattern for any new code that consumes responses. The API may also return

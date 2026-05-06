@@ -124,7 +124,8 @@ The API uses **camelCase** for all field names to maintain consistency with Java
       "labels": []
     }
   ],
-  "bypassCache": false  // Optional: set to true to skip cache reads
+  "bypassCache": false,  // Optional: set to true to skip cache reads
+  "useThinking": false   // Optional: enable extended thinking for higher accuracy at cost of latency
 }
 ```
 
