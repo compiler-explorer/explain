@@ -66,6 +66,26 @@ uv run ruff format
 The service processes compiler output through a pipeline: input validation → smart assembly filtering → Claude API
 call → response with metrics. See `claude_explain.md` for detailed architecture documentation.
 
+## Anthropic API gotchas
+
+- **`max_tokens` includes thinking tokens.** When a prompt YAML sets `model.thinking: {type: adaptive}` (or
+  `{type: enabled, budget_tokens: N}`), thinking counts against `max_tokens`. The production value `1536` silently
+  starves the visible text output on complex cases when thinking is on — bump to ≥4096 (8192 worked in past
+  experiments) before enabling thinking on any explainer prompt.
+- **The reviewer model rejects `temperature`.** Opus 4.7 deprecated the parameter, so `prompt_testing/reviewer.py`
+  omits it. The Sonnet explainer still accepts `temperature`. If you swap the reviewer to a model that requires
+  it, restore the param.
+- **Reviewer thinking is on by default.** `prompt-test run --review` and `prompt-test review` default to
+  `--reviewer-thinking adaptive` / `--thinking adaptive`. It catches factual errors the no-think reviewer misses
+  but adds ~70% to review cost. Pass `off` to compare runs or save money on large batches.
+- **Production explainer thinking is intentionally off.** Adaptive thinking on Sonnet 4.6 measurably improves
+  factual accuracy (e.g. eliminates the recurring `imul eax, edi, edi` invention) but adds ~11s end-to-end
+  latency, which is too much for the interactive endpoint. Don't enable it in `app/prompt.yaml` without an
+  explicit latency/quality decision.
+- **Multi-block responses.** When thinking is enabled the API returns thinking blocks before the text block.
+  `app/explain.py` and `prompt_testing/runner.py` both pick the last text block via `getattr(c, "type", None) ==
+  "text"`. Preserve that pattern for any new code that consumes responses.
+
 ## Code Style Guidelines
 
 - Prefer using modern Python 3.13+ type syntax. Good: `a: list[str] | None`. Bad: `a: Optional[List[str]]`
