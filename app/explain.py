@@ -12,11 +12,6 @@ from app.prompt import Prompt
 LOGGER = logging.getLogger("explain")
 
 
-# Constants
-MAX_CODE_LENGTH = 10000  # 10K chars should be enough for most source files
-MAX_ASM_LENGTH = 20000  # 20K chars for assembly output
-
-
 async def process_request(
     body: ExplainRequest,
     client: AsyncAnthropic,

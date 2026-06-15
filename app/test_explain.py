@@ -11,7 +11,21 @@ from app.explain_api import (
     SourceMapping,
 )
 from app.metrics import NoopMetricsProvider
-from app.prompt import MAX_ASSEMBLY_LINES, MIN_MAX_TOKENS_WITH_THINKING, Prompt
+from app.prompt import MAX_ASM_LENGTH, MAX_ASSEMBLY_LINES, MAX_CODE_LENGTH, MIN_MAX_TOKENS_WITH_THINKING, Prompt
+
+
+def _minimal_prompt() -> Prompt:
+    """A bare Prompt instance for data-preparation tests."""
+    return Prompt(
+        {
+            "model": {"name": "test", "max_tokens": 100},
+            "system_prompt": "",
+            "user_prompt": "",
+            "assistant_prefill": "",
+            "audience_levels": {},
+            "explanation_types": {},
+        }
+    )
 
 
 @pytest.fixture
@@ -494,6 +508,51 @@ class TestPrepareStructuredData:
         assert result["assembly"][1]["text"] == "        mov     eax, edi"
         assert result["assembly"][1]["source"]["line"] == 1
         assert result["assembly"][1]["source"]["column"] == 21
+
+    def test_source_code_is_char_capped(self):
+        """Oversized source is hard-capped to MAX_CODE_LENGTH with a marker."""
+        big_request = ExplainRequest(
+            language="c++",
+            compiler="g++",
+            code="x" * (MAX_CODE_LENGTH + 5000),
+            asm=[AssemblyItem(text="ret", source=None)],
+        )
+        result = _minimal_prompt().prepare_structured_data(big_request)
+
+        assert len(result["sourceCode"]) < MAX_CODE_LENGTH + 200  # cap + short marker
+        assert result["sourceCode"].startswith("x" * MAX_CODE_LENGTH)
+        assert "characters truncated" in result["sourceCode"]
+
+    def test_assembly_char_capped_for_few_long_lines(self):
+        """A handful of very long lines (under the line limit) must still be
+        capped by total characters so input can't balloon to 100k+ tokens."""
+        long_lines = [AssemblyItem(text="a" * 8000, source=None) for _ in range(5)]
+        request = ExplainRequest(
+            language="c++",
+            compiler="g++",
+            code="int main() { return 0; }",
+            asm=long_lines,
+        )
+        result = _minimal_prompt().prepare_structured_data(request)
+
+        total_chars = sum(len(item["text"]) for item in result["assembly"])
+        assert total_chars <= MAX_ASM_LENGTH + 100  # budget + final marker text
+        assert result["truncated"]
+        assert any(item.get("isOmissionMarker") for item in result["assembly"])
+
+    def test_small_inputs_not_truncated(self):
+        """Normal-sized inputs pass through untouched."""
+        request = ExplainRequest(
+            language="c++",
+            compiler="g++",
+            code="int square(int x) { return x * x; }",
+            asm=[AssemblyItem(text="imul eax, edi", source=None)],
+        )
+        result = _minimal_prompt().prepare_structured_data(request)
+
+        assert result["sourceCode"] == "int square(int x) { return x * x; }"
+        assert not result["truncated"]
+        assert "truncated" not in result["sourceCode"]
 
 
 class TestValidation:

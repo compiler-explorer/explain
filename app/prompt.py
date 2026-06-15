@@ -15,6 +15,14 @@ from app.explain_api import ExplainRequest
 # Constants from explain.py that are needed for data preparation
 MAX_ASSEMBLY_LINES = 300  # Maximum number of assembly lines to process
 
+# Character budgets for the input we hand to Claude. The line-based selection
+# above bounds the *number* of assembly lines, but not their length, so a few
+# pathological long lines (or large source files) can still push the prompt to
+# 100k+ input tokens — directly inflating prefill/TTFT and cost. These caps put
+# a hard ceiling on input size before the API call.
+MAX_CODE_LENGTH = 10000  # 10K chars should be enough for most source files
+MAX_ASM_LENGTH = 20000  # 20K chars for assembly output (after line selection)
+
 # Minimum max_tokens that's safe to pair with extended thinking. Below this,
 # adaptive thinking can consume the whole budget on complex inputs and leave
 # nothing for the visible response.
@@ -204,13 +212,45 @@ class Prompt:
 
         return selected_assembly
 
+    @staticmethod
+    def _truncate_chars(text: str, max_chars: int) -> str:
+        """Hard-cap a string to max_chars, leaving a visible marker if cut."""
+        if len(text) <= max_chars:
+            return text
+        omitted = len(text) - max_chars
+        return f"{text[:max_chars]}\n... ({omitted} characters truncated) ..."
+
+    @staticmethod
+    def cap_assembly_chars(asm_items: list[dict], max_chars: int) -> tuple[list[dict], bool]:
+        """Trim an assembly item list so the total `text` length stays under max_chars.
+
+        Runs *after* line-based selection: that bounds line count, this bounds
+        total characters so a few very long lines can't blow up the prompt.
+        """
+        total = 0
+        capped: list[dict] = []
+        for item in asm_items:
+            text = item.get("text", "")
+            if total + len(text) > max_chars:
+                capped.append(
+                    {
+                        "text": f"... (assembly truncated at {max_chars} characters) ...",
+                        "isOmissionMarker": True,
+                    }
+                )
+                return capped, True
+            total += len(text)
+            capped.append(item)
+        return capped, False
+
     def prepare_structured_data(self, request: ExplainRequest) -> dict[str, Any]:
         """Prepare a structured JSON object for Claude's consumption."""
-        # Extract and validate basic fields
+        # Extract and validate basic fields. Source is hard-capped so a huge
+        # source file can't dominate the prompt (and inflate TTFT/cost).
         structured_data = {
             "language": request.language,
             "compiler": request.compiler,
-            "sourceCode": request.code,
+            "sourceCode": self._truncate_chars(request.code, MAX_CODE_LENGTH),
             "instructionSet": request.instruction_set_with_default,
         }
 
@@ -222,13 +262,20 @@ class Prompt:
 
         if len(asm_dicts) > MAX_ASSEMBLY_LINES:
             # If assembly is too large, we need smart truncation
-            structured_data["assembly"] = self.select_important_assembly(asm_dicts, request.labelDefinitions or {})
+            selected = self.select_important_assembly(asm_dicts, request.labelDefinitions or {})
             structured_data["truncated"] = True
             structured_data["originalLength"] = len(asm_dicts)
         else:
             # Use the full assembly if it's within limits
-            structured_data["assembly"] = asm_dicts
+            selected = asm_dicts
             structured_data["truncated"] = False
+
+        # Hard-cap total assembly characters regardless of line count, so a few
+        # very long lines can't push input to 100k+ tokens.
+        capped_asm, char_truncated = self.cap_assembly_chars(selected, MAX_ASM_LENGTH)
+        structured_data["assembly"] = capped_asm
+        if char_truncated:
+            structured_data["truncated"] = True
 
         # Include label definitions
         structured_data["labelDefinitions"] = request.labelDefinitions or {}
