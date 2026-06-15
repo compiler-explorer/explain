@@ -222,6 +222,28 @@ class TestProcessRequest:
         assert response.usage.inputTokens == 100
         assert response.usage.outputTokens == 50
 
+    @pytest.mark.asyncio
+    async def test_returns_error_when_call_exceeds_deadline(self, sample_request, noop_metrics):
+        """A Claude call that overruns the wall-clock budget must return a
+        structured error well inside the API Gateway 30s window, not hang until
+        the gateway severs the connection with an opaque 503."""
+        import asyncio
+
+        async def slow_create(**_kwargs):
+            await asyncio.sleep(1.0)
+
+        mock_client = MagicMock()
+        mock_client.messages.create = AsyncMock(side_effect=slow_create)
+
+        test_prompt = Prompt(Path("app/prompt.yaml"))
+        response = await process_request(sample_request, mock_client, test_prompt, noop_metrics, deadline_seconds=0.01)
+
+        assert response.status == "error"
+        assert response.explanation is None
+        assert "too long" in response.message
+        assert response.usage is not None
+        assert response.usage.totalTokens == 0
+
 
 class TestPromptValidation:
     """Validation rules enforced at Prompt construction."""
