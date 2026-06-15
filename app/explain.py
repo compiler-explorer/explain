@@ -89,11 +89,13 @@ def _transient_error_response(
     well within the API Gateway 30s window instead of an opaque 503. No token
     usage is available because the call did not complete.
     """
-    message_text = (
-        "Claude Explain could not generate an explanation in time. "
-        "This usually means the model was busy or the input was very large; "
-        "please try again in a moment."
-    )
+    if isinstance(error, (TimeoutError, APITimeoutError)):
+        message_text = (
+            "Claude Explain took too long to respond — the input may be very large "
+            "or the model is under heavy load. Please try again in a moment."
+        )
+    else:
+        message_text = "Claude Explain is temporarily unavailable. Please try again in a moment."
     LOGGER.warning("Anthropic call failed (%s): %s", type(error).__name__, error)
     metrics_provider.set_property("language", body.language)
     metrics_provider.set_property("compiler", body.compiler)

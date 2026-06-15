@@ -240,7 +240,7 @@ class TestProcessRequest:
 
         assert response.status == "error"
         assert response.explanation is None
-        assert "in time" in response.message
+        assert "too long" in response.message
         assert response.usage is not None
         assert response.usage.totalTokens == 0
 
