@@ -102,7 +102,10 @@ def _transient_error_response(
     metrics_provider.set_property("instructionSet", body.instructionSet or "unknown")
     metrics_provider.set_property("cached", "false")
     metrics_provider.put_metric("ClaudeExplainRequest", 1)
-    metrics_provider.put_metric("ClaudeExplainTimeout", 1)
+    if isinstance(error, (TimeoutError, APITimeoutError)):
+        metrics_provider.put_metric("ClaudeExplainTimeout", 1)
+    else:
+        metrics_provider.put_metric("ClaudeExplainTransientError", 1)
     return ExplainResponse(
         status="error",
         message=message_text,
