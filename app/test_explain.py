@@ -308,6 +308,14 @@ class TestProcessRequest:
 
         assert response.status == "error"
         assert response.explanation is None
+        # The refusal contract: the distinct declined message, not the generic
+        # empty-response error, and no trace of the partial output anywhere.
+        assert "declined" in response.message
+        assert "no text content" not in response.message
+        assert partial.text not in response.message
+        assert response.usage is not None
+        assert response.usage.inputTokens == 80
+        assert response.usage.outputTokens == 40
 
     @pytest.mark.asyncio
     async def test_returns_error_when_call_exceeds_deadline(self, sample_request, noop_metrics):
