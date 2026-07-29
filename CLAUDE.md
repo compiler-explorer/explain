@@ -72,13 +72,17 @@ call → response with metrics. See `claude_explain.md` for detailed architectur
   `{type: enabled, budget_tokens: N}`), thinking counts against `max_tokens`. The old production value `1536`
   silently starved the visible text output on complex cases when thinking was on (production is now `4096`). `Prompt.__init__` now refuses to load a
   thinking-enabled config with `max_tokens < 4096`; ≥4096 (8192 worked in past experiments) is the floor.
-- **Neither production model accepts `temperature`.** Opus 4.7 (reviewer) and Sonnet 5 (explainer) both reject
+- **Neither production model accepts `temperature`.** Opus 5 (reviewer) and Sonnet 5 (explainer) both reject
   non-default sampling parameters with a 400, so `prompt_testing/reviewer.py` omits it and `app/prompt.yaml` sets
   none. Only pre-5 Sonnet models accept `temperature`; restore it in the YAML if you ever pin one of those.
 - **Sonnet 5 runs adaptive thinking by default when `thinking` is omitted** (unlike 4.6, where omitted meant off).
   `app/prompt.yaml` therefore sets `thinking: {type: disabled}` explicitly; dropping that line silently turns
   thinking on and eats the `max_tokens` budget. Sonnet 5 also uses a new tokenizer (~30% more tokens for the same
   text than 4.6) — don't reuse token counts or cost baselines measured on 4.6.
+- **`model.effort` is plumbed but a no-op with thinking disabled.** The 2026-07 sweep (low/medium/high, 21 cases)
+  showed identical latency and cost across levels with `thinking: disabled` — effort mostly modulates thinking
+  depth, so there's nothing to modulate. Production leaves it unset (API default `high`). It becomes meaningful
+  on the `useThinking` path or if adaptive thinking is ever made the default.
 - **Reviewer thinking is on by default.** `prompt-test run --review` and `prompt-test review` default to
   `--reviewer-thinking adaptive` / `--thinking adaptive`. It catches factual errors the no-think reviewer misses
   but adds ~70% to review cost. Pass `off` to compare runs or save money on large batches.

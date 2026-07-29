@@ -3,6 +3,7 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from ruamel.yaml import YAML
 
 from app.explain import process_request
 from app.explain_api import (
@@ -207,6 +208,33 @@ class TestProcessRequest:
         assert "temperature" not in kwargs
         # max_tokens bumped to at least the documented floor.
         assert kwargs["max_tokens"] >= MIN_MAX_TOKENS_WITH_THINKING
+
+    def test_effort_emitted_as_output_config(self, sample_request):
+        """model.effort in the YAML becomes output_config on the payload."""
+        yaml = YAML(typ="safe")
+        with Path("app/prompt.yaml").open(encoding="utf-8") as f:
+            config = yaml.load(f)
+        config["model"]["effort"] = "medium"
+        payload = Prompt(config).build_api_payload(sample_request)
+        assert payload["output_config"] == {"effort": "medium"}
+
+    def test_no_effort_means_no_output_config(self, sample_request):
+        """Without model.effort the payload omits output_config (API default)."""
+        payload = Prompt(Path("app/prompt.yaml")).build_api_payload(sample_request)
+        assert "output_config" not in payload
+
+    def test_invalid_effort_rejected_at_load(self):
+        """A typo'd effort level fails loudly at config load, not at request time."""
+        config = {
+            "model": {"name": "test", "max_tokens": 1024, "effort": "turbo"},
+            "system_prompt": "",
+            "user_prompt": "",
+            "assistant_prefill": "",
+            "audience_levels": {},
+            "explanation_types": {},
+        }
+        with pytest.raises(ValueError, match="effort"):
+            Prompt(config)
 
     @pytest.mark.asyncio
     async def test_returns_error_when_no_text_block(self, sample_request, noop_metrics):

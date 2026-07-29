@@ -66,7 +66,7 @@ REVIEW_USER_TEMPLATE = """\
 class CorrectnessReviewer:
     """Reviews explanations for factual correctness using a powerful model."""
 
-    def __init__(self, model: str = "claude-opus-4-7", thinking: dict[str, Any] | None = None):
+    def __init__(self, model: str = "claude-opus-5", thinking: dict[str, Any] | None = None):
         """Initialise the reviewer.
 
         Args:
@@ -105,14 +105,17 @@ class CorrectnessReviewer:
         )
 
         # Opus 4.7+ rejects `temperature`; rely on the model's own default.
+        # Thinking is always explicit: on Opus 5, omitting the field runs
+        # adaptive thinking by default, which would silently defeat
+        # `--reviewer-thinking off`. Thinking counts against max_tokens, so
+        # give thinking-enabled reviews the larger budget.
         api_kwargs: dict[str, Any] = {
             "model": self.model,
-            "max_tokens": 2048,
+            "max_tokens": 4096 if self.thinking else 2048,
             "system": REVIEW_SYSTEM_PROMPT,
             "messages": [{"role": "user", "content": user_prompt}],
+            "thinking": self.thinking if self.thinking else {"type": "disabled"},
         }
-        if self.thinking:
-            api_kwargs["thinking"] = self.thinking
         msg = await self.client.messages.create(**api_kwargs)
 
         # When thinking is enabled the response contains thinking blocks

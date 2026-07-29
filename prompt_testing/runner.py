@@ -68,19 +68,9 @@ class PromptTester:
         async with self.semaphore:
             case_id = test_case["id"]
             request = self._to_request(test_case)
-            prompt_data = prompt.generate_messages(request)
-
-            api_kwargs: dict[str, Any] = {
-                "model": prompt_data["model"],
-                "max_tokens": prompt_data["max_tokens"],
-                "system": prompt_data["system"],
-                "messages": prompt_data["messages"],
-            }
-            if prompt_data.get("thinking"):
-                # Extended thinking: temperature must be 1 / unset.
-                api_kwargs["thinking"] = prompt_data["thinking"]
-            else:
-                api_kwargs["temperature"] = prompt_data["temperature"]
+            # Single source of truth: run exactly what production would send
+            # (thinking/temperature/output_config resolution included).
+            api_kwargs = prompt.build_api_payload(request)
 
             start = time.time()
             try:
@@ -100,7 +90,7 @@ class PromptTester:
                             f"empty response (stop_reason={msg.stop_reason}, "
                             f"in={msg.usage.input_tokens}, out={msg.usage.output_tokens})"
                         ),
-                        "model": prompt_data["model"],
+                        "model": api_kwargs["model"],
                         "input_tokens": msg.usage.input_tokens,
                         "output_tokens": msg.usage.output_tokens,
                         "elapsed_ms": elapsed_ms,
@@ -109,7 +99,7 @@ class PromptTester:
                     "case_id": case_id,
                     "success": True,
                     "explanation": explanation,
-                    "model": prompt_data["model"],
+                    "model": api_kwargs["model"],
                     "input_tokens": msg.usage.input_tokens,
                     "output_tokens": msg.usage.output_tokens,
                     "elapsed_ms": elapsed_ms,

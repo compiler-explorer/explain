@@ -53,6 +53,12 @@ class Prompt:
         # {"type": "enabled", "budget_tokens": 2000}. When set, callers
         # should drop `temperature` (the API requires it to be unset/1).
         self.thinking = self.config["model"].get("thinking")
+        # Optional effort level ("low" | "medium" | "high" | "xhigh" | "max").
+        # Controls the model's reasoning/token spend; unset means the API
+        # default (high). Sent as output_config: {effort: ...}.
+        self.effort = self.config["model"].get("effort")
+        if self.effort is not None and self.effort not in ("low", "medium", "high", "xhigh", "max"):
+            raise ValueError(f"invalid model.effort {self.effort!r}")
         if self.thinking and self.max_tokens < MIN_MAX_TOKENS_WITH_THINKING:
             # Adaptive thinking happily consumes the entire token budget on
             # complex inputs and leaves nothing for the visible text block.
@@ -307,6 +313,8 @@ class Prompt:
             "messages": base["messages"],
         }
         # Resolve thinking config: per-request override wins over the YAML.
+        if self.effort is not None:
+            payload["output_config"] = {"effort": self.effort}
         thinking = {"type": "adaptive"} if request.useThinking else base.get("thinking")
         if thinking is not None:
             payload["thinking"] = thinking
