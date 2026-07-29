@@ -45,7 +45,7 @@ def cli(ctx, project_root):
 @click.option("--output", help="Output filename")
 @click.option("--max-concurrent", type=int, default=5)
 @click.option("--review", is_flag=True, help="Also run Opus correctness review on results")
-@click.option("--review-model", default="claude-opus-4-7", help="Model for correctness review")
+@click.option("--review-model", default="claude-opus-5", help="Model for correctness review")
 @click.option(
     "--reviewer-thinking",
     type=click.Choice(["off", "adaptive"]),
@@ -285,7 +285,7 @@ def _print_review_summary(results: dict[str, Any]) -> None:
 
 @cli.command()
 @click.argument("results_file")
-@click.option("--model", default="claude-opus-4-7", help="Reviewer model")
+@click.option("--model", default="claude-opus-5", help="Reviewer model")
 @click.option(
     "--thinking",
     type=click.Choice(["off", "adaptive"]),
