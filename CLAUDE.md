@@ -99,6 +99,11 @@ call → response with metrics. See `claude_explain.md` for detailed architectur
   `redacted_thinking` blocks (encrypted reasoning when safety filters trip); the same filter excludes them
   correctly, but be aware "no text block" can mean either max_tokens starvation *or* a redacted-thinking-only
   response — the error message is the same.
+- **Safety refusals are handled before the empty-response path.** Claude 5-family classifiers can decline a
+  request (HTTP 200 with `stop_reason: "refusal"`, empty or partial content) — plausible here since CE users
+  compile arbitrary, sometimes exploit-adjacent code. `app/explain.py` returns a distinct user-facing message,
+  discards any partial output, and emits `ClaudeExplainRefusal` so it's separable from token starvation on
+  dashboards.
 - **Empty responses are not 500s.** When the model returns no text block, `app/explain.py` returns
   `ExplainResponse(status="error")` with `usage` populated and emits `ClaudeExplainEmptyResponse`. The cache
   layer skips storing error responses so retries hit the API. Don't change this to raise — the structured error

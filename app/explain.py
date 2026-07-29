@@ -162,6 +162,38 @@ async def _call_anthropic_api(
     output_tokens = message.usage.output_tokens
     total_tokens = input_tokens + output_tokens
 
+    if message.stop_reason == "refusal":
+        # Claude 5-family safety classifiers can decline a request: a normal
+        # HTTP 200 whose stop_reason is "refusal", with empty (or discarded
+        # partial) content. CE users compile arbitrary code, so exploit-adjacent
+        # input can occasionally trip this. Handle it before the generic
+        # empty-response path so it gets a clear user-facing message and its
+        # own metric rather than looking like token starvation on dashboards.
+        message_text = (
+            "Claude declined to explain this code (safety filters). This can occasionally "
+            "trigger on benign security-related code; trimming the input to the relevant "
+            "part may help."
+        )
+        LOGGER.warning("Refusal from model (in=%d, out=%d)", input_tokens, output_tokens)
+        metrics_provider.set_property("language", body.language)
+        metrics_provider.set_property("compiler", body.compiler)
+        metrics_provider.set_property("instructionSet", body.instructionSet or "unknown")
+        metrics_provider.set_property("cached", "false")
+        metrics_provider.put_metric("ClaudeExplainRequest", 1)
+        metrics_provider.put_metric("ClaudeExplainRefusal", 1)
+        metrics_provider.put_metric("ClaudeExplainInputTokens", input_tokens)
+        metrics_provider.put_metric("ClaudeExplainOutputTokens", output_tokens)
+        return ExplainResponse(
+            status="error",
+            message=message_text,
+            model=prompt_data["model"],
+            usage=TokenUsage(
+                inputTokens=input_tokens,
+                outputTokens=output_tokens,
+                totalTokens=total_tokens,
+            ),
+        )
+
     # Pick the last text block — when thinking is enabled the response
     # contains thinking blocks before the final text block.
     text_blocks = [c for c in message.content if getattr(c, "type", None) == "text"]
