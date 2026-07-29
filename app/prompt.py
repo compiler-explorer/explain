@@ -232,6 +232,12 @@ class Prompt:
         for item in asm_items:
             text = item.get("text", "")
             if total + len(text) > max_chars:
+                # Salvage what fits of the overflowing item rather than dropping
+                # it outright — otherwise a single line longer than the whole
+                # budget would leave Claude with no assembly at all.
+                remaining = max_chars - total
+                if remaining > 0:
+                    capped.append({**item, "text": text[:remaining]})
                 capped.append(
                     {
                         "text": f"... (assembly truncated at {max_chars} characters) ...",

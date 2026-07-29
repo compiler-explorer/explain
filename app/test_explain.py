@@ -562,6 +562,23 @@ class TestPrepareStructuredData:
         assert result["truncated"]
         assert any(item.get("isOmissionMarker") for item in result["assembly"])
 
+    def test_single_oversized_line_keeps_partial_content(self):
+        """One line longer than the whole budget is salvaged up to the cap,
+        not dropped — Claude should never receive marker-only assembly."""
+        request = ExplainRequest(
+            language="c++",
+            compiler="g++",
+            code="int main() { return 0; }",
+            asm=[AssemblyItem(text="a" * (MAX_ASM_LENGTH * 2), source=None)],
+        )
+        result = _minimal_prompt().prepare_structured_data(request)
+
+        real_items = [i for i in result["assembly"] if not i.get("isOmissionMarker")]
+        assert real_items, "assembly must retain salvaged content, not just the marker"
+        assert real_items[0]["text"] == "a" * MAX_ASM_LENGTH
+        assert result["truncated"]
+        assert any(item.get("isOmissionMarker") for item in result["assembly"])
+
     def test_small_inputs_not_truncated(self):
         """Normal-sized inputs pass through untouched."""
         request = ExplainRequest(
