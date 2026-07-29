@@ -69,20 +69,24 @@ call → response with metrics. See `claude_explain.md` for detailed architectur
 ## Anthropic API gotchas
 
 - **`max_tokens` includes thinking tokens.** When a prompt YAML sets `model.thinking: {type: adaptive}` (or
-  `{type: enabled, budget_tokens: N}`), thinking counts against `max_tokens`. The production value `1536` silently
-  starves the visible text output on complex cases when thinking is on. `Prompt.__init__` now refuses to load a
+  `{type: enabled, budget_tokens: N}`), thinking counts against `max_tokens`. The old production value `1536`
+  silently starved the visible text output on complex cases when thinking was on (production is now `4096`). `Prompt.__init__` now refuses to load a
   thinking-enabled config with `max_tokens < 4096`; ≥4096 (8192 worked in past experiments) is the floor.
-- **The reviewer model rejects `temperature`.** Opus 4.7 deprecated the parameter, so `prompt_testing/reviewer.py`
-  omits it. The Sonnet explainer still accepts `temperature`. If you swap the reviewer to a model that requires
-  it, restore the param.
+- **Neither production model accepts `temperature`.** Opus 4.7 (reviewer) and Sonnet 5 (explainer) both reject
+  non-default sampling parameters with a 400, so `prompt_testing/reviewer.py` omits it and `app/prompt.yaml` sets
+  none. Only pre-5 Sonnet models accept `temperature`; restore it in the YAML if you ever pin one of those.
+- **Sonnet 5 runs adaptive thinking by default when `thinking` is omitted** (unlike 4.6, where omitted meant off).
+  `app/prompt.yaml` therefore sets `thinking: {type: disabled}` explicitly; dropping that line silently turns
+  thinking on and eats the `max_tokens` budget. Sonnet 5 also uses a new tokenizer (~30% more tokens for the same
+  text than 4.6) — don't reuse token counts or cost baselines measured on 4.6.
 - **Reviewer thinking is on by default.** `prompt-test run --review` and `prompt-test review` default to
   `--reviewer-thinking adaptive` / `--thinking adaptive`. It catches factual errors the no-think reviewer misses
   but adds ~70% to review cost. Pass `off` to compare runs or save money on large batches.
-- **Production explainer thinking is opt-in per request.** Adaptive thinking on Sonnet 4.6 measurably improves
-  factual accuracy (e.g. eliminates the recurring `imul eax, edi, edi` invention) but adds ~10s+ latency on
-  small/medium queries and can push large queries past the **30s Lambda + API Gateway v2 timeout** entirely (no
-  raising that — HTTP API has a 30s ceiling). Callers opt in by sending `useThinking: true` on the request; the
-  default (no field, or `false`) preserves current latency. Cache keys split on the flag, so on/off requests
+- **Production explainer thinking is opt-in per request.** On Sonnet 5 the 2026-07 eval showed adaptive thinking
+  bought no accuracy on our test set (15/21 vs 17/21 reviewer-correct) while adding output tokens; thinking-off is
+  the default. Latency risk is the enduring reason: thinking can push large queries past the **30s Lambda + API
+  Gateway v2 timeout** (no raising that — HTTP API has a 30s ceiling). Callers opt in by sending
+  `useThinking: true` on the request; the default (no field, or `false`) preserves current latency. Cache keys split on the flag, so on/off requests
   cache independently. If we ever want default-on, we need either a smaller fixed thinking budget *or* an async
   response architecture (Lambda Function URL with response streaming, SQS poll, etc.).
 - **Multi-block responses.** When thinking is enabled the API returns thinking blocks before the text block.
