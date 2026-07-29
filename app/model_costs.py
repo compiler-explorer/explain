@@ -30,7 +30,14 @@ class ModelCost(NamedTuple):
 #   from the lookup; the regex normaliser still parses their names so callers
 #   get a clear "not found" error rather than a parse failure.
 MODEL_FAMILIES = {
+    # Claude 5 family
+    # Sonnet 5 sticker price is $3/$15; an introductory $2/$10 applies through
+    # 2026-08-31. We use the sticker price so estimates don't silently rot
+    # when the intro window closes.
+    "sonnet-5": ModelCost(3.0, 15.0),
+    "opus-5": ModelCost(5.0, 25.0),
     # Opus 4.5+: new pricing tier, 1M context bundled
+    "opus-4.8": ModelCost(5.0, 25.0),
     "opus-4.7": ModelCost(5.0, 25.0),
     "opus-4.6": ModelCost(5.0, 25.0),
     "opus-4.5": ModelCost(5.0, 25.0),

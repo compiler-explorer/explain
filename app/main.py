@@ -42,7 +42,11 @@ async def lifespan(app: FastAPI):
 
     # Store shared resources in app.state
     app.state.settings = settings
-    app.state.anthropic_client = AsyncAnthropic(api_key=settings.anthropic_api_key)
+    app.state.anthropic_client = AsyncAnthropic(
+        api_key=settings.anthropic_api_key,
+        timeout=settings.anthropic_timeout_seconds,
+        max_retries=settings.anthropic_max_retries,
+    )
 
     # Load the prompt configuration
     prompt_config_path = Path(__file__).parent / "prompt.yaml"
@@ -133,4 +137,5 @@ async def explain(explain_request: ExplainRequest, request: Request) -> ExplainR
             request.app.state.prompt,
             metrics_provider,
             cache_provider,
+            deadline_seconds=request.app.state.settings.anthropic_timeout_seconds,
         )

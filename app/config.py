@@ -17,6 +17,15 @@ class Settings(BaseSettings):
     cache_ttl: str = "2d"  # HTTP Cache-Control max-age (e.g., "2d", "48h", "172800s")
     cache_ttl_seconds: int = 172800  # Computed from cache_ttl for Cache-Control header
     log_level: str = "INFO"  # Logging level (DEBUG, INFO, WARNING, ERROR)
+    # Wall-clock budget for a single Claude API call. Kept comfortably below the
+    # API Gateway HTTP API integration timeout (a hard 30s ceiling that cannot be
+    # raised, unlike the Lambda timeout) so we return a clean, handled error
+    # instead of the gateway severing the connection with an opaque 503.
+    anthropic_timeout_seconds: float = 27.0
+    # SDK auto-retries. Retries share the wall-clock budget above, so a fast
+    # transient failure (e.g. an overloaded 529) can still be retried while the
+    # total time can never exceed anthropic_timeout_seconds.
+    anthropic_max_retries: int = 2
     model_config = SettingsConfigDict(env_file=".env")
 
     @field_validator("cache_ttl_seconds", mode="before")
