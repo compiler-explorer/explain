@@ -265,6 +265,51 @@ class TestProcessRequest:
         assert response.usage.outputTokens == 50
 
     @pytest.mark.asyncio
+    async def test_refusal_returns_clear_error(self, sample_request, noop_metrics):
+        """A safety-classifier refusal (HTTP 200, stop_reason='refusal', empty
+        content) must return a user-facing message distinct from the generic
+        empty-response error, with usage populated."""
+        mock_message = MagicMock()
+        mock_message.content = []
+        mock_message.usage = MagicMock(input_tokens=80, output_tokens=0)
+        mock_message.stop_reason = "refusal"
+
+        mock_client = MagicMock()
+        mock_client.messages.create = AsyncMock(return_value=mock_message)
+
+        test_prompt = Prompt(Path("app/prompt.yaml"))
+        response = await process_request(sample_request, mock_client, test_prompt, noop_metrics)
+
+        assert response.status == "error"
+        assert response.explanation is None
+        assert "declined" in response.message
+        assert "no text content" not in response.message
+        assert response.usage is not None
+        assert response.usage.inputTokens == 80
+
+    @pytest.mark.asyncio
+    async def test_refusal_discards_partial_output(self, sample_request, noop_metrics):
+        """A mid-stream refusal can carry partial text; it must be discarded
+        rather than served as if it were a complete explanation."""
+        partial = MagicMock()
+        partial.type = "text"
+        partial.text = "This function starts by..."
+
+        mock_message = MagicMock()
+        mock_message.content = [partial]
+        mock_message.usage = MagicMock(input_tokens=80, output_tokens=40)
+        mock_message.stop_reason = "refusal"
+
+        mock_client = MagicMock()
+        mock_client.messages.create = AsyncMock(return_value=mock_message)
+
+        test_prompt = Prompt(Path("app/prompt.yaml"))
+        response = await process_request(sample_request, mock_client, test_prompt, noop_metrics)
+
+        assert response.status == "error"
+        assert response.explanation is None
+
+    @pytest.mark.asyncio
     async def test_returns_error_when_call_exceeds_deadline(self, sample_request, noop_metrics):
         """A Claude call that overruns the wall-clock budget must return a
         structured error well inside the API Gateway 30s window, not hang until
