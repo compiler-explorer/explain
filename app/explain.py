@@ -13,10 +13,6 @@ from app.prompt import Prompt
 LOGGER = logging.getLogger("explain")
 
 
-# Constants
-MAX_CODE_LENGTH = 10000  # 10K chars should be enough for most source files
-MAX_ASM_LENGTH = 20000  # 20K chars for assembly output
-
 # Default wall-clock budget for the Claude call. Overridden per request from
 # settings.anthropic_timeout_seconds; the default keeps direct callers (tests,
 # local server) bounded below the API Gateway 30s integration ceiling too.
