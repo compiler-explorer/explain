@@ -64,6 +64,12 @@ Pre-commit hooks may modify files (e.g. ruff format); re-`git add` if a hook rep
   architecture (Lambda response streaming, SQS poll, etc.).
 - **Reviewer thinking is on by default** (`--reviewer-thinking adaptive`). It catches factual errors the
   no-think reviewer misses but adds ~70% to review cost; pass `off` for cheap comparative runs.
+- **Cheaper/faster models: evaluated and rejected for the default path.** Haiku 4.5 was the original explainer,
+  replaced for factual errors on complex optimisations (commit `d188a44`, 2025-12). A 2026-07 multi-model
+  bake-off (gpt-oss-120b on Cerebras/Groq, gemini-3.5-flash, deepseek-v4-flash, via OpenRouter) found the only
+  fast option 10x quicker but similarly error-prone; full data, a parked "fast draft tier" idea, and the privacy
+  implications of any multi-provider routing are in issue #31. Don't propose down-tiering the default model
+  without rerunning that eval.
 - **Prompt caching: evaluated 2026-07 and rejected at current traffic.** ~104 fresh Claude calls/day
   (CloudWatch, 14-day window), only ~35 hours/fortnight above 12 calls/hour, against a 5-minute cache TTL and a
   prefix fragmented by language/arch/audience/type. Generous math: ~$0.40 saved per fortnight of ~$22 spend,
