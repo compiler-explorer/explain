@@ -5,17 +5,17 @@ The associated metadata (descriptions, guidance, etc.) is stored in the
 prompt configuration and accessed via the Prompt class.
 """
 
-from enum import Enum
+from enum import StrEnum
 
 
-class AudienceLevel(str, Enum):
+class AudienceLevel(StrEnum):
     """Target audience for the explanation."""
 
     BEGINNER = "beginner"
     EXPERIENCED = "experienced"
 
 
-class ExplanationType(str, Enum):
+class ExplanationType(StrEnum):
     """Type of explanation to generate."""
 
     ASSEMBLY = "assembly"

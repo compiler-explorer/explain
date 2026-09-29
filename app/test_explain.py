@@ -223,6 +223,26 @@ class TestProcessRequest:
         payload = Prompt(Path("app/prompt.yaml")).build_api_payload(sample_request)
         assert "output_config" not in payload
 
+    def test_temperature_sent_via_extra_body_without_thinking(self, sample_request):
+        """anthropic 1.x has no `temperature` kwarg; pre-5 models still get it via extra_body."""
+        yaml = YAML(typ="safe")
+        with Path("app/prompt.yaml").open(encoding="utf-8") as f:
+            config = yaml.load(f)
+        del config["model"]["thinking"]
+        config["model"]["temperature"] = 0.2
+        payload = Prompt(config).build_api_payload(sample_request)
+        assert "temperature" not in payload
+        assert payload["extra_body"] == {"temperature": 0.2}
+
+    def test_no_temperature_unless_configured(self, sample_request):
+        yaml = YAML(typ="safe")
+        with Path("app/prompt.yaml").open(encoding="utf-8") as f:
+            config = yaml.load(f)
+        del config["model"]["thinking"]
+        payload = Prompt(config).build_api_payload(sample_request)
+        assert "temperature" not in payload
+        assert "extra_body" not in payload
+
     def test_invalid_effort_rejected_at_load(self):
         """A typo'd effort level fails loudly at config load, not at request time."""
         config = {

@@ -138,7 +138,7 @@ async def _call_anthropic_api(
     LOGGER.info(
         "Using Anthropic client with model: %s (thinking=%s)",
         prompt_data["model"],
-        bool(prompt_data.get("thinking")),
+        (prompt_data.get("thinking") or {}).get("type"),
     )
     # Bound the call to a wall-clock budget below the API Gateway HTTP API
     # integration timeout (a hard 30s ceiling). Without this, a slow generation

@@ -83,6 +83,16 @@ class TestGetModelCost:
         assert input_cost == 3.0 / 1_000_000  # $3 per million
         assert output_cost == 15.0 / 1_000_000  # $15 per million
 
+    def test_sonnet_5_cost(self):
+        input_cost, output_cost = get_model_cost("claude-sonnet-5")
+        assert input_cost == 2.0 / 1_000_000
+        assert output_cost == 10.0 / 1_000_000
+
+    def test_sonnet_5_5_cost(self):
+        input_cost, output_cost = get_model_cost("claude-sonnet-5-5")
+        assert input_cost == 2.0 / 1_000_000
+        assert output_cost == 10.0 / 1_000_000
+
     def test_opus_4_cost(self):
         """Test Claude 4 Opus costs (legacy $15/$75 pricing)."""
         input_cost, output_cost = get_model_cost("claude-opus-4-0")
