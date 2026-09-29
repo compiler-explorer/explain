@@ -19,7 +19,7 @@ class ModelCost(NamedTuple):
 
 
 # Model family costs in USD per million tokens
-# Updated: 2026-05-06 based on https://platform.claude.com/docs/en/about-claude/pricing
+# Updated: 2026-09-29 based on https://platform.claude.com/docs/en/about-claude/pricing
 #
 # Notes:
 # - Opus 4.5+ moved to a new lower price tier ($5/$25) and now bundle the 1M
@@ -30,11 +30,11 @@ class ModelCost(NamedTuple):
 #   from the lookup; the regex normaliser still parses their names so callers
 #   get a clear "not found" error rather than a parse failure.
 MODEL_FAMILIES = {
-    # Claude 5 family
-    # Sonnet 5 sticker price is $3/$15; an introductory $2/$10 applies through
-    # 2026-08-31. We use the sticker price so estimates don't silently rot
-    # when the intro window closes.
-    "sonnet-5": ModelCost(3.0, 15.0),
+    # Claude 5 family. Sonnet 5's launch $2/$10 became its standard price;
+    # the planned 2026-09-01 rise to $3/$15 was cancelled.
+    "sonnet-5.5": ModelCost(2.0, 10.0),
+    "sonnet-5": ModelCost(2.0, 10.0),
+    "opus-5.5": ModelCost(4.0, 20.0),
     "opus-5": ModelCost(5.0, 25.0),
     # Opus 4.5+: new pricing tier, 1M context bundled
     "opus-4.8": ModelCost(5.0, 25.0),

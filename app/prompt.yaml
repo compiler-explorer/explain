@@ -1,14 +1,14 @@
-name: Production Sonnet 5
-description: Sonnet 5 with conciseness tuning; thinking off by default (per-request opt-in unchanged)
+name: Production Sonnet 5.5
+description: Sonnet 5.5 with conciseness tuning; no up-front thinking by default (per-request opt-in unchanged)
 model:
-  name: claude-sonnet-5
-  # Sonnet 5 runs adaptive thinking by default when `thinking` is omitted,
-  # which would starve a small max_tokens budget; keep it explicitly disabled
-  # (the useThinking request flag still switches to adaptive per-request).
-  # Sonnet 5 also rejects non-default temperature, so none is set here.
+  name: claude-sonnet-5-5
+  # Sonnet 5.5 runs adaptive thinking when `thinking` is omitted and rejects
+  # `disabled` with a 400; `between_tools` is its lowest setting and, with no
+  # tools, means no thinking. The useThinking request flag still switches to
+  # adaptive per-request. No temperature: Claude 5 models reject it.
   max_tokens: 4096
   thinking:
-    type: disabled
+    type: between_tools
 audience_levels:
   beginner:
     description: For beginners learning assembly language. Uses simple language and explains technical terms.

@@ -48,10 +48,10 @@ class Prompt:
         # Extract model configuration
         self.model = self.config["model"]["name"]
         self.max_tokens = self.config["model"]["max_tokens"]
-        self.temperature = self.config["model"].get("temperature", 0.0)
-        # Optional extended-thinking config, e.g. {"type": "adaptive"} or
-        # {"type": "enabled", "budget_tokens": 2000}. When set, callers
-        # should drop `temperature` (the API requires it to be unset/1).
+        # Only pre-5 models accept temperature; unset means don't send one.
+        self.temperature = self.config["model"].get("temperature")
+        # Optional thinking config, e.g. {"type": "adaptive"} or
+        # {"type": "between_tools"}. When set, `temperature` is never sent.
         self.thinking = self.config["model"].get("thinking")
         # Optional effort level ("low" | "medium" | "high" | "xhigh" | "max").
         # Controls the model's reasoning/token spend; unset means the API
@@ -322,8 +322,9 @@ class Prompt:
             # rejects temperature when thinking is set). Floor max_tokens
             # so adaptive thinking can't starve the visible text.
             payload["max_tokens"] = max(payload["max_tokens"], MIN_MAX_TOKENS_WITH_THINKING)
-        else:
-            payload["temperature"] = base["temperature"]
+        elif base["temperature"] is not None:
+            # anthropic 1.x dropped the `temperature` kwarg; the API still takes it on older models.
+            payload["extra_body"] = {"temperature": base["temperature"]}
         return payload
 
     def generate_messages(self, request: ExplainRequest) -> dict[str, Any]:

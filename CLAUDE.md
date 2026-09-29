@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A FastAPI service that provides AI-powered explanations of compiler assembly output for the Compiler Explorer
 website, using Anthropic's Claude API. Runs locally for development or as an AWS Lambda function (Mangum adapter)
-behind an API Gateway HTTP API. The production explainer model is Sonnet 5 (see `app/prompt.yaml`); the
+behind an API Gateway HTTP API. The production explainer model is Sonnet 5.5 (see `app/prompt.yaml`); the
 prompt-testing framework's correctness reviewer is Opus 5.
 
 Request pipeline: input validation, then smart assembly filtering plus hard character caps, then the Claude API
@@ -44,17 +44,20 @@ Pre-commit hooks may modify files (e.g. ruff format); re-`git add` if a hook rep
 - **`max_tokens` includes thinking tokens.** When thinking is enabled it counts against `max_tokens`, and can
   starve the visible text on complex cases. `Prompt.__init__` refuses to load a thinking-enabled config with
   `max_tokens < 4096` (production uses 4096).
-- **Neither production model accepts `temperature`.** Opus 5 (reviewer) and Sonnet 5 (explainer) reject
+- **Neither production model accepts `temperature`.** Opus 5 (reviewer) and Sonnet 5.5 (explainer) reject
   non-default sampling parameters with a 400, so neither sets one. Only pre-5 Sonnet models accept
-  `temperature`; restore it in the YAML if you ever pin one of those.
-- **Sonnet 5 runs adaptive thinking by default when `thinking` is omitted.** `app/prompt.yaml` therefore sets
-  `thinking: {type: disabled}` explicitly; dropping that line silently turns thinking on and eats the
-  `max_tokens` budget. The same trap applies to the reviewer, which always sends an explicit thinking config so
-  `--reviewer-thinking off` really means off.
-- **Sonnet 5's tokenizer produces ~30% more tokens than 4.6 for the same text.** Don't reuse token counts or
+  `temperature`; restore it in the YAML if you ever pin one of those. anthropic SDK 1.x has no `temperature`
+  kwarg, so `build_api_payload` sends a configured one via `extra_body`.
+- **Sonnet 5.5 runs adaptive thinking by default when `thinking` is omitted, and 400s on `disabled`.**
+  `app/prompt.yaml` therefore sets `thinking: {type: between_tools}`, the lowest setting (no thinking when no
+  tools are sent; only valid at effort `high` or below). Dropping that line silently turns thinking on and eats
+  the `max_tokens` budget. Sonnet 5 and Opus 5 still take `disabled`; the reviewer (Opus 5) always sends an
+  explicit thinking config so `--reviewer-thinking off` really means off.
+- **Sonnet 5/5.5's tokenizer produces ~30% more tokens than 4.6 for the same text.** Don't reuse token counts or
   cost baselines measured on 4.6-era models.
 - **`model.effort` is plumbed but a no-op with thinking disabled.** The 2026-07 sweep (low/medium/high, 21
-  cases) showed identical latency and cost across levels with thinking off: effort mostly modulates thinking
+  cases) showed identical latency and cost across levels with thinking off, and the 2026-09 Sonnet 5.5 eval
+  found medium and high indistinguishable under `between_tools`: effort mostly modulates thinking
   depth, so there is nothing to modulate. Production leaves it unset (API default `high`). It becomes meaningful
   on the `useThinking` path or if adaptive thinking is ever made the default.
 - **Production explainer thinking is opt-in per request** (`useThinking: true`; default off). The 2026-07 eval
@@ -72,14 +75,15 @@ Pre-commit hooks may modify files (e.g. ruff format); re-`git add` if a hook rep
   without rerunning that eval.
 - **Prompt caching: evaluated 2026-07 and rejected at current traffic.** ~104 fresh Claude calls/day
   (CloudWatch, 14-day window), only ~35 hours/fortnight above 12 calls/hour, against a 5-minute cache TTL and a
-  prefix fragmented by language/arch/audience/type. Generous math: ~$0.40 saved per fortnight of ~$22 spend,
-  before counting the restructuring needed to clear Sonnet 5's 1024-token minimum cacheable prefix (the system
-  prompt is only ~620 tokens; the per-audience guidance lives in the user prompt). Revisit if traffic grows
+  prefix fragmented by language/arch/audience/type. Generous math: ~$0.40 saved per fortnight of ~$22 spend.
+  (That analysis also counted restructuring to clear Sonnet 5's 1024-token minimum; Sonnet 5.5's is 512, which
+  the ~620-token system prompt already clears, but the savings math still doesn't pay.) Revisit if traffic grows
   ~50x, or if sustained >3 same-combo requests/hour makes the 1-hour TTL viable. Rerun the analysis with
   `aws cloudwatch get-metric-statistics` on `CompilerExplorer/ClaudeExplainFreshResponse`.
 - **Safety refusals are handled before the empty-response path.** Claude 5-family classifiers can decline a
   request (HTTP 200 with `stop_reason: "refusal"`, empty or partial content), plausible here since CE users
-  compile arbitrary, sometimes exploit-adjacent code. `app/explain.py` returns a distinct user-facing message,
+  compile arbitrary, sometimes exploit-adjacent code. Sonnet 5.5 declines in more categories than Sonnet 5
+  (adds `bio`, `reasoning_extraction`, `general_harms`); watch the metric after model bumps. `app/explain.py` returns a distinct user-facing message,
   discards any partial output, and emits `ClaudeExplainRefusal`.
 - **Multi-block responses.** With thinking enabled the API returns thinking blocks before the text block; both
   `app/explain.py` and `prompt_testing/runner.py` pick the last text block via
