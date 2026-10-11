@@ -91,6 +91,34 @@ Pre-commit hooks may modify files (e.g. ruff format); re-`git add` if a hook rep
   - *Opus 5.5* (thinking cannot be disabled): low 16/16, medium 30/31 reviewed, which is within noise of
     Sonnet, at 2-2.5x the cost and 6.6s / 9.6s mean. *Fable 5.1*: 15/16 at $0.059/call, with a 37s max that
     breaks the 30s ceiling.
+- **Hard-corpus follow-up, 2026-10-11: Sonnet 5.5 with the bullet-cap prompt stays.** Scored on the 31 reviewable
+  `hard_*` cases (Opus 5 adaptive reviewer; it safety-refuses the 32nd, `hard_wasm_sum_loop`). Reviews dominate
+  cost at about $2 per 31-case run; the full 53-case suite is about $3 on Sonnet and $7.6 on Fable. Treat gaps
+  under ~8 points as noise: configs differing only in input compaction, which should not matter, scored 81% vs
+  90% and 85% vs 94%.
+  - *Sonnet 5.5*: 159/186 (85%) pooled over the pre-cap prompt and compaction variants, 116/124 (94%) for the
+    exact merged prompt; mean 7.2s, p95 9.4s, max 9.9s, $0.017/call.
+  - *Opus 5.5 low* is the only plausible upgrade: 346/372 (93%) pooled over 12 runs, mean 10.7s, p95 14.9s,
+    $0.032/call (2x). Not adopted: at most a few points better, about 3s slower, and one call in 512 took 33s for
+    only 747 output tokens (slow API response or SDK retry, not length), past the 30s ceiling. Its errors differ
+    in kind: confident hypotheticals about other flags (claiming `-march=rv64gc_zbb` turns a shift-and-mask
+    popcount loop into `cpop`, which GCC's popcount recognition does not do) versus Sonnet's arithmetic and fact
+    slips (calling `0x92492493` the magic number for ⌈2³⁵/7⌉ instead of ⌈2³⁴/7⌉).
+  - *Fable 5.1* on the merged prompt, full suite, one run: 45/47 correct (29/31 on hard cases, the same rate as
+    Sonnet), but mean 17.4s, p95 32.6s, max 39.3s, 5 of 53 calls over 30s, $0.098/call. Adaptive thinking adds
+    1,700-2,800 output tokens per call; unusable under the 30s ceiling.
+  - *Others*: Haiku 5.5 without thinking 87/124 (70%); Opus 5 without thinking 50/62 (81%) and slow (max 25.9s);
+    Sonnet 5.5 with adaptive thinking at low or medium effort 112/124 (90%) at no latency cost, which is not
+    significantly better than the 85% baseline, so unproven.
+  - *No effect, don't retry without new evidence*: dropping the "compare with what other optimisation levels or
+    architectures might produce" focus bullet (Sonnet 27/31 vs 116/124 control, Opus 30/31 vs 57/62; opposite
+    directions, and speculation about other flags persisted); a mechanically computed control-flow digest
+    (natural loops from dominators, handed over as ground truth for "is this a loop" and "does this jump target
+    the next instruction"), Sonnet 85% vs 85%, Opus 93% vs 91%; and compacting the assembly JSON, which cuts input
+    tokens but changed neither accuracy nor latency. The digest and compaction code was not merged.
+  - *Fast mode* (`speed: "fast"` with beta `fast-mode-2026-02-01`; Opus 5.5, 5 and 4.8 only; $8/$40 per MTok;
+    up to 2.5x output tokens/s) returns a 429 for this org (limit 0), so access would have to be requested. It
+    was judged too expensive anyway.
 - **Prompt caching: evaluated 2026-07 and rejected at current traffic.** ~104 fresh Claude calls/day
   (CloudWatch, 14-day window), only ~35 hours/fortnight above 12 calls/hour, against a 5-minute cache TTL and a
   prefix fragmented by language/arch/audience/type. Generous math: ~$0.40 saved per fortnight of ~$22 spend.
