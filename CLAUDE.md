@@ -73,6 +73,20 @@ Pre-commit hooks may modify files (e.g. ruff format); re-`git add` if a hook rep
   fast option 10x quicker but similarly error-prone; full data, a parked "fast draft tier" idea, and the privacy
   implications of any multi-provider routing are in issue #31. Don't propose down-tiering the default model
   without rerunning that eval.
+- **Haiku 5.5, Opus 5.5, Fable 5.1: evaluated 2026-10-10, Sonnet 5.5 stays.** Production prompt, 21 cases,
+  Opus 5 adaptive reviewer, assembly cases only, 3 runs per config unless noted. Sonnet 5.5: 43/48 correct (3
+  were reviewer failures, not wrong answers), 2 errors, mean 5.2s, p95 9.4s, $0.011/call.
+  - *Haiku 5.5 with `thinking: disabled`* (accepted, unlike Sonnet 5.5): 36/48, 14 errors; mean 3.1s, p95 5.2s,
+    $0.0005/call (20x cheaper). The errors are failures to trace: misreading control flow (a straight-line
+    `.L4` called a loop), wrong register arithmetic, a hallucinated `imul eax, edi, edi`, "-O0 doesn't
+    constant-fold". It also missed a `je` targeting its own fall-through in about 5 of 12 samples; Sonnet,
+    Opus 5.5 and Fable 5.1 caught it every time.
+  - *Haiku 5.5 adaptive (the API default)*: 41/48, 8 errors, but no faster than Sonnet (mean 5.0s at low,
+    5.8s at medium, max 17-18s). At `high` effort thinking exhausted `max_tokens=4096` and returned an empty
+    response on `loop_experienced_assembly` in 2 of 3 runs.
+  - *Opus 5.5* (thinking cannot be disabled): low 16/16, medium 30/31 reviewed, which is within noise of
+    Sonnet, at 2-2.5x the cost and 6.6s / 9.6s mean. *Fable 5.1*: 15/16 at $0.059/call, with a 37s max that
+    breaks the 30s ceiling.
 - **Prompt caching: evaluated 2026-07 and rejected at current traffic.** ~104 fresh Claude calls/day
   (CloudWatch, 14-day window), only ~35 hours/fortnight above 12 calls/hour, against a 5-minute cache TTL and a
   prefix fragmented by language/arch/audience/type. Generous math: ~$0.40 saved per fortnight of ~$22 spend.

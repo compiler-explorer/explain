@@ -93,6 +93,23 @@ class TestGetModelCost:
         assert input_cost == 2.0 / 1_000_000
         assert output_cost == 10.0 / 1_000_000
 
+    def test_haiku_5_5_cost(self):
+        """Haiku 5.5 base tier (prompts up to 100k tokens)."""
+        input_cost, output_cost = get_model_cost("claude-haiku-5-5")
+        assert input_cost == 0.10 / 1_000_000
+        assert output_cost == 0.50 / 1_000_000
+
+    def test_opus_5_5_cost(self):
+        input_cost, output_cost = get_model_cost("claude-opus-5-5")
+        assert input_cost == 4.0 / 1_000_000
+        assert output_cost == 20.0 / 1_000_000
+
+    def test_fable_cost(self):
+        for model in ("claude-fable-5", "claude-fable-5-1"):
+            input_cost, output_cost = get_model_cost(model)
+            assert input_cost == 10.0 / 1_000_000
+            assert output_cost == 50.0 / 1_000_000
+
     def test_opus_4_cost(self):
         """Test Claude 4 Opus costs (legacy $15/$75 pricing)."""
         input_cost, output_cost = get_model_cost("claude-opus-4-0")
