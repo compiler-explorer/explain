@@ -94,8 +94,31 @@ class TestCompilerExplorerClient:
         client.session = mock_session
         response = client.compile(request)
 
-        # Check label definitions were extracted
-        assert response.label_definitions == {"loop": 0}
+        # The API omitted `labelDefinitions`, so they are derived from the definition lines (1-based).
+        # `labels` on `jmp loop` is a reference and must not count as a definition.
+        assert response.label_definitions == {"loop": 1}
+
+    def test_compile_uses_api_label_definitions(self, client, mock_session):
+        """CE's own labelDefinitions (1-based, filtered asm) are passed through untouched."""
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            "code": 0,
+            "asm": [
+                {"text": "f():"},
+                {"text": "        jmp     .L3"},
+                {"text": ".L3:"},
+                {"text": "        ret"},
+            ],
+            "labelDefinitions": {".L3": 3, "f()": 1},
+            "stdout": [],
+            "stderr": [],
+        }
+        mock_session.post.return_value = mock_response
+
+        client.session = mock_session
+        response = client.compile(CompileRequest(source="", compiler="g122", options=[]))
+
+        assert response.label_definitions == {".L3": 3, "f()": 1}
 
     def test_compile_failure(self, client, mock_session):
         """Test compilation failure."""
@@ -273,4 +296,4 @@ class TestModels:
         assert len(response.asm) == 2
         assert response.asm[0].text == "main:"
         assert response.asm[1].source.line == 2
-        assert response.label_definitions == {"main": 0}
+        assert response.label_definitions == {"main": 1}

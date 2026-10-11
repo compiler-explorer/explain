@@ -59,9 +59,8 @@ cases:
       source:
         line: 2
     labelDefinitions:
-      factorial(int): 0
-      .L4: 9
-
+      factorial(int): 1
+      .L4: 11
 - id: factorial_experienced_haiku
   category: recursion
   quality: good_example
@@ -121,9 +120,8 @@ cases:
       source:
         line: 2
     labelDefinitions:
-      factorial(int): 0
-      .L4: 9
-
+      factorial(int): 1
+      .L4: 11
 - id: simple_loop_haiku
   category: loops
   quality: good_example
@@ -187,10 +185,9 @@ cases:
       source:
         line: 6
     labelDefinitions:
-      sum_array(int*, int): 0
-      .L3: 6
-      .L4: 12
-
+      sum_array(int*, int): 1
+      .L3: 7
+      .L4: 13
 - id: empty_function_haiku
   category: edge_cases
   quality: edge_case
@@ -212,8 +209,7 @@ cases:
       source:
         line: 2
     labelDefinitions:
-      empty(): 0
-
+      empty(): 1
 - id: complex_sorting_haiku
   category: algorithms
   quality: challenging
@@ -323,9 +319,9 @@ cases:
     - text: '.L1:'
     - text: '        ret'
     labelDefinitions:
-      bubble_sort(int*, int): 0
-      .L6: 8
-      .L4: 16
-      .L5: 22
-      .L3: 25
-      .L1: 31
+      bubble_sort(int*, int): 1
+      .L6: 10
+      .L4: 18
+      .L5: 25
+      .L3: 29
+      .L1: 36

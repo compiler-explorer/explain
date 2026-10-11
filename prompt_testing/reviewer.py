@@ -48,6 +48,32 @@ Respond with a JSON object (no markdown fencing):
 If the explanation is fully correct, return {"correct": true, "issues": [], \
 "summary": "..."}."""
 
+# Enforced via structured outputs so a verdict can never fail to parse. The JSON shape is also described in
+# the prompt above, which keeps the model's intent clear.
+REVIEW_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "correct": {"type": "boolean"},
+        "issues": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "severity": {"type": "string", "enum": ["error", "warning"]},
+                    "claim": {"type": "string"},
+                    "correction": {"type": "string"},
+                    "location": {"type": "string"},
+                },
+                "required": ["severity", "claim", "correction", "location"],
+                "additionalProperties": False,
+            },
+        },
+        "summary": {"type": "string"},
+    },
+    "required": ["correct", "issues", "summary"],
+    "additionalProperties": False,
+}
+
 REVIEW_USER_TEMPLATE = """\
 ## Source code ({language}, compiled with {compiler} {options})
 ```
@@ -77,7 +103,8 @@ class CorrectnessReviewer:
         """
         self.model = model
         self.thinking = thinking
-        self.client = AsyncAnthropic()
+        # Many reviews run at once; ride out rate limiting rather than failing a verdict.
+        self.client = AsyncAnthropic(max_retries=6)
 
     async def review(
         self,
@@ -107,14 +134,17 @@ class CorrectnessReviewer:
         # Opus 4.7+ rejects `temperature`; rely on the model's own default.
         # Thinking is always explicit: on Opus 5, omitting the field runs
         # adaptive thinking by default, which would silently defeat
-        # `--reviewer-thinking off`. Thinking counts against max_tokens, so
-        # give thinking-enabled reviews the larger budget.
+        # `--reviewer-thinking off`. Thinking counts against max_tokens, and a
+        # review of a long listing can think for a long time before the verdict
+        # (4096 starved it on the 100+ line cases), so give thinking-enabled
+        # reviews a generous budget; unused budget costs nothing.
         api_kwargs: dict[str, Any] = {
             "model": self.model,
-            "max_tokens": 4096 if self.thinking else 2048,
+            "max_tokens": 16000 if self.thinking else 4096,
             "system": REVIEW_SYSTEM_PROMPT,
             "messages": [{"role": "user", "content": user_prompt}],
             "thinking": self.thinking if self.thinking else {"type": "disabled"},
+            "output_config": {"format": {"type": "json_schema", "schema": REVIEW_SCHEMA}},
         }
         msg = await self.client.messages.create(**api_kwargs)
 

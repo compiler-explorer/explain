@@ -45,6 +45,18 @@ class AssemblyLine:
         return result
 
 
+def derive_label_definitions(asm_texts: list[str]) -> dict[str, int]:
+    """Map each label to the 1-based line it is defined on, matching CE's `labelDefinitions` convention.
+
+    A definition is an unindented line ending in a colon (`.L3:`, `main:`, `sum(int const*, int):`).
+    """
+    definitions: dict[str, int] = {}
+    for number, text in enumerate(asm_texts, start=1):
+        if text.endswith(":") and not text[:1].isspace():
+            definitions.setdefault(text[:-1], number)
+    return definitions
+
+
 @dataclass
 class CompileResponse:
     """Response from compilation request."""
@@ -60,7 +72,6 @@ class CompileResponse:
     def from_api_response(cls, data: dict[str, Any]) -> "CompileResponse":
         """Create from CE API response."""
         asm_lines = []
-        label_definitions = {}
 
         for line in data.get("asm", []):
             # Extract source info
@@ -80,13 +91,14 @@ class CompileResponse:
             )
             asm_lines.append(asm_line)
 
-            # Track label definitions
-            if "labels" in line:
-                for label in line["labels"]:
-                    if isinstance(label, dict) and "name" in label:
-                        label_name = label["name"]
-                        if label_name not in label_definitions:
-                            label_definitions[label_name] = len(asm_lines) - 1
+        # CE's own map is label -> 1-based line in the filtered asm, which is what the frontend sends the
+        # explain service. A line's `labels` field lists the labels it *references*, not defines, so it is
+        # no use for this; derive from the definition lines only if the API omitted the map.
+        api_definitions = data.get("labelDefinitions")
+        if isinstance(api_definitions, dict):
+            label_definitions = dict(api_definitions)
+        else:
+            label_definitions = derive_label_definitions([line.text for line in asm_lines])
 
         return cls(
             code=data.get("code", 0),

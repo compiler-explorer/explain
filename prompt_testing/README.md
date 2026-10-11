@@ -15,7 +15,7 @@ uv run prompt-test run --review
 uv run prompt-test run --cases basic_loop_001 --cases basic_inline_001
 uv run prompt-test run --categories loop_optimization
 
-# Review existing results with Opus
+# Review existing results with Opus (6 reviews at a time; --concurrency to change)
 uv run prompt-test review results/20250221_120000_current.json
 
 # Compare two result files
@@ -32,6 +32,25 @@ uv run prompt-test list
 3. `--review` flag runs each output through Opus for **correctness checking** — it identifies specific factual errors rather than giving abstract scores
 4. You read the outputs (and any flagged issues) and decide if they're good
 5. To compare prompt changes: run once before, once after, then `prompt-test compare`
+
+### Test Corpora
+
+- The original cases (`default_code`, `basic_*`, `audience_*`, `complex_*`, `edge_cases`, `haiku_*`) are easy: Sonnet 5.5
+  already passes about 95% of them, so they cannot separate good models from better ones.
+- `hard_cases.yaml` has 32 harder cases (`hard_*` ids) across C, C++, Rust, x86-64, AArch64, RISC-V, Wasm and ARM32,
+  chosen because assembly is easy to misread: jump tables, magic-number division, rotated loops, shared tails,
+  landing pads in cold sections, ABI details. On these Sonnet 5.5 scores about 85% and Haiku 5.5 about 70%, which is
+  enough headroom to compare models and prompts. Filter to them with `--categories` or by `--cases hard_...`.
+- Poem-type cases (`explanation_type: haiku`) are generated but not reviewed: the reviewer marks every poem incorrect
+  because it doesn't explain the assembly, so they never counted towards accuracy.
+- `hard_wasm_sum_loop` cannot be scored: the Opus 5 reviewer's safety classifier declines to review it
+  (`stop_reason: refusal`). The explainer models handle it fine.
+
+### Reading the Numbers
+
+Reviewer-judged accuracy is noisy. Two prompts that differ only in how the assembly JSON is formatted scored 81% and
+90% on the same 62 hard-case reviews. Treat gaps under about 8 points as unresolved, pool near-identical configs
+before comparing, and prefer 3+ runs on the hard corpus. Latency is far less noisy than accuracy.
 
 ### Correctness Review
 

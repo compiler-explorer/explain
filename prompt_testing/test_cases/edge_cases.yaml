@@ -28,7 +28,8 @@ cases:
     - text: '        ret'
       source:
         line: 1
-    labelDefinitions: {}
+    labelDefinitions:
+      empty_function: 1
   difficulty: beginner
   notes: Should generate minimal explanation focusing on calling convention
 - id: edge_undefined_001
@@ -66,7 +67,8 @@ cases:
       source:
         line: 2
     - text: ''
-    labelDefinitions: {}
+    labelDefinitions:
+      undefined_increment(int*): 1
   difficulty: advanced
   notes: Should explain that this is undefined behavior and compiler can assume anything
 - id: edge_long_asm_001
@@ -228,7 +230,8 @@ cases:
       source:
         line: 10
     labelDefinitions:
-      .L2: 5
-      .L3: 40
+      large_function(): 1
+      .L3: 7
+      .L2: 39
   difficulty: experienced
   notes: Should handle truncated assembly gracefully and explain omission markers
