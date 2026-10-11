@@ -1,0 +1,5497 @@
+description: Hard test cases - real compiler output that is easy to misread or over-claim (jump tables, magic-number
+  division, speculative devirtualisation, flag semantics, ABI details, vectorised and peeled loops, and
+  cross-architecture idioms)
+cases:
+- id: hard_switch_jumptable
+  category: hard_jump_table
+  description: "Dense switch lowered to an indirect jump through a table of 32-bit offsets relative to the table (target =
+    table base + sign-extended entry). eax is zeroed before the range check so the default needs no block of its own, the
+    hole at case 6 points at a bare ret, cases 2 and 3 share one block, and the signed x / 2 block needs a sign fix-up (shr
+    31, add, sar) and then falls through into that same ret. Easy to describe as a compare chain or to mis-assign table entries
+    to cases."
+  audience: experienced
+  explanation_type: assembly
+  input:
+    language: C++
+    compiler: x86-64 clang 20.1.0
+    compilationOptions: ["-O2"]
+    instructionSet: x86_64
+    code: |
+      int classify(int op, int x) {
+          switch (op) {
+              case 0: return x + 1;
+              case 1: return x * 3;
+              case 2:
+              case 3: return x - 7;
+              case 4: return x << 2;
+              case 5: return -x;
+              case 7: return x ^ 0x55;
+              case 8: return x / 2;
+              default: return 0;
+          }
+      }
+    asm:
+    - text: 'classify(int, int):'
+    - text: '        xor     eax, eax'
+      source:
+        line: 1
+    - text: '        cmp     edi, 8'
+      source:
+        line: 2
+    - text: '        ja      .LBB0_9'
+      source:
+        line: 2
+      labels:
+      - name: .LBB0_9
+        range:
+          startCol: 17
+          endCol: 24
+    - text: '        mov     ecx, edi'
+      source:
+        line: 0
+    - text: '        lea     rdx, [rip + .LJTI0_0]'
+      source:
+        line: 0
+      labels:
+      - name: .LJTI0_0
+        range:
+          startCol: 29
+          endCol: 37
+    - text: '        movsxd  rcx, dword ptr [rdx + 4*rcx]'
+      source:
+        line: 2
+    - text: '        add     rcx, rdx'
+      source:
+        line: 2
+    - text: '        jmp     rcx'
+      source:
+        line: 2
+    - text: '.LBB0_4:'
+    - text: '        add     esi, -7'
+      source:
+        line: 6
+    - text: '        mov     eax, esi'
+      source:
+        line: 0
+    - text: '        ret'
+      source:
+        line: 13
+    - text: '.LBB0_6:'
+    - text: '        neg     esi'
+      source:
+        line: 8
+    - text: '        mov     eax, esi'
+      source:
+        line: 0
+    - text: '        ret'
+      source:
+        line: 13
+    - text: '.LBB0_3:'
+    - text: '        lea     eax, [rsi + 2*rsi]'
+      source:
+        line: 4
+    - text: '        ret'
+      source:
+        line: 13
+    - text: '.LBB0_7:'
+    - text: '        xor     esi, 85'
+      source:
+        line: 9
+    - text: '        mov     eax, esi'
+      source:
+        line: 0
+    - text: '        ret'
+      source:
+        line: 13
+    - text: '.LBB0_8:'
+    - text: '        mov     eax, esi'
+      source:
+        line: 10
+    - text: '        shr     eax, 31'
+      source:
+        line: 10
+    - text: '        add     eax, esi'
+      source:
+        line: 10
+    - text: '        sar     eax'
+      source:
+        line: 10
+    - text: '.LBB0_9:'
+    - text: '        ret'
+      source:
+        line: 13
+    - text: '.LBB0_2:'
+    - text: '        inc     esi'
+      source:
+        line: 3
+    - text: '        mov     eax, esi'
+      source:
+        line: 0
+    - text: '        ret'
+      source:
+        line: 13
+    - text: '.LBB0_5:'
+    - text: '        shl     esi, 2'
+      source:
+        line: 7
+    - text: '        mov     eax, esi'
+      source:
+        line: 0
+    - text: '        ret'
+      source:
+        line: 13
+    - text: '.LJTI0_0:'
+    - text: '        .long   .LBB0_2-.LJTI0_0'
+      labels:
+      - name: .LBB0_2
+        range:
+          startCol: 17
+          endCol: 24
+      - name: .LJTI0_0
+        range:
+          startCol: 25
+          endCol: 33
+    - text: '        .long   .LBB0_3-.LJTI0_0'
+      labels:
+      - name: .LBB0_3
+        range:
+          startCol: 17
+          endCol: 24
+      - name: .LJTI0_0
+        range:
+          startCol: 25
+          endCol: 33
+    - text: '        .long   .LBB0_4-.LJTI0_0'
+      labels:
+      - name: .LBB0_4
+        range:
+          startCol: 17
+          endCol: 24
+      - name: .LJTI0_0
+        range:
+          startCol: 25
+          endCol: 33
+    - text: '        .long   .LBB0_4-.LJTI0_0'
+      labels:
+      - name: .LBB0_4
+        range:
+          startCol: 17
+          endCol: 24
+      - name: .LJTI0_0
+        range:
+          startCol: 25
+          endCol: 33
+    - text: '        .long   .LBB0_5-.LJTI0_0'
+      labels:
+      - name: .LBB0_5
+        range:
+          startCol: 17
+          endCol: 24
+      - name: .LJTI0_0
+        range:
+          startCol: 25
+          endCol: 33
+    - text: '        .long   .LBB0_6-.LJTI0_0'
+      labels:
+      - name: .LBB0_6
+        range:
+          startCol: 17
+          endCol: 24
+      - name: .LJTI0_0
+        range:
+          startCol: 25
+          endCol: 33
+    - text: '        .long   .LBB0_9-.LJTI0_0'
+      labels:
+      - name: .LBB0_9
+        range:
+          startCol: 17
+          endCol: 24
+      - name: .LJTI0_0
+        range:
+          startCol: 25
+          endCol: 33
+    - text: '        .long   .LBB0_7-.LJTI0_0'
+      labels:
+      - name: .LBB0_7
+        range:
+          startCol: 17
+          endCol: 24
+      - name: .LJTI0_0
+        range:
+          startCol: 25
+          endCol: 33
+    - text: '        .long   .LBB0_8-.LJTI0_0'
+      labels:
+      - name: .LBB0_8
+        range:
+          startCol: 17
+          endCol: 24
+      - name: .LJTI0_0
+        range:
+          startCol: 25
+          endCol: 33
+    - text: ''
+    labelDefinitions:
+      .LBB0_4: 10
+      .LBB0_6: 14
+      .LBB0_3: 18
+      .LBB0_7: 21
+      .LBB0_8: 25
+      .LBB0_9: 30
+      .LBB0_2: 32
+      .LBB0_5: 36
+      .LJTI0_0: 40
+      classify(int, int): 1
+- id: hard_signed_div_const
+  category: hard_magic_division
+  description: "Signed division and modulo by constants become multiply-high, shifts and sign corrections instead of idiv.
+    div7 uses a magic constant that is negative as a signed 32-bit value, so the dividend is added back after the high half
+    is taken; mod10 computes the quotient then multiplies back by 10 with lea/add and subtracts; div16 adds a bias of 15 only
+    for negative inputs via cmovns. Models often say it uses a divide or misstate which shift is the sign fix."
+  audience: experienced
+  explanation_type: assembly
+  input:
+    language: C
+    compiler: x86-64 gcc 15.2
+    compilationOptions: ["-O2"]
+    instructionSet: x86_64
+    code: |
+      int div7(int x)  { return x / 7; }
+      int mod10(int x) { return x % 10; }
+      int div16(int x) { return x / 16; }
+    asm:
+    - text: 'div7:'
+    - text: '        movsx   rax, edi'
+      source:
+        line: 1
+    - text: '        imul    rax, rax, -1840700269'
+      source:
+        line: 1
+    - text: '        shr     rax, 32'
+      source:
+        line: 1
+    - text: '        add     eax, edi'
+      source:
+        line: 1
+    - text: '        sar     edi, 31'
+      source:
+        line: 1
+    - text: '        sar     eax, 2'
+      source:
+        line: 1
+    - text: '        sub     eax, edi'
+      source:
+        line: 1
+    - text: '        ret'
+      source:
+        line: 1
+    - text: 'mod10:'
+    - text: '        movsx   rax, edi'
+      source:
+        line: 2
+    - text: '        mov     edx, edi'
+      source:
+        line: 2
+    - text: '        imul    rax, rax, 1717986919'
+      source:
+        line: 2
+    - text: '        sar     edx, 31'
+      source:
+        line: 2
+    - text: '        sar     rax, 34'
+      source:
+        line: 2
+    - text: '        sub     eax, edx'
+      source:
+        line: 2
+    - text: '        lea     edx, [rax+rax*4]'
+      source:
+        line: 2
+    - text: '        mov     eax, edi'
+      source:
+        line: 2
+    - text: '        add     edx, edx'
+      source:
+        line: 2
+    - text: '        sub     eax, edx'
+      source:
+        line: 2
+    - text: '        ret'
+      source:
+        line: 2
+    - text: 'div16:'
+    - text: '        test    edi, edi'
+      source:
+        line: 3
+    - text: '        lea     eax, [rdi+15]'
+      source:
+        line: 3
+    - text: '        cmovns  eax, edi'
+      source:
+        line: 3
+    - text: '        sar     eax, 4'
+      source:
+        line: 3
+    - text: '        ret'
+      source:
+        line: 3
+    labelDefinitions:
+      div7: 1
+      mod10: 10
+      div16: 22
+- id: hard_digit_loop
+  category: hard_digit_extraction
+  description: "Digit-sum loop where both n / 10 and n % 10 come from one reciprocal multiply (the remainder is rebuilt as
+    n - 10*q). The loop test is cmp edi, 9 / ja placed before the mov that replaces n with the quotient: mov does not touch
+    flags, so the branch tests the OLD n (n > 9 means the new n is non-zero). Flag-versus-register ordering is a classic misreading."
+  audience: beginner
+  explanation_type: assembly
+  input:
+    language: C++
+    compiler: x86-64 clang 20.1.0
+    compilationOptions: ["-O2"]
+    instructionSet: x86_64
+    code: |
+      int digit_sum(unsigned n) {
+          int sum = 0;
+          while (n != 0) {
+              sum += n % 10;
+              n /= 10;
+          }
+          return sum;
+      }
+    asm:
+    - text: 'digit_sum(unsigned int):'
+    - text: '        xor     eax, eax'
+      source:
+        line: 1
+    - text: '        test    edi, edi'
+      source:
+        line: 3
+    - text: '        je      .LBB0_3'
+      source:
+        line: 3
+      labels:
+      - name: .LBB0_3
+        range:
+          startCol: 17
+          endCol: 24
+    - text: '        mov     ecx, 3435973837'
+      source:
+        line: 0
+    - text: '.LBB0_2:'
+    - text: '        mov     edx, edi'
+      source:
+        line: 5
+    - text: '        imul    rdx, rcx'
+      source:
+        line: 5
+    - text: '        shr     rdx, 35'
+      source:
+        line: 5
+    - text: '        lea     esi, [rdx + rdx]'
+      source:
+        line: 5
+    - text: '        lea     esi, [rsi + 4*rsi]'
+      source:
+        line: 5
+    - text: '        mov     r8d, edi'
+      source:
+        line: 5
+    - text: '        sub     r8d, esi'
+      source:
+        line: 5
+    - text: '        add     eax, r8d'
+      source:
+        line: 4
+    - text: '        cmp     edi, 9'
+      source:
+        line: 3
+    - text: '        mov     edi, edx'
+      source:
+        line: 3
+    - text: '        ja      .LBB0_2'
+      source:
+        line: 3
+      labels:
+      - name: .LBB0_2
+        range:
+          startCol: 17
+          endCol: 24
+    - text: '.LBB0_3:'
+    - text: '        ret'
+      source:
+        line: 7
+    - text: ''
+    labelDefinitions:
+      .LBB0_2: 6
+      .LBB0_3: 18
+      digit_sum(unsigned int): 1
+- id: hard_popcount_baseline
+  category: hard_bit_builtins_generic
+  description: "Without -mpopcnt there is no popcnt instruction: popcount is a SWAR sequence (masks 0x55555555, 0x33333333,
+    0x0F0F0F0F, then a multiply by 0x01010101 and shr 24). 64-bit parity folds with xor and reads the parity flag of the low
+    byte (xor cl, ch then setnp). 31 - clz collapses to a single bsr, which returns the bit index directly rather than a leading-zero
+    count."
+  audience: beginner
+  explanation_type: assembly
+  input:
+    language: C
+    compiler: x86-64 clang 20.1.0
+    compilationOptions: ["-O2"]
+    instructionSet: x86_64
+    code: |
+      int bits_set(unsigned x)    { return __builtin_popcount(x); }
+      int parity(unsigned long x) { return __builtin_parityl(x); }
+      int log2_floor(unsigned x)  { return 31 - __builtin_clz(x); }
+    asm:
+    - text: 'bits_set:'
+    - text: '        mov     eax, edi'
+      source:
+        line: 1
+    - text: '        shr     eax'
+      source:
+        line: 1
+    - text: '        and     eax, 1431655765'
+      source:
+        line: 1
+    - text: '        sub     edi, eax'
+      source:
+        line: 1
+    - text: '        mov     eax, edi'
+      source:
+        line: 1
+    - text: '        and     eax, 858993459'
+      source:
+        line: 1
+    - text: '        shr     edi, 2'
+      source:
+        line: 1
+    - text: '        and     edi, 858993459'
+      source:
+        line: 1
+    - text: '        add     edi, eax'
+      source:
+        line: 1
+    - text: '        mov     eax, edi'
+      source:
+        line: 1
+    - text: '        shr     eax, 4'
+      source:
+        line: 1
+    - text: '        add     eax, edi'
+      source:
+        line: 1
+    - text: '        and     eax, 252645135'
+      source:
+        line: 1
+    - text: '        imul    eax, eax, 16843009'
+      source:
+        line: 1
+    - text: '        shr     eax, 24'
+      source:
+        line: 1
+    - text: '        ret'
+      source:
+        line: 1
+    - text: ''
+    - text: 'parity:'
+    - text: '        mov     rax, rdi'
+      source:
+        line: 2
+    - text: '        shr     rax, 32'
+      source:
+        line: 2
+    - text: '        xor     eax, edi'
+      source:
+        line: 2
+    - text: '        mov     ecx, eax'
+      source:
+        line: 2
+    - text: '        shr     ecx, 16'
+      source:
+        line: 2
+    - text: '        xor     ecx, eax'
+      source:
+        line: 2
+    - text: '        xor     eax, eax'
+      source:
+        line: 2
+    - text: '        xor     cl, ch'
+      source:
+        line: 2
+    - text: '        setnp   al'
+      source:
+        line: 2
+    - text: '        ret'
+      source:
+        line: 2
+    - text: ''
+    - text: 'log2_floor:'
+    - text: '        bsr     eax, edi'
+      source:
+        line: 3
+    - text: '        ret'
+      source:
+        line: 3
+    - text: ''
+    labelDefinitions:
+      bits_set: 1
+      parity: 19
+      log2_floor: 31
+- id: hard_vector_push_back
+  category: hard_vector_growth
+  description: "push_back in a loop with the growth path inlined: capacity check, store and end-pointer bump on the fast path,
+    operator new / memcpy / operator delete on the slow path, and a throw of length_error moved to a cold section. The fast-path
+    block sits above the loop head and is entered by a jmp, so the loop shape (which label is the header, which is the back-edge)
+    is easy to get wrong."
+  audience: beginner
+  explanation_type: assembly
+  input:
+    language: C++
+    compiler: x86-64 gcc 15.2
+    compilationOptions: ["-O2"]
+    instructionSet: x86_64
+    code: |
+      #include <vector>
+
+      void fill_squares(std::vector<int>& v, int n) {
+          for (int i = 0; i < n; ++i)
+              v.push_back(i * i);
+      }
+    asm:
+    - text: '.LC0:'
+    - text: '        .string "vector::_M_realloc_append"'
+    - text: 'fill_squares(std::vector<int, std::allocator<int>>&, int):'
+    - text: '        test    esi, esi'
+      source:
+        line: 4
+    - text: '        jle     .L18'
+      source:
+        line: 4
+      labels:
+      - name: .L18
+        range:
+          startCol: 17
+          endCol: 21
+    - text: '        push    r15'
+      source:
+        line: 3
+    - text: '        push    r14'
+      source:
+        line: 3
+    - text: '        push    r13'
+      source:
+        line: 3
+    - text: '        mov     r13d, esi'
+      source:
+        line: 3
+    - text: '        push    r12'
+      source:
+        line: 3
+    - text: '        mov     r12, rdi'
+      source:
+        line: 3
+    - text: '        push    rbp'
+      source:
+        line: 3
+    - text: '        xor     ebp, ebp'
+      source:
+        line: 4
+    - text: '        push    rbx'
+      source:
+        line: 3
+    - text: '        sub     rsp, 24'
+      source:
+        line: 3
+    - text: '        jmp     .L8'
+      source:
+        line: 3
+      labels:
+      - name: .L8
+        range:
+          startCol: 17
+          endCol: 20
+    - text: '.L23:'
+    - text: '        mov     DWORD PTR [rax], edx'
+      source:
+        line: 191
+        file:
+          /cefs/22/22e6cdc013c8541ce3d1548e_consolidated/compilers_c++_x86_gcc_15.2.0/include/c++/15.2.0/bits/new_allocator.h
+    - text: '        add     ebp, 1'
+      source:
+        line: 4
+    - text: '        add     rax, 4'
+      source:
+        line: 119
+        file:
+          /cefs/22/22e6cdc013c8541ce3d1548e_consolidated/compilers_c++_x86_gcc_15.2.0/include/c++/15.2.0/bits/vector.tcc
+    - text: '        mov     QWORD PTR [r12+8], rax'
+      source:
+        line: 119
+        file:
+          /cefs/22/22e6cdc013c8541ce3d1548e_consolidated/compilers_c++_x86_gcc_15.2.0/include/c++/15.2.0/bits/vector.tcc
+    - text: '        cmp     r13d, ebp'
+      source:
+        line: 4
+    - text: '        je      .L22'
+      source:
+        line: 4
+      labels:
+      - name: .L22
+        range:
+          startCol: 17
+          endCol: 21
+    - text: '.L8:'
+    - text: '        mov     rax, QWORD PTR [r12+8]'
+      source:
+        line: 114
+        file:
+          /cefs/22/22e6cdc013c8541ce3d1548e_consolidated/compilers_c++_x86_gcc_15.2.0/include/c++/15.2.0/bits/vector.tcc
+    - text: '        mov     r14, QWORD PTR [r12+16]'
+      source:
+        line: 114
+        file:
+          /cefs/22/22e6cdc013c8541ce3d1548e_consolidated/compilers_c++_x86_gcc_15.2.0/include/c++/15.2.0/bits/vector.tcc
+    - text: '        mov     edx, ebp'
+      source:
+        line: 5
+    - text: '        imul    edx, ebp'
+      source:
+        line: 5
+    - text: '        cmp     rax, r14'
+      source:
+        line: 114
+        file:
+          /cefs/22/22e6cdc013c8541ce3d1548e_consolidated/compilers_c++_x86_gcc_15.2.0/include/c++/15.2.0/bits/vector.tcc
+    - text: '        jne     .L23'
+      source:
+        line: 114
+        file:
+          /cefs/22/22e6cdc013c8541ce3d1548e_consolidated/compilers_c++_x86_gcc_15.2.0/include/c++/15.2.0/bits/vector.tcc
+      labels:
+      - name: .L23
+        range:
+          startCol: 17
+          endCol: 21
+    - text: '        movabs  rcx, 2305843009213693951'
+      source:
+        line: 2199
+        file:
+          /cefs/22/22e6cdc013c8541ce3d1548e_consolidated/compilers_c++_x86_gcc_15.2.0/include/c++/15.2.0/bits/stl_vector.h
+    - text: '        mov     r8, QWORD PTR [r12]'
+      source:
+        line: 2199
+        file:
+          /cefs/22/22e6cdc013c8541ce3d1548e_consolidated/compilers_c++_x86_gcc_15.2.0/include/c++/15.2.0/bits/stl_vector.h
+    - text: '        sub     rax, r8'
+      source:
+        line: 1119
+        file:
+          /cefs/22/22e6cdc013c8541ce3d1548e_consolidated/compilers_c++_x86_gcc_15.2.0/include/c++/15.2.0/bits/stl_vector.h
+    - text: '        mov     rbx, rax'
+      source:
+        line: 1119
+        file:
+          /cefs/22/22e6cdc013c8541ce3d1548e_consolidated/compilers_c++_x86_gcc_15.2.0/include/c++/15.2.0/bits/stl_vector.h
+    - text: '        sar     rax, 2'
+      source:
+        line: 1119
+        file:
+          /cefs/22/22e6cdc013c8541ce3d1548e_consolidated/compilers_c++_x86_gcc_15.2.0/include/c++/15.2.0/bits/stl_vector.h
+    - text: '        cmp     rax, rcx'
+      source:
+        line: 2199
+        file:
+          /cefs/22/22e6cdc013c8541ce3d1548e_consolidated/compilers_c++_x86_gcc_15.2.0/include/c++/15.2.0/bits/stl_vector.h
+    - text: '        je      .L16'
+      source:
+        line: 2199
+        file:
+          /cefs/22/22e6cdc013c8541ce3d1548e_consolidated/compilers_c++_x86_gcc_15.2.0/include/c++/15.2.0/bits/stl_vector.h
+      labels:
+      - name: .L16
+        range:
+          startCol: 17
+          endCol: 21
+    - text: '        test    rax, rax'
+      source:
+        line: 263
+        file:
+          /cefs/22/22e6cdc013c8541ce3d1548e_consolidated/compilers_c++_x86_gcc_15.2.0/include/c++/15.2.0/bits/stl_algobase.h
+    - text: '        mov     r15d, 1'
+      source:
+        line: 263
+        file:
+          /cefs/22/22e6cdc013c8541ce3d1548e_consolidated/compilers_c++_x86_gcc_15.2.0/include/c++/15.2.0/bits/stl_algobase.h
+    - text: '        mov     QWORD PTR [rsp+8], r8'
+      source:
+        line: 263
+        file:
+          /cefs/22/22e6cdc013c8541ce3d1548e_consolidated/compilers_c++_x86_gcc_15.2.0/include/c++/15.2.0/bits/stl_algobase.h
+    - text: '        cmovne  r15, rax'
+      source:
+        line: 263
+        file:
+          /cefs/22/22e6cdc013c8541ce3d1548e_consolidated/compilers_c++_x86_gcc_15.2.0/include/c++/15.2.0/bits/stl_algobase.h
+    - text: '        mov     DWORD PTR [rsp], edx'
+      source:
+        line: 263
+        file:
+          /cefs/22/22e6cdc013c8541ce3d1548e_consolidated/compilers_c++_x86_gcc_15.2.0/include/c++/15.2.0/bits/stl_algobase.h
+    - text: '        add     r15, rax'
+      source:
+        line: 2202
+        file:
+          /cefs/22/22e6cdc013c8541ce3d1548e_consolidated/compilers_c++_x86_gcc_15.2.0/include/c++/15.2.0/bits/stl_vector.h
+    - text: '        movabs  rax, 2305843009213693951'
+      source:
+        line: 2203
+        file:
+          /cefs/22/22e6cdc013c8541ce3d1548e_consolidated/compilers_c++_x86_gcc_15.2.0/include/c++/15.2.0/bits/stl_vector.h
+    - text: '        cmp     r15, rax'
+      source:
+        line: 2203
+        file:
+          /cefs/22/22e6cdc013c8541ce3d1548e_consolidated/compilers_c++_x86_gcc_15.2.0/include/c++/15.2.0/bits/stl_vector.h
+    - text: '        cmova   r15, rax'
+      source:
+        line: 2203
+        file:
+          /cefs/22/22e6cdc013c8541ce3d1548e_consolidated/compilers_c++_x86_gcc_15.2.0/include/c++/15.2.0/bits/stl_vector.h
+    - text: '        sal     r15, 2'
+      source:
+        line: 151
+        file:
+          /cefs/22/22e6cdc013c8541ce3d1548e_consolidated/compilers_c++_x86_gcc_15.2.0/include/c++/15.2.0/bits/new_allocator.h
+    - text: '        mov     rdi, r15'
+      source:
+        line: 151
+        file:
+          /cefs/22/22e6cdc013c8541ce3d1548e_consolidated/compilers_c++_x86_gcc_15.2.0/include/c++/15.2.0/bits/new_allocator.h
+    - text: '        call    operator new(unsigned long)'
+      source:
+        line: 151
+        file:
+          /cefs/22/22e6cdc013c8541ce3d1548e_consolidated/compilers_c++_x86_gcc_15.2.0/include/c++/15.2.0/bits/new_allocator.h
+    - text: '        mov     edx, DWORD PTR [rsp]'
+      source:
+        line: 191
+        file:
+          /cefs/22/22e6cdc013c8541ce3d1548e_consolidated/compilers_c++_x86_gcc_15.2.0/include/c++/15.2.0/bits/new_allocator.h
+    - text: '        test    rbx, rbx'
+      source:
+        line: 1331
+        file:
+          /cefs/22/22e6cdc013c8541ce3d1548e_consolidated/compilers_c++_x86_gcc_15.2.0/include/c++/15.2.0/bits/stl_uninitialized.h
+    - text: '        mov     r8, QWORD PTR [rsp+8]'
+      source:
+        line: 1331
+        file:
+          /cefs/22/22e6cdc013c8541ce3d1548e_consolidated/compilers_c++_x86_gcc_15.2.0/include/c++/15.2.0/bits/stl_uninitialized.h
+    - text: '        mov     r9, rax'
+      source:
+        line: 151
+        file:
+          /cefs/22/22e6cdc013c8541ce3d1548e_consolidated/compilers_c++_x86_gcc_15.2.0/include/c++/15.2.0/bits/new_allocator.h
+    - text: '        mov     DWORD PTR [rax+rbx], edx'
+      source:
+        line: 191
+        file:
+          /cefs/22/22e6cdc013c8541ce3d1548e_consolidated/compilers_c++_x86_gcc_15.2.0/include/c++/15.2.0/bits/new_allocator.h
+    - text: '        je      .L6'
+      source:
+        line: 1331
+        file:
+          /cefs/22/22e6cdc013c8541ce3d1548e_consolidated/compilers_c++_x86_gcc_15.2.0/include/c++/15.2.0/bits/stl_uninitialized.h
+      labels:
+      - name: .L6
+        range:
+          startCol: 17
+          endCol: 20
+    - text: '        mov     rsi, r8'
+      source:
+        line: 1343
+        file:
+          /cefs/22/22e6cdc013c8541ce3d1548e_consolidated/compilers_c++_x86_gcc_15.2.0/include/c++/15.2.0/bits/stl_uninitialized.h
+    - text: '        mov     rdx, rbx'
+      source:
+        line: 1343
+        file:
+          /cefs/22/22e6cdc013c8541ce3d1548e_consolidated/compilers_c++_x86_gcc_15.2.0/include/c++/15.2.0/bits/stl_uninitialized.h
+    - text: '        mov     rdi, rax'
+      source:
+        line: 1343
+        file:
+          /cefs/22/22e6cdc013c8541ce3d1548e_consolidated/compilers_c++_x86_gcc_15.2.0/include/c++/15.2.0/bits/stl_uninitialized.h
+    - text: '        mov     QWORD PTR [rsp], r8'
+      source:
+        line: 1343
+        file:
+          /cefs/22/22e6cdc013c8541ce3d1548e_consolidated/compilers_c++_x86_gcc_15.2.0/include/c++/15.2.0/bits/stl_uninitialized.h
+    - text: '        call    memcpy'
+      source:
+        line: 1343
+        file:
+          /cefs/22/22e6cdc013c8541ce3d1548e_consolidated/compilers_c++_x86_gcc_15.2.0/include/c++/15.2.0/bits/stl_uninitialized.h
+    - text: '        mov     r8, QWORD PTR [rsp]'
+      source:
+        line: 1343
+        file:
+          /cefs/22/22e6cdc013c8541ce3d1548e_consolidated/compilers_c++_x86_gcc_15.2.0/include/c++/15.2.0/bits/stl_uninitialized.h
+    - text: '        mov     r9, rax'
+      source:
+        line: 1343
+        file:
+          /cefs/22/22e6cdc013c8541ce3d1548e_consolidated/compilers_c++_x86_gcc_15.2.0/include/c++/15.2.0/bits/stl_uninitialized.h
+    - text: '.L6:'
+    - text: '        lea     rbx, [r9+4+rbx]'
+      source:
+        line: 601
+        file:
+          /cefs/22/22e6cdc013c8541ce3d1548e_consolidated/compilers_c++_x86_gcc_15.2.0/include/c++/15.2.0/bits/vector.tcc
+    - text: '        test    r8, r8'
+      source:
+        line: 1882
+        file:
+          /cefs/22/22e6cdc013c8541ce3d1548e_consolidated/compilers_c++_x86_gcc_15.2.0/include/c++/15.2.0/bits/stl_vector.h
+    - text: '        je      .L7'
+      source:
+        line: 1882
+        file:
+          /cefs/22/22e6cdc013c8541ce3d1548e_consolidated/compilers_c++_x86_gcc_15.2.0/include/c++/15.2.0/bits/stl_vector.h
+      labels:
+      - name: .L7
+        range:
+          startCol: 17
+          endCol: 20
+    - text: '        mov     rsi, r14'
+      source:
+        line: 639
+        file:
+          /cefs/22/22e6cdc013c8541ce3d1548e_consolidated/compilers_c++_x86_gcc_15.2.0/include/c++/15.2.0/bits/vector.tcc
+    - text: '        mov     rdi, r8'
+      source:
+        line: 172
+        file:
+          /cefs/22/22e6cdc013c8541ce3d1548e_consolidated/compilers_c++_x86_gcc_15.2.0/include/c++/15.2.0/bits/new_allocator.h
+    - text: '        mov     QWORD PTR [rsp], r9'
+      source:
+        line: 172
+        file:
+          /cefs/22/22e6cdc013c8541ce3d1548e_consolidated/compilers_c++_x86_gcc_15.2.0/include/c++/15.2.0/bits/new_allocator.h
+    - text: '        sub     rsi, r8'
+      source:
+        line: 639
+        file:
+          /cefs/22/22e6cdc013c8541ce3d1548e_consolidated/compilers_c++_x86_gcc_15.2.0/include/c++/15.2.0/bits/vector.tcc
+    - text: '        call    operator delete(void*, unsigned long)'
+      source:
+        line: 172
+        file:
+          /cefs/22/22e6cdc013c8541ce3d1548e_consolidated/compilers_c++_x86_gcc_15.2.0/include/c++/15.2.0/bits/new_allocator.h
+    - text: '        mov     r9, QWORD PTR [rsp]'
+      source:
+        line: 172
+        file:
+          /cefs/22/22e6cdc013c8541ce3d1548e_consolidated/compilers_c++_x86_gcc_15.2.0/include/c++/15.2.0/bits/new_allocator.h
+    - text: '.L7:'
+    - text: '        mov     QWORD PTR [r12], r9'
+      source:
+        line: 644
+        file:
+          /cefs/22/22e6cdc013c8541ce3d1548e_consolidated/compilers_c++_x86_gcc_15.2.0/include/c++/15.2.0/bits/vector.tcc
+    - text: '        add     ebp, 1'
+      source:
+        line: 4
+    - text: '        add     r9, r15'
+      source:
+        line: 646
+        file:
+          /cefs/22/22e6cdc013c8541ce3d1548e_consolidated/compilers_c++_x86_gcc_15.2.0/include/c++/15.2.0/bits/vector.tcc
+    - text: '        mov     QWORD PTR [r12+8], rbx'
+      source:
+        line: 645
+        file:
+          /cefs/22/22e6cdc013c8541ce3d1548e_consolidated/compilers_c++_x86_gcc_15.2.0/include/c++/15.2.0/bits/vector.tcc
+    - text: '        mov     QWORD PTR [r12+16], r9'
+      source:
+        line: 646
+        file:
+          /cefs/22/22e6cdc013c8541ce3d1548e_consolidated/compilers_c++_x86_gcc_15.2.0/include/c++/15.2.0/bits/vector.tcc
+    - text: '        cmp     r13d, ebp'
+      source:
+        line: 4
+    - text: '        jne     .L8'
+      source:
+        line: 4
+      labels:
+      - name: .L8
+        range:
+          startCol: 17
+          endCol: 20
+    - text: '.L22:'
+    - text: '        add     rsp, 24'
+      source:
+        line: 6
+    - text: '        pop     rbx'
+      source:
+        line: 6
+    - text: '        pop     rbp'
+      source:
+        line: 6
+    - text: '        pop     r12'
+      source:
+        line: 6
+    - text: '        pop     r13'
+      source:
+        line: 6
+    - text: '        pop     r14'
+      source:
+        line: 6
+    - text: '        pop     r15'
+      source:
+        line: 6
+    - text: '        ret'
+      source:
+        line: 6
+    - text: '.L18:'
+    - text: '        ret'
+      source:
+        line: 6
+    - text: 'fill_squares(std::vector<int, std::allocator<int>>&, int) (.cold):'
+    - text: '.L16:'
+    - text: '        mov     edi, OFFSET FLAT:.LC0'
+      source:
+        line: 2200
+        file:
+          /cefs/22/22e6cdc013c8541ce3d1548e_consolidated/compilers_c++_x86_gcc_15.2.0/include/c++/15.2.0/bits/stl_vector.h
+      labels:
+      - name: .LC0
+        range:
+          startCol: 34
+          endCol: 38
+    - text: '        call    std::__throw_length_error(char const*)'
+      source:
+        line: 2200
+        file:
+          /cefs/22/22e6cdc013c8541ce3d1548e_consolidated/compilers_c++_x86_gcc_15.2.0/include/c++/15.2.0/bits/stl_vector.h
+    labelDefinitions:
+      .LC0: 1
+      .L23: 17
+      .L8: 24
+      .L6: 63
+      .L7: 73
+      .L22: 81
+      .L18: 90
+      .L16: 93
+      fill_squares(std::vector<int, std::allocator<int>>&, int) (.cold): 92
+      fill_squares(std::vector<int, std::allocator<int>>&, int): 3
+- id: hard_virtual_vs_final
+  category: hard_devirtualization
+  description: "gcc speculatively devirtualises the call through the base reference: it loads the vtable slot, compares it
+    to the address of Square::area, runs the inlined body if equal and otherwise falls back to an indirect jmp. The call through
+    a final class is fully inlined. total_sides speculatively inlines the base call too (folding 4 + 4 to 8 when the slot
+    matches Square::sides) and only calls through the vtable, then adds 4, in the fallback path. Claiming that every call
+    is virtual, or that none are, is wrong."
+  audience: experienced
+  explanation_type: assembly
+  input:
+    language: C++
+    compiler: x86-64 gcc 15.2
+    compilationOptions: ["-O2"]
+    instructionSet: x86_64
+    code: |
+      struct Shape {
+          virtual int sides() const = 0;
+          virtual int area() const = 0;
+      };
+
+      struct Square final : Shape {
+          int s;
+          int sides() const override { return 4; }
+          int area() const override { return s * s; }
+      };
+
+      int area_via_base(const Shape& sh)   { return sh.area(); }
+      int area_via_final(const Square& sq) { return sq.area(); }
+      int total_sides(const Shape& a, const Square& b) { return a.sides() + b.sides(); }
+    asm:
+    - text: 'Square::sides() const:'
+    - text: '        mov     eax, 4'
+      source:
+        line: 8
+    - text: '        ret'
+      source:
+        line: 8
+    - text: 'Square::area() const:'
+    - text: '        mov     eax, DWORD PTR [rdi+8]'
+      source:
+        line: 9
+    - text: '        imul    eax, eax'
+      source:
+        line: 9
+    - text: '        ret'
+      source:
+        line: 9
+    - text: 'area_via_base(Shape const&):'
+    - text: '        mov     rax, QWORD PTR [rdi]'
+      source:
+        line: 12
+    - text: '        mov     rax, QWORD PTR [rax+8]'
+      source:
+        line: 12
+    - text: '        cmp     rax, OFFSET FLAT:Square::area() const'
+      source:
+        line: 12
+      labels:
+      - name: Square::area() const
+        range:
+          startCol: 34
+          endCol: 54
+    - text: '        jne     .L9'
+      source:
+        line: 12
+      labels:
+      - name: .L9
+        range:
+          startCol: 17
+          endCol: 20
+    - text: '        mov     eax, DWORD PTR [rdi+8]'
+      source:
+        line: 9
+    - text: '        imul    eax, eax'
+      source:
+        line: 9
+    - text: '        ret'
+      source:
+        line: 12
+    - text: '.L9:'
+    - text: '        jmp     rax'
+      source:
+        line: 12
+    - text: 'area_via_final(Square const&):'
+    - text: '        mov     eax, DWORD PTR [rdi+8]'
+      source:
+        line: 9
+    - text: '        imul    eax, eax'
+      source:
+        line: 9
+    - text: '        ret'
+      source:
+        line: 13
+    - text: 'total_sides(Shape const&, Square const&):'
+    - text: '        mov     rax, QWORD PTR [rdi]'
+      source:
+        line: 14
+    - text: '        mov     rdx, QWORD PTR [rax]'
+      source:
+        line: 14
+    - text: '        cmp     rdx, OFFSET FLAT:Square::sides() const'
+      source:
+        line: 14
+      labels:
+      - name: Square::sides() const
+        range:
+          startCol: 34
+          endCol: 55
+    - text: '        jne     .L20'
+      source:
+        line: 14
+      labels:
+      - name: .L20
+        range:
+          startCol: 17
+          endCol: 21
+    - text: '        mov     eax, 8'
+      source:
+        line: 14
+    - text: '        ret'
+      source:
+        line: 14
+    - text: '.L20:'
+    - text: '        sub     rsp, 8'
+      source:
+        line: 14
+    - text: '        call    rdx'
+      source:
+        line: 14
+    - text: '        add     rsp, 8'
+      source:
+        line: 14
+    - text: '        add     eax, 4'
+      source:
+        line: 14
+    - text: '        ret'
+      source:
+        line: 14
+    labelDefinitions:
+      .L9: 16
+      .L20: 29
+      total_sides(Shape const&, Square const&): 22
+      area_via_final(Square const&): 18
+      area_via_base(Shape const&): 8
+      Square::sides() const: 1
+      Square::area() const: 4
+- id: hard_early_exit_search
+  category: hard_early_exit_vectorized
+  description: "With -O3 -march=haswell the search over a 1024-int global is vectorised: 8-lane compare with vptest, and when
+    a block contains the key a long straight-line scalar sequence re-checks each lane to find the exact index (it is not a
+    loop). Lane-index vectors are kept in ymm registers. The second function is a hand-written strlen loop that gcc replaces
+    with a call to the library strlen on s+1 after a peeled first-byte test."
+  audience: experienced
+  explanation_type: assembly
+  input:
+    language: C
+    compiler: x86-64 gcc 15.2
+    compilationOptions: ["-O3", "-march=haswell"]
+    instructionSet: x86_64
+    code: |
+      int table[1024];
+
+      int find_index(int key) {
+          for (int i = 0; i < 1024; i++)
+              if (table[i] == key)
+                  return i;
+          return -1;
+      }
+
+      unsigned long len_of(const char *s) {
+          unsigned long n = 0;
+          while (s[n])
+              n++;
+          return n;
+      }
+    asm:
+    - text: 'find_index:'
+    - text: '        mov     edx, 8'
+      source:
+        line: 4
+    - text: '        vmovd   xmm5, edi'
+      source:
+        line: 4
+    - text: '        vpcmpeqd        ymm3, ymm3, ymm3'
+      source:
+        line: 4
+    - text: '        vmovdqa ymm2, YMMWORD PTR .LC0[rip]'
+      source:
+        line: 3
+      labels:
+      - name: .LC0
+        range:
+          startCol: 35
+          endCol: 39
+    - text: '        vmovd   xmm4, edx'
+      source:
+        line: 4
+    - text: '        vpbroadcastd    ymm5, xmm5'
+      source:
+        line: 4
+    - text: '        mov     eax, OFFSET FLAT:table'
+      source:
+        line: 4
+      labels:
+      - name: table
+        range:
+          startCol: 34
+          endCol: 39
+    - text: '        vmovdqa ymm1, YMMWORD PTR .LC1[rip]'
+      source:
+        line: 3
+      labels:
+      - name: .LC1
+        range:
+          startCol: 35
+          endCol: 39
+    - text: '        mov     ecx, OFFSET FLAT:table+4096'
+      source:
+        line: 3
+      labels:
+      - name: table
+        range:
+          startCol: 34
+          endCol: 39
+    - text: '        vpslld  ymm3, ymm3, 3'
+      source:
+        line: 4
+    - text: '        vpbroadcastd    ymm4, xmm4'
+      source:
+        line: 4
+    - text: '        jmp     .L6'
+      source:
+        line: 4
+      labels:
+      - name: .L6
+        range:
+          startCol: 17
+          endCol: 20
+    - text: '.L2:'
+    - text: '        add     rax, 32'
+      source:
+        line: 4
+    - text: '        vpaddd  ymm1, ymm1, ymm4'
+      source:
+        line: 4
+    - text: '        vpaddd  ymm2, ymm2, ymm3'
+      source:
+        line: 4
+    - text: '        cmp     rcx, rax'
+      source:
+        line: 4
+    - text: '        je      .L17'
+      source:
+        line: 4
+      labels:
+      - name: .L17
+        range:
+          startCol: 17
+          endCol: 21
+    - text: '.L6:'
+    - text: '        vpcmpeqd        ymm0, ymm5, YMMWORD PTR [rax]'
+      source:
+        line: 5
+    - text: '        vptest  ymm0, ymm0'
+      source:
+        line: 5
+    - text: '        je      .L2'
+      source:
+        line: 5
+      labels:
+      - name: .L2
+        range:
+          startCol: 17
+          endCol: 20
+    - text: '        vmovd   eax, xmm1'
+      source:
+        line: 5
+    - text: '        movsx   rdx, eax'
+      source:
+        line: 5
+    - text: '        cmp     edi, DWORD PTR table[0+rdx*4]'
+      source:
+        line: 5
+      labels:
+      - name: table
+        range:
+          startCol: 32
+          endCol: 37
+    - text: '        je      .L1'
+      source:
+        line: 5
+      labels:
+      - name: .L1
+        range:
+          startCol: 17
+          endCol: 20
+    - text: '        vmovd   edx, xmm2'
+      source:
+        line: 5
+    - text: '        cmp     edx, 1'
+      source:
+        line: 4
+    - text: '        je      .L17'
+      source:
+        line: 4
+      labels:
+      - name: .L17
+        range:
+          startCol: 17
+          endCol: 21
+    - text: '        lea     ecx, [rax+1]'
+      source:
+        line: 4
+    - text: '        movsx   rsi, ecx'
+      source:
+        line: 5
+    - text: '        cmp     edi, DWORD PTR table[0+rsi*4]'
+      source:
+        line: 5
+      labels:
+      - name: table
+        range:
+          startCol: 32
+          endCol: 37
+    - text: '        je      .L18'
+      source:
+        line: 5
+      labels:
+      - name: .L18
+        range:
+          startCol: 17
+          endCol: 21
+    - text: '        cmp     edx, 2'
+      source:
+        line: 4
+    - text: '        je      .L17'
+      source:
+        line: 4
+      labels:
+      - name: .L17
+        range:
+          startCol: 17
+          endCol: 21
+    - text: '        lea     ecx, [rax+2]'
+      source:
+        line: 4
+    - text: '        movsx   rsi, ecx'
+      source:
+        line: 5
+    - text: '        cmp     edi, DWORD PTR table[0+rsi*4]'
+      source:
+        line: 5
+      labels:
+      - name: table
+        range:
+          startCol: 32
+          endCol: 37
+    - text: '        je      .L18'
+      source:
+        line: 5
+      labels:
+      - name: .L18
+        range:
+          startCol: 17
+          endCol: 21
+    - text: '        cmp     edx, 3'
+      source:
+        line: 4
+    - text: '        je      .L17'
+      source:
+        line: 4
+      labels:
+      - name: .L17
+        range:
+          startCol: 17
+          endCol: 21
+    - text: '        lea     ecx, [rax+3]'
+      source:
+        line: 4
+    - text: '        movsx   rsi, ecx'
+      source:
+        line: 5
+    - text: '        cmp     edi, DWORD PTR table[0+rsi*4]'
+      source:
+        line: 5
+      labels:
+      - name: table
+        range:
+          startCol: 32
+          endCol: 37
+    - text: '        je      .L18'
+      source:
+        line: 5
+      labels:
+      - name: .L18
+        range:
+          startCol: 17
+          endCol: 21
+    - text: '        cmp     edx, 4'
+      source:
+        line: 4
+    - text: '        je      .L17'
+      source:
+        line: 4
+      labels:
+      - name: .L17
+        range:
+          startCol: 17
+          endCol: 21
+    - text: '        lea     ecx, [rax+4]'
+      source:
+        line: 4
+    - text: '        movsx   rsi, ecx'
+      source:
+        line: 5
+    - text: '        cmp     edi, DWORD PTR table[0+rsi*4]'
+      source:
+        line: 5
+      labels:
+      - name: table
+        range:
+          startCol: 32
+          endCol: 37
+    - text: '        je      .L18'
+      source:
+        line: 5
+      labels:
+      - name: .L18
+        range:
+          startCol: 17
+          endCol: 21
+    - text: '        cmp     edx, 5'
+      source:
+        line: 4
+    - text: '        je      .L17'
+      source:
+        line: 4
+      labels:
+      - name: .L17
+        range:
+          startCol: 17
+          endCol: 21
+    - text: '        lea     ecx, [rax+5]'
+      source:
+        line: 4
+    - text: '        movsx   rsi, ecx'
+      source:
+        line: 5
+    - text: '        cmp     edi, DWORD PTR table[0+rsi*4]'
+      source:
+        line: 5
+      labels:
+      - name: table
+        range:
+          startCol: 32
+          endCol: 37
+    - text: '        je      .L18'
+      source:
+        line: 5
+      labels:
+      - name: .L18
+        range:
+          startCol: 17
+          endCol: 21
+    - text: '        cmp     edx, 6'
+      source:
+        line: 4
+    - text: '        je      .L17'
+      source:
+        line: 4
+      labels:
+      - name: .L17
+        range:
+          startCol: 17
+          endCol: 21
+    - text: '        lea     ecx, [rax+6]'
+      source:
+        line: 4
+    - text: '        movsx   rsi, ecx'
+      source:
+        line: 5
+    - text: '        cmp     edi, DWORD PTR table[0+rsi*4]'
+      source:
+        line: 5
+      labels:
+      - name: table
+        range:
+          startCol: 32
+          endCol: 37
+    - text: '        je      .L18'
+      source:
+        line: 5
+      labels:
+      - name: .L18
+        range:
+          startCol: 17
+          endCol: 21
+    - text: '        cmp     edx, 7'
+      source:
+        line: 4
+    - text: '        je      .L17'
+      source:
+        line: 4
+      labels:
+      - name: .L17
+        range:
+          startCol: 17
+          endCol: 21
+    - text: '        add     eax, 7'
+      source:
+        line: 4
+    - text: '        movsx   rdx, eax'
+      source:
+        line: 5
+    - text: '        cmp     edi, DWORD PTR table[0+rdx*4]'
+      source:
+        line: 7
+      labels:
+      - name: table
+        range:
+          startCol: 32
+          endCol: 37
+    - text: '        mov     edx, -1'
+      source:
+        line: 7
+    - text: '        cmovne  eax, edx'
+      source:
+        line: 7
+    - text: '.L1:'
+    - text: '        vzeroupper'
+      source:
+        line: 7
+    - text: '        ret'
+      source:
+        line: 8
+    - text: '.L18:'
+    - text: '        mov     eax, ecx'
+      source:
+        line: 4
+    - text: '        vzeroupper'
+      source:
+        line: 4
+    - text: '        ret'
+      source:
+        line: 8
+    - text: '.L17:'
+    - text: '        mov     eax, -1'
+      source:
+        line: 7
+    - text: '        vzeroupper'
+      source:
+        line: 7
+    - text: '        ret'
+      source:
+        line: 8
+    - text: 'len_of:'
+    - text: '        cmp     BYTE PTR [rdi], 0'
+      source:
+        line: 12
+    - text: '        je      .L24'
+      source:
+        line: 12
+      labels:
+      - name: .L24
+        range:
+          startCol: 17
+          endCol: 21
+    - text: '        sub     rsp, 8'
+      source:
+        line: 10
+    - text: '        inc     rdi'
+      source:
+        line: 12
+    - text: '        call    strlen'
+      source:
+        line: 12
+    - text: '        add     rsp, 8'
+      source:
+        line: 15
+    - text: '        inc     rax'
+      source:
+        line: 15
+    - text: '        ret'
+      source:
+        line: 15
+    - text: '.L24:'
+    - text: '        xor     eax, eax'
+      source:
+        line: 11
+    - text: '        ret'
+      source:
+        line: 15
+    - text: 'table:'
+    - text: '        .zero   4096'
+    - text: '.LC0:'
+    - text: '        .long   1024'
+    - text: '        .long   1023'
+    - text: '        .long   1022'
+    - text: '        .long   1021'
+    - text: '        .long   1020'
+    - text: '        .long   1019'
+    - text: '        .long   1018'
+    - text: '        .long   1017'
+    - text: '.LC1:'
+    - text: '        .long   0'
+    - text: '        .long   1'
+    - text: '        .long   2'
+    - text: '        .long   3'
+    - text: '        .long   4'
+    - text: '        .long   5'
+    - text: '        .long   6'
+    - text: '        .long   7'
+    labelDefinitions:
+      find_index: 1
+      .L2: 14
+      .L6: 20
+      .L1: 72
+      .L18: 75
+      .L17: 79
+      len_of: 83
+      .L24: 92
+      table: 95
+      .LC0: 97
+      .LC1: 106
+- id: hard_float_sum_fastmath
+  category: hard_float_reduction_vectorized
+  description: "With -ffast-math the float sum may be reassociated: a 4-lane addps accumulator, a horizontal reduction using
+    movhlps/shufps, and then up to three leftover elements added by straight-line scalar addss code with early exits (not
+    a loop). A separate entry label skips the vector loop for tiny n. Without -ffast-math the same loop could not be vectorised
+    at all."
+  audience: experienced
+  explanation_type: assembly
+  input:
+    language: C++
+    compiler: x86-64 gcc 15.2
+    compilationOptions: ["-O3", "-ffast-math"]
+    instructionSet: x86_64
+    code: |
+      float sum(const float* a, int n) {
+          float s = 0.0f;
+          for (int i = 0; i < n; i++)
+              s += a[i];
+          return s;
+      }
+    asm:
+    - text: 'sum(float const*, int):'
+    - text: '        test    esi, esi'
+      source:
+        line: 3
+    - text: '        jle     .L7'
+      source:
+        line: 3
+      labels:
+      - name: .L7
+        range:
+          startCol: 17
+          endCol: 20
+    - text: '        lea     eax, [rsi-1]'
+      source:
+        line: 3
+    - text: '        cmp     eax, 2'
+      source:
+        line: 3
+    - text: '        jbe     .L8'
+      source:
+        line: 3
+      labels:
+      - name: .L8
+        range:
+          startCol: 17
+          endCol: 20
+    - text: '        mov     edx, esi'
+      source:
+        line: 3
+    - text: '        mov     rax, rdi'
+      source:
+        line: 3
+    - text: '        pxor    xmm0, xmm0'
+      source:
+        line: 3
+    - text: '        shr     edx, 2'
+      source:
+        line: 3
+    - text: '        sal     rdx, 4'
+      source:
+        line: 3
+    - text: '        add     rdx, rdi'
+      source:
+        line: 3
+    - text: '.L4:'
+    - text: '        movups  xmm2, XMMWORD PTR [rax]'
+      source:
+        line: 4
+    - text: '        add     rax, 16'
+      source:
+        line: 4
+    - text: '        addps   xmm0, xmm2'
+      source:
+        line: 4
+    - text: '        cmp     rdx, rax'
+      source:
+        line: 3
+    - text: '        jne     .L4'
+      source:
+        line: 3
+      labels:
+      - name: .L4
+        range:
+          startCol: 17
+          endCol: 20
+    - text: '        movaps  xmm1, xmm0'
+      source:
+        line: 3
+    - text: '        mov     eax, esi'
+      source:
+        line: 3
+    - text: '        movhlps xmm1, xmm0'
+      source:
+        line: 3
+    - text: '        addps   xmm1, xmm0'
+      source:
+        line: 3
+    - text: '        and     eax, -4'
+      source:
+        line: 3
+    - text: '        movaps  xmm0, xmm1'
+      source:
+        line: 3
+    - text: '        shufps  xmm0, xmm1, 85'
+      source:
+        line: 3
+    - text: '        addps   xmm0, xmm1'
+      source:
+        line: 3
+    - text: '        test    sil, 3'
+      source:
+        line: 3
+    - text: '        je      .L11'
+      source:
+        line: 3
+      labels:
+      - name: .L11
+        range:
+          startCol: 17
+          endCol: 21
+    - text: '.L3:'
+    - text: '        movsx   rdx, eax'
+      source:
+        line: 4
+    - text: '        lea     ecx, [rax+1]'
+      source:
+        line: 3
+    - text: '        addss   xmm0, DWORD PTR [rdi+rdx*4]'
+      source:
+        line: 4
+    - text: '        cmp     esi, ecx'
+      source:
+        line: 3
+    - text: '        jle     .L1'
+      source:
+        line: 3
+      labels:
+      - name: .L1
+        range:
+          startCol: 17
+          endCol: 20
+    - text: '        add     eax, 2'
+      source:
+        line: 3
+    - text: '        addss   xmm0, DWORD PTR [rdi+4+rdx*4]'
+      source:
+        line: 4
+    - text: '        cmp     esi, eax'
+      source:
+        line: 3
+    - text: '        jle     .L1'
+      source:
+        line: 3
+      labels:
+      - name: .L1
+        range:
+          startCol: 17
+          endCol: 20
+    - text: '        addss   xmm0, DWORD PTR [rdi+8+rdx*4]'
+      source:
+        line: 4
+    - text: '        ret'
+      source:
+        line: 3
+    - text: '.L7:'
+    - text: '        pxor    xmm0, xmm0'
+      source:
+        line: 2
+    - text: '.L1:'
+    - text: '        ret'
+      source:
+        line: 6
+    - text: '.L11:'
+    - text: '        ret'
+      source:
+        line: 6
+    - text: '.L8:'
+    - text: '        xor     eax, eax'
+      source:
+        line: 3
+    - text: '        pxor    xmm0, xmm0'
+      source:
+        line: 2
+    - text: '        jmp     .L3'
+      source:
+        line: 2
+      labels:
+      - name: .L3
+        range:
+          startCol: 17
+          endCol: 20
+    labelDefinitions:
+      .L4: 13
+      .L3: 29
+      .L7: 41
+      .L1: 43
+      .L11: 45
+      .L8: 47
+      sum(float const*, int): 1
+- id: hard_fma_horner
+  category: hard_fused_multiply_add
+  description: "With -mfma the vfmadd132/213/231 forms differ in which operand is the addend and which register is overwritten,
+    so the digits say which operands are multiplied and which is the addend, with the first operand always the destination.
+    horner3 chains three fused steps with the result landing in xmm0 (x's register); dot4 evaluates the a[1]*b[1] product
+    first with a plain vmulss and fuses the other three terms into it, with memory operands as the third source."
+  audience: beginner
+  explanation_type: assembly
+  input:
+    language: C
+    compiler: x86-64 gcc 15.2
+    compilationOptions: ["-O2", "-mfma"]
+    instructionSet: x86_64
+    code: |
+      double horner3(double x, double a, double b, double c, double d) {
+          return ((a * x + b) * x + c) * x + d;
+      }
+
+      float dot4(const float* a, const float* b) {
+          return a[0] * b[0] + a[1] * b[1] + a[2] * b[2] + a[3] * b[3];
+      }
+    asm:
+    - text: 'horner3:'
+    - text: '        vfmadd132sd     xmm1, xmm2, xmm0'
+      source:
+        line: 2
+    - text: '        vfmadd132sd     xmm1, xmm3, xmm0'
+      source:
+        line: 2
+    - text: '        vfmadd132sd     xmm0, xmm4, xmm1'
+      source:
+        line: 2
+    - text: '        ret'
+      source:
+        line: 3
+    - text: 'dot4:'
+    - text: '        vmovss  xmm0, DWORD PTR [rdi+4]'
+      source:
+        line: 6
+    - text: '        vmulss  xmm0, xmm0, DWORD PTR [rsi+4]'
+      source:
+        line: 6
+    - text: '        vmovss  xmm1, DWORD PTR [rdi]'
+      source:
+        line: 6
+    - text: '        vfmadd231ss     xmm0, xmm1, DWORD PTR [rsi]'
+      source:
+        line: 6
+    - text: '        vmovss  xmm2, DWORD PTR [rdi+8]'
+      source:
+        line: 6
+    - text: '        vfmadd231ss     xmm0, xmm2, DWORD PTR [rsi+8]'
+      source:
+        line: 6
+    - text: '        vmovss  xmm3, DWORD PTR [rdi+12]'
+      source:
+        line: 6
+    - text: '        vfmadd231ss     xmm0, xmm3, DWORD PTR [rsi+12]'
+      source:
+        line: 6
+    - text: '        ret'
+      source:
+        line: 7
+    labelDefinitions:
+      horner3: 1
+      dot4: 6
+- id: hard_struct_return_abi
+  category: hard_struct_return_sysv
+  description: "SysV x86-64 returns a 16-byte integer struct in rax:rdx, a 24-byte struct through a hidden pointer in rdi
+    (shifting every real argument down one register, and returning that pointer in rax), and a double+long struct split across
+    xmm0 and rax. Which argument sits in which register in each function is easy to get wrong."
+  audience: beginner
+  explanation_type: assembly
+  input:
+    language: C
+    compiler: x86-64 clang 20.1.0
+    compilationOptions: ["-O2"]
+    instructionSet: x86_64
+    code: |
+      struct Pair   { long lo, hi; };
+      struct Triple { long a, b, c; };
+      struct Mixed  { double d; long n; };
+
+      struct Pair make_pair(long a, long b) {
+          struct Pair p = { b, a };
+          return p;
+      }
+
+      struct Triple make_triple(long a, long b, long c) {
+          struct Triple t = { c, b, a };
+          return t;
+      }
+
+      struct Mixed make_mixed(double d, long n) {
+          struct Mixed m = { d * 2.0, n + 1 };
+          return m;
+      }
+    asm:
+    - text: 'make_pair:'
+    - text: '        mov     rax, rsi'
+      source:
+        line: 5
+    - text: '        mov     rdx, rdi'
+      source:
+        line: 7
+    - text: '        ret'
+      source:
+        line: 7
+    - text: ''
+    - text: 'make_triple:'
+    - text: '        mov     rax, rdi'
+      source:
+        line: 10
+    - text: '        mov     qword ptr [rdi], rcx'
+      source:
+        line: 11
+    - text: '        mov     qword ptr [rdi + 8], rdx'
+      source:
+        line: 11
+    - text: '        mov     qword ptr [rdi + 16], rsi'
+      source:
+        line: 11
+    - text: '        ret'
+      source:
+        line: 12
+    - text: ''
+    - text: 'make_mixed:'
+    - text: '        addsd   xmm0, xmm0'
+      source:
+        line: 16
+    - text: '        lea     rax, [rdi + 1]'
+      source:
+        line: 16
+    - text: '        ret'
+      source:
+        line: 17
+    - text: ''
+    labelDefinitions:
+      make_pair: 1
+      make_triple: 6
+      make_mixed: 13
+- id: hard_variadic_printf
+  category: hard_variadic_abi
+  description: "Variadic calls must set al to the number of vector registers used (1 for the double, 0 otherwise); a printf
+    with a constant string and trailing newline is rewritten to puts with the newline removed from the string; each call in
+    tail position becomes a jmp, so there is no call instruction at all. Models often name the wrong function or miss why
+    eax is set."
+  audience: beginner
+  explanation_type: assembly
+  input:
+    language: C
+    compiler: x86-64 gcc 15.2
+    compilationOptions: ["-O2"]
+    instructionSet: x86_64
+    code: |
+      #include <stdio.h>
+
+      void report(const char *name, double score) { printf("%s scored %.1f\n", name, score); }
+      void report_id(int id) { printf("id=%d\n", id); }
+      void banner(void) { printf("done\n"); }
+    asm:
+    - text: '.LC0:'
+    - text: '        .string "%s scored %.1f\n"'
+    - text: 'report:'
+    - text: '        mov     rsi, rdi'
+      source:
+        line: 3
+    - text: '        mov     eax, 1'
+      source:
+        line: 3
+    - text: '        mov     edi, OFFSET FLAT:.LC0'
+      source:
+        line: 3
+      labels:
+      - name: .LC0
+        range:
+          startCol: 34
+          endCol: 38
+    - text: '        jmp     printf'
+      source:
+        line: 3
+    - text: '.LC1:'
+    - text: '        .string "id=%d\n"'
+    - text: 'report_id:'
+    - text: '        mov     esi, edi'
+      source:
+        line: 4
+    - text: '        xor     eax, eax'
+      source:
+        line: 4
+    - text: '        mov     edi, OFFSET FLAT:.LC1'
+      source:
+        line: 4
+      labels:
+      - name: .LC1
+        range:
+          startCol: 34
+          endCol: 38
+    - text: '        jmp     printf'
+      source:
+        line: 4
+    - text: '.LC2:'
+    - text: '        .string "done"'
+    - text: 'banner:'
+    - text: '        mov     edi, OFFSET FLAT:.LC2'
+      source:
+        line: 5
+      labels:
+      - name: .LC2
+        range:
+          startCol: 34
+          endCol: 38
+    - text: '        jmp     puts'
+      source:
+        line: 5
+    labelDefinitions:
+      .LC0: 1
+      report: 3
+      .LC1: 8
+      report_id: 10
+      .LC2: 15
+      banner: 17
+- id: hard_mutual_recursion
+  category: hard_recursion_to_loop
+  description: "Mutually recursive parity functions: after inlining and tail-call elimination neither function calls the other
+    any more. Each becomes a loop that subtracts 2 per iteration with exits for 0 and 1; is_odd peels one extra step before
+    entering its loop. Describing this as recursion or as a closed-form parity test are both wrong."
+  audience: experienced
+  explanation_type: assembly
+  input:
+    language: C
+    compiler: x86-64 clang 20.1.0
+    compilationOptions: ["-O2"]
+    instructionSet: x86_64
+    code: |
+      int is_odd(unsigned n);
+
+      int is_even(unsigned n) { return n == 0 ? 1 : is_odd(n - 1); }
+      int is_odd(unsigned n)  { return n == 0 ? 0 : is_even(n - 1); }
+    asm:
+    - text: 'is_even:'
+    - text: '        test    edi, edi'
+      source:
+        line: 3
+    - text: '        je      .LBB0_4'
+      source:
+        line: 3
+      labels:
+      - name: .LBB0_4
+        range:
+          startCol: 17
+          endCol: 24
+    - text: '.LBB0_2:'
+    - text: '        cmp     edi, 1'
+      source:
+        line: 3
+    - text: '        je      .LBB0_5'
+      source:
+        line: 3
+      labels:
+      - name: .LBB0_5
+        range:
+          startCol: 17
+          endCol: 24
+    - text: '        add     edi, -2'
+      source:
+        line: 4
+    - text: '        test    edi, edi'
+      source:
+        line: 3
+    - text: '        jne     .LBB0_2'
+      source:
+        line: 3
+      labels:
+      - name: .LBB0_2
+        range:
+          startCol: 17
+          endCol: 24
+    - text: '.LBB0_4:'
+    - text: '        mov     eax, 1'
+      source:
+        line: 0
+    - text: '        ret'
+      source:
+        line: 3
+    - text: '.LBB0_5:'
+    - text: '        xor     eax, eax'
+      source:
+        line: 0
+    - text: '        ret'
+      source:
+        line: 3
+    - text: ''
+    - text: 'is_odd:'
+    - text: '        xor     eax, eax'
+      source:
+        line: 4
+    - text: '        test    edi, edi'
+      source:
+        line: 4
+    - text: '        je      .LBB1_6'
+      source:
+        line: 4
+      labels:
+      - name: .LBB1_6
+        range:
+          startCol: 17
+          endCol: 24
+    - text: '        dec     edi'
+      source:
+        line: 4
+    - text: '        test    edi, edi'
+      source:
+        line: 3
+    - text: '        je      .LBB1_5'
+      source:
+        line: 3
+      labels:
+      - name: .LBB1_5
+        range:
+          startCol: 17
+          endCol: 24
+    - text: '.LBB1_3:'
+    - text: '        cmp     edi, 1'
+      source:
+        line: 3
+    - text: '        je      .LBB1_6'
+      source:
+        line: 3
+      labels:
+      - name: .LBB1_6
+        range:
+          startCol: 17
+          endCol: 24
+    - text: '        add     edi, -2'
+      source:
+        line: 4
+    - text: '        test    edi, edi'
+      source:
+        line: 3
+    - text: '        jne     .LBB1_3'
+      source:
+        line: 3
+      labels:
+      - name: .LBB1_3
+        range:
+          startCol: 17
+          endCol: 24
+    - text: '.LBB1_5:'
+    - text: '        mov     eax, 1'
+      source:
+        line: 0
+    - text: '.LBB1_6:'
+    - text: '        ret'
+      source:
+        line: 4
+    - text: ''
+    labelDefinitions:
+      is_even: 1
+      .LBB0_2: 4
+      .LBB0_4: 10
+      .LBB0_5: 13
+      is_odd: 17
+      .LBB1_3: 24
+      .LBB1_5: 30
+      .LBB1_6: 32
+- id: hard_atomic_cas_loop
+  category: hard_atomics_cmpxchg
+  description: "lock xadd for fetch_add (the old value comes back in the register operand), and a compare-exchange retry loop
+    where lock cmpxchg implicitly compares against eax and reloads eax with the current value on failure. The loop has no
+    explicit reload instruction; the implicit register use and the two exit conditions (cur >= v, or the exchange succeeded)
+    are commonly misdescribed."
+  audience: experienced
+  explanation_type: assembly
+  input:
+    language: C++
+    compiler: x86-64 clang 20.1.0
+    compilationOptions: ["-O1"]
+    instructionSet: x86_64
+    code: |
+      #include <atomic>
+
+      std::atomic<int> counter;
+
+      int next_ticket() { return counter.fetch_add(1); }
+
+      void record_max(std::atomic<int>& slot, int v) {
+          int cur = slot.load(std::memory_order_relaxed);
+          while (cur < v && !slot.compare_exchange_weak(cur, v)) {
+          }
+      }
+    asm:
+    - text: 'next_ticket():'
+    - text: '        mov     eax, 1'
+      source:
+        line: 5
+    - text: '        lock            xadd    dword ptr [rip + counter], eax'
+      source:
+        line: 631
+        file:
+          /opt/compiler-explorer/gcc-14.2.0/lib/gcc/x86_64-linux-gnu/14.2.0/../../../../include/c++/14.2.0/bits/atomic_base.h
+      labels:
+      - name: counter
+        range:
+          startCol: 50
+          endCol: 57
+    - text: '        ret'
+      source:
+        line: 5
+    - text: ''
+    - text: 'record_max(std::atomic<int>&, int):'
+    - text: '        mov     eax, dword ptr [rdi]'
+      source:
+        line: 501
+        file:
+          /opt/compiler-explorer/gcc-14.2.0/lib/gcc/x86_64-linux-gnu/14.2.0/../../../../include/c++/14.2.0/bits/atomic_base.h
+    - text: '.LBB1_1:'
+    - text: '        cmp     eax, esi'
+      source:
+        line: 9
+    - text: '        jge     .LBB1_3'
+      source:
+        line: 9
+      labels:
+      - name: .LBB1_3
+        range:
+          startCol: 17
+          endCol: 24
+    - text: '        lock            cmpxchg dword ptr [rdi], esi'
+      source:
+        line: 536
+        file:
+          /opt/compiler-explorer/gcc-14.2.0/lib/gcc/x86_64-linux-gnu/14.2.0/../../../../include/c++/14.2.0/bits/atomic_base.h
+    - text: '        jne     .LBB1_1'
+      source:
+        line: 9
+      labels:
+      - name: .LBB1_1
+        range:
+          startCol: 17
+          endCol: 24
+    - text: '.LBB1_3:'
+    - text: '        ret'
+      source:
+        line: 11
+    - text: ''
+    - text: 'counter:'
+    - text: '        .zero   4'
+    - text: ''
+    labelDefinitions:
+      .LBB1_1: 8
+      .LBB1_3: 13
+      counter: 16
+      record_max(std::atomic<int>&, int): 6
+      next_ticket(): 1
+- id: hard_exception_cleanup
+  category: hard_landing_pads
+  description: "Landing pads for a destructor during unwinding and for catch(...) are emitted after the function's ret (in
+    a cold section), reached only through the exception tables, never by a visible branch or fall-through. The cleanup calls
+    the destructor and then _Unwind_Resume; the handler calls __cxa_begin_catch / __cxa_end_catch and jumps back into the
+    normal return path. Models often treat these as dead code or normal control flow."
+  audience: beginner
+  explanation_type: assembly
+  input:
+    language: C++
+    compiler: x86-64 gcc 15.2
+    compilationOptions: ["-O2"]
+    instructionSet: x86_64
+    code: |
+      struct Guard { ~Guard(); };
+      void might_throw();
+
+      int run() {
+          Guard g;
+          might_throw();
+          return 1;
+      }
+
+      int safe() {
+          try {
+              might_throw();
+              return 0;
+          } catch (...) {
+              return -1;
+          }
+      }
+    asm:
+    - text: 'run():'
+    - text: '        push    rbx'
+      source:
+        line: 4
+    - text: '        sub     rsp, 16'
+      source:
+        line: 4
+    - text: '        call    might_throw()'
+      source:
+        line: 6
+    - text: '        lea     rdi, [rsp+15]'
+      source:
+        line: 8
+    - text: '        call    Guard::~Guard() [complete object destructor]'
+      source:
+        line: 8
+    - text: '        add     rsp, 16'
+      source:
+        line: 8
+    - text: '        mov     eax, 1'
+      source:
+        line: 8
+    - text: '        pop     rbx'
+      source:
+        line: 8
+    - text: '        ret'
+      source:
+        line: 8
+    - text: '        mov     rbx, rax'
+      source:
+        line: 8
+    - text: '        jmp     .L2'
+      source:
+        line: 8
+      labels:
+      - name: .L2
+        range:
+          startCol: 17
+          endCol: 20
+    - text: 'run() (.cold):'
+    - text: '.L2:'
+    - text: '        lea     rdi, [rsp+15]'
+    - text: '        call    Guard::~Guard() [complete object destructor]'
+    - text: '        mov     rdi, rbx'
+    - text: '        call    _Unwind_Resume'
+    - text: 'safe():'
+    - text: '        sub     rsp, 8'
+      source:
+        line: 10
+    - text: '        call    might_throw()'
+      source:
+        line: 12
+    - text: '        xor     eax, eax'
+      source:
+        line: 13
+    - text: '.L8:'
+    - text: '        add     rsp, 8'
+      source:
+        line: 17
+    - text: '        ret'
+      source:
+        line: 17
+    - text: '        jmp     .L9'
+      source:
+        line: 14
+      labels:
+      - name: .L9
+        range:
+          startCol: 17
+          endCol: 20
+    - text: ''
+    - text: 'safe() (.cold):'
+    - text: '.L9:'
+    - text: '        mov     rdi, rax'
+      source:
+        line: 14
+    - text: '        call    __cxa_begin_catch'
+      source:
+        line: 14
+    - text: '        call    __cxa_end_catch'
+      source:
+        line: 16
+    - text: '        mov     eax, -1'
+      source:
+        line: 15
+    - text: '        jmp     .L8'
+      source:
+        line: 15
+      labels:
+      - name: .L8
+        range:
+          startCol: 17
+          endCol: 20
+    - text: ''
+    labelDefinitions:
+      .L2: 14
+      .L8: 23
+      .L9: 29
+      safe() (.cold): 28
+      run() (.cold): 13
+      safe(): 19
+      run(): 1
+- id: hard_int128_multiply
+  category: hard_wide_multiply
+  description: "128-bit values travel in register pairs (low half first: rdi:rsi for the first argument, rdx:rcx for the second).
+    One-operand mul writes rdx:rax implicitly; the full 128x128 low product is one widening mul plus two imul cross terms
+    added into the high half. Which cross term uses which register is easy to garble."
+  audience: experienced
+  explanation_type: assembly
+  input:
+    language: C
+    compiler: x86-64 clang 20.1.0
+    compilationOptions: ["-O2"]
+    instructionSet: x86_64
+    code: |
+      typedef unsigned __int128 u128;
+
+      u128 mul_wide(unsigned long a, unsigned long b) { return (u128)a * b; }
+      unsigned long mul_high(unsigned long a, unsigned long b) { return ((u128)a * b) >> 64; }
+      u128 mul_full(u128 a, u128 b) { return a * b; }
+    asm:
+    - text: 'mul_wide:'
+    - text: '        mov     rax, rsi'
+      source:
+        line: 3
+    - text: '        mul     rdi'
+      source:
+        line: 3
+    - text: '        ret'
+      source:
+        line: 3
+    - text: ''
+    - text: 'mul_high:'
+    - text: '        mov     rax, rsi'
+      source:
+        line: 4
+    - text: '        mul     rdi'
+      source:
+        line: 4
+    - text: '        mov     rax, rdx'
+      source:
+        line: 4
+    - text: '        ret'
+      source:
+        line: 4
+    - text: ''
+    - text: 'mul_full:'
+    - text: '        mov     r8, rdx'
+      source:
+        line: 5
+    - text: '        mov     rax, rdx'
+      source:
+        line: 5
+    - text: '        mul     rdi'
+      source:
+        line: 5
+    - text: '        imul    rsi, r8'
+      source:
+        line: 5
+    - text: '        add     rdx, rsi'
+      source:
+        line: 5
+    - text: '        imul    rcx, rdi'
+      source:
+        line: 5
+    - text: '        add     rdx, rcx'
+      source:
+        line: 5
+    - text: '        ret'
+      source:
+        line: 5
+    - text: ''
+    labelDefinitions:
+      mul_wide: 1
+      mul_high: 6
+      mul_full: 12
+- id: hard_bitfield_update
+  category: hard_bitfield_rmw
+  description: "At -Os clang merges the bitfield accesses into word-wide masks: set_level clears bits 3-7 with the constant
+    -249 then adds the shifted value, toggle_enable is a single xor on byte 1 (bit 8 of the word), and is_mode5_enabled tests
+    mode and enable together with mask 263 compared against 261. Decoding which bits those constants select is error-prone."
+  audience: beginner
+  explanation_type: assembly
+  input:
+    language: C
+    compiler: x86-64 clang 20.1.0
+    compilationOptions: ["-Os"]
+    instructionSet: x86_64
+    code: |
+      struct Reg {
+          unsigned mode   : 3;
+          unsigned level  : 5;
+          unsigned enable : 1;
+          unsigned id     : 23;
+      };
+
+      void set_level(struct Reg *r, unsigned v) { r->level = v; }
+      unsigned get_level(const struct Reg *r)   { return r->level; }
+      void toggle_enable(struct Reg *r)         { r->enable ^= 1; }
+      int is_mode5_enabled(const struct Reg *r) { return r->enable && r->mode == 5; }
+    asm:
+    - text: 'set_level:'
+    - text: '        and     esi, 31'
+      source:
+        line: 8
+    - text: '        mov     eax, -249'
+      source:
+        line: 0
+    - text: '        and     eax, dword ptr [rdi]'
+      source:
+        line: 8
+    - text: '        lea     eax, [rax + 8*rsi]'
+      source:
+        line: 8
+    - text: '        mov     dword ptr [rdi], eax'
+      source:
+        line: 8
+    - text: '        ret'
+      source:
+        line: 8
+    - text: ''
+    - text: 'get_level:'
+    - text: '        mov     eax, dword ptr [rdi]'
+      source:
+        line: 9
+    - text: '        shr     eax, 3'
+      source:
+        line: 9
+    - text: '        and     eax, 31'
+      source:
+        line: 9
+    - text: '        ret'
+      source:
+        line: 9
+    - text: ''
+    - text: 'toggle_enable:'
+    - text: '        xor     byte ptr [rdi + 1], 1'
+      source:
+        line: 10
+    - text: '        ret'
+      source:
+        line: 10
+    - text: ''
+    - text: 'is_mode5_enabled:'
+    - text: '        mov     ecx, 263'
+      source:
+        line: 11
+    - text: '        and     ecx, dword ptr [rdi]'
+      source:
+        line: 11
+    - text: '        xor     eax, eax'
+      source:
+        line: 11
+    - text: '        cmp     ecx, 261'
+      source:
+        line: 11
+    - text: '        sete    al'
+      source:
+        line: 11
+    - text: '        ret'
+      source:
+        line: 11
+    - text: ''
+    labelDefinitions:
+      set_level: 1
+      get_level: 9
+      toggle_enable: 15
+      is_mode5_enabled: 19
+- id: hard_unrolled_dot
+  category: hard_loop_unrolling
+  description: "-funroll-loops without vectorisation: the main loop (.L3) is unrolled 8 times, and the n mod 8 leftover iterations
+    are handled before it by a compare chain that jumps into the middle of a Duff-like sequence of single-iteration blocks.
+    A separate block peels one iteration when the remainder is 7. Which block is the main loop and which is the remainder
+    entry is easy to confuse."
+  audience: experienced
+  explanation_type: assembly
+  input:
+    language: C++
+    compiler: x86-64 gcc 15.2
+    compilationOptions: ["-O2", "-funroll-loops", "-fno-tree-vectorize"]
+    instructionSet: x86_64
+    code: |
+      long dot(const int* a, const int* b, int n) {
+          long s = 0;
+          for (int i = 0; i < n; ++i)
+              s += (long)a[i] * b[i];
+          return s;
+      }
+    asm:
+    - text: 'dot(int const*, int const*, int):'
+    - text: '        test    edx, edx'
+      source:
+        line: 3
+    - text: '        jle     .L4'
+      source:
+        line: 3
+      labels:
+      - name: .L4
+        range:
+          startCol: 17
+          endCol: 20
+    - text: '        movsx   rdx, edx'
+      source:
+        line: 3
+    - text: '        xor     r10d, r10d'
+      source:
+        line: 3
+    - text: '        xor     ecx, ecx'
+      source:
+        line: 2
+    - text: '        lea     r8, [0+rdx*4]'
+      source:
+        line: 2
+    - text: '        lea     r9, [r8-4]'
+      source:
+        line: 2
+    - text: '        shr     r9, 2'
+      source:
+        line: 2
+    - text: '        add     r9, 1'
+      source:
+        line: 2
+    - text: '        and     r9d, 7'
+      source:
+        line: 2
+    - text: '        je      .L3'
+      source:
+        line: 2
+      labels:
+      - name: .L3
+        range:
+          startCol: 17
+          endCol: 20
+    - text: '        cmp     r9, 1'
+      source:
+        line: 2
+    - text: '        je      .L27'
+      source:
+        line: 2
+      labels:
+      - name: .L27
+        range:
+          startCol: 17
+          endCol: 21
+    - text: '        cmp     r9, 2'
+      source:
+        line: 2
+    - text: '        je      .L28'
+      source:
+        line: 2
+      labels:
+      - name: .L28
+        range:
+          startCol: 17
+          endCol: 21
+    - text: '        cmp     r9, 3'
+      source:
+        line: 2
+    - text: '        je      .L29'
+      source:
+        line: 2
+      labels:
+      - name: .L29
+        range:
+          startCol: 17
+          endCol: 21
+    - text: '        cmp     r9, 4'
+      source:
+        line: 2
+    - text: '        je      .L30'
+      source:
+        line: 2
+      labels:
+      - name: .L30
+        range:
+          startCol: 17
+          endCol: 21
+    - text: '        cmp     r9, 5'
+      source:
+        line: 2
+    - text: '        je      .L31'
+      source:
+        line: 2
+      labels:
+      - name: .L31
+        range:
+          startCol: 17
+          endCol: 21
+    - text: '        cmp     r9, 6'
+      source:
+        line: 2
+    - text: '        jne     .L42'
+      source:
+        line: 2
+      labels:
+      - name: .L42
+        range:
+          startCol: 17
+          endCol: 21
+    - text: '.L32:'
+    - text: '        movsx   r11, DWORD PTR [rdi+r10]'
+      source:
+        line: 4
+    - text: '        movsx   rdx, DWORD PTR [rsi+r10]'
+      source:
+        line: 4
+    - text: '        add     r10, 4'
+      source:
+        line: 3
+    - text: '        imul    r11, rdx'
+      source:
+        line: 4
+    - text: '        add     rcx, r11'
+      source:
+        line: 4
+    - text: '.L31:'
+    - text: '        movsx   rax, DWORD PTR [rdi+r10]'
+      source:
+        line: 4
+    - text: '        movsx   r9, DWORD PTR [rsi+r10]'
+      source:
+        line: 4
+    - text: '        add     r10, 4'
+      source:
+        line: 3
+    - text: '        imul    rax, r9'
+      source:
+        line: 4
+    - text: '        add     rcx, rax'
+      source:
+        line: 4
+    - text: '.L30:'
+    - text: '        movsx   r11, DWORD PTR [rdi+r10]'
+      source:
+        line: 4
+    - text: '        movsx   rdx, DWORD PTR [rsi+r10]'
+      source:
+        line: 4
+    - text: '        add     r10, 4'
+      source:
+        line: 3
+    - text: '        imul    r11, rdx'
+      source:
+        line: 4
+    - text: '        add     rcx, r11'
+      source:
+        line: 4
+    - text: '.L29:'
+    - text: '        movsx   rax, DWORD PTR [rdi+r10]'
+      source:
+        line: 4
+    - text: '        movsx   r9, DWORD PTR [rsi+r10]'
+      source:
+        line: 4
+    - text: '        add     r10, 4'
+      source:
+        line: 3
+    - text: '        imul    rax, r9'
+      source:
+        line: 4
+    - text: '        add     rcx, rax'
+      source:
+        line: 4
+    - text: '.L28:'
+    - text: '        movsx   r11, DWORD PTR [rdi+r10]'
+      source:
+        line: 4
+    - text: '        movsx   rdx, DWORD PTR [rsi+r10]'
+      source:
+        line: 4
+    - text: '        add     r10, 4'
+      source:
+        line: 3
+    - text: '        imul    r11, rdx'
+      source:
+        line: 4
+    - text: '        add     rcx, r11'
+      source:
+        line: 4
+    - text: '.L27:'
+    - text: '        movsx   rax, DWORD PTR [rdi+r10]'
+      source:
+        line: 4
+    - text: '        movsx   r9, DWORD PTR [rsi+r10]'
+      source:
+        line: 4
+    - text: '        add     r10, 4'
+      source:
+        line: 3
+    - text: '        imul    rax, r9'
+      source:
+        line: 4
+    - text: '        add     rcx, rax'
+      source:
+        line: 4
+    - text: '        cmp     r8, r10'
+      source:
+        line: 3
+    - text: '        je      .L1'
+      source:
+        line: 3
+      labels:
+      - name: .L1
+        range:
+          startCol: 17
+          endCol: 20
+    - text: '.L3:'
+    - text: '        movsx   rdx, DWORD PTR [rsi+r10]'
+      source:
+        line: 4
+    - text: '        movsx   r11, DWORD PTR [rdi+r10]'
+      source:
+        line: 4
+    - text: '        movsx   rax, DWORD PTR [rsi+4+r10]'
+      source:
+        line: 4
+    - text: '        movsx   r9, DWORD PTR [rsi+8+r10]'
+      source:
+        line: 4
+    - text: '        imul    r11, rdx'
+      source:
+        line: 4
+    - text: '        movsx   rdx, DWORD PTR [rdi+8+r10]'
+      source:
+        line: 4
+    - text: '        imul    rdx, r9'
+      source:
+        line: 4
+    - text: '        movsx   r9, DWORD PTR [rsi+16+r10]'
+      source:
+        line: 4
+    - text: '        add     r11, rcx'
+      source:
+        line: 4
+    - text: '        movsx   rcx, DWORD PTR [rdi+4+r10]'
+      source:
+        line: 4
+    - text: '        imul    rcx, rax'
+      source:
+        line: 4
+    - text: '        movsx   rax, DWORD PTR [rsi+12+r10]'
+      source:
+        line: 4
+    - text: '        add     r11, rcx'
+      source:
+        line: 4
+    - text: '        movsx   rcx, DWORD PTR [rdi+12+r10]'
+      source:
+        line: 4
+    - text: '        add     r11, rdx'
+      source:
+        line: 4
+    - text: '        movsx   rdx, DWORD PTR [rdi+16+r10]'
+      source:
+        line: 4
+    - text: '        imul    rcx, rax'
+      source:
+        line: 4
+    - text: '        movsx   rax, DWORD PTR [rsi+20+r10]'
+      source:
+        line: 4
+    - text: '        imul    rdx, r9'
+      source:
+        line: 4
+    - text: '        movsx   r9, DWORD PTR [rsi+24+r10]'
+      source:
+        line: 4
+    - text: '        add     r11, rcx'
+      source:
+        line: 4
+    - text: '        movsx   rcx, DWORD PTR [rdi+20+r10]'
+      source:
+        line: 4
+    - text: '        add     r11, rdx'
+      source:
+        line: 4
+    - text: '        movsx   rdx, DWORD PTR [rdi+24+r10]'
+      source:
+        line: 4
+    - text: '        imul    rcx, rax'
+      source:
+        line: 4
+    - text: '        movsx   rax, DWORD PTR [rsi+28+r10]'
+      source:
+        line: 4
+    - text: '        imul    rdx, r9'
+      source:
+        line: 4
+    - text: '        add     r11, rcx'
+      source:
+        line: 4
+    - text: '        movsx   rcx, DWORD PTR [rdi+28+r10]'
+      source:
+        line: 4
+    - text: '        add     r10, 32'
+      source:
+        line: 3
+    - text: '        add     r11, rdx'
+      source:
+        line: 4
+    - text: '        imul    rcx, rax'
+      source:
+        line: 4
+    - text: '        add     rcx, r11'
+      source:
+        line: 4
+    - text: '        cmp     r8, r10'
+      source:
+        line: 3
+    - text: '        jne     .L3'
+      source:
+        line: 3
+      labels:
+      - name: .L3
+        range:
+          startCol: 17
+          endCol: 20
+    - text: '.L1:'
+    - text: '        mov     rax, rcx'
+      source:
+        line: 6
+    - text: '        ret'
+      source:
+        line: 6
+    - text: '.L42:'
+    - text: '        movsx   rcx, DWORD PTR [rdi]'
+      source:
+        line: 4
+    - text: '        movsx   rax, DWORD PTR [rsi]'
+      source:
+        line: 4
+    - text: '        mov     r10d, 4'
+      source:
+        line: 3
+    - text: '        imul    rcx, rax'
+      source:
+        line: 4
+    - text: '        jmp     .L32'
+      source:
+        line: 3
+      labels:
+      - name: .L32
+        range:
+          startCol: 17
+          endCol: 21
+    - text: '.L4:'
+    - text: '        xor     ecx, ecx'
+      source:
+        line: 2
+    - text: '        mov     rax, rcx'
+      source:
+        line: 6
+    - text: '        ret'
+      source:
+        line: 6
+    labelDefinitions:
+      .L32: 25
+      .L31: 31
+      .L30: 37
+      .L29: 43
+      .L28: 49
+      .L27: 55
+      .L3: 63
+      .L1: 99
+      .L42: 102
+      .L4: 108
+      dot(int const*, int const*, int): 1
+- id: hard_o0_nested_loop
+  category: hard_unoptimized_nested_loops
+  description: "At -O0 every variable lives in a stack slot and is reloaded at each use; the nested loops are compare-and-jump
+    blocks entered by an initial jmp, with the increments placed before the condition check. The array parameter is a pointer
+    to rows of 4 ints (row offset is index << 4). Models must not call this optimised, nor mix up the inner and outer back-edges."
+  audience: beginner
+  explanation_type: assembly
+  input:
+    language: C++
+    compiler: x86-64 gcc 15.2
+    compilationOptions: ["-O0"]
+    instructionSet: x86_64
+    code: |
+      int trace_sum(const int m[4][4]) {
+          int total = 0;
+          for (int i = 0; i < 4; i++) {
+              for (int j = 0; j < 4; j++) {
+                  if (i == j)
+                      total += m[i][j];
+              }
+          }
+          return total;
+      }
+    asm:
+    - text: 'trace_sum(int const (*) [4]):'
+    - text: '        push    rbp'
+      source:
+        line: 1
+    - text: '        mov     rbp, rsp'
+      source:
+        line: 1
+    - text: '        mov     QWORD PTR [rbp-24], rdi'
+      source:
+        line: 1
+    - text: '        mov     DWORD PTR [rbp-4], 0'
+      source:
+        line: 2
+    - text: '        mov     DWORD PTR [rbp-8], 0'
+      source:
+        line: 3
+    - text: '        jmp     .L2'
+      source:
+        line: 3
+      labels:
+      - name: .L2
+        range:
+          startCol: 17
+          endCol: 20
+    - text: '.L6:'
+    - text: '        mov     DWORD PTR [rbp-12], 0'
+      source:
+        line: 4
+    - text: '        jmp     .L3'
+      source:
+        line: 4
+      labels:
+      - name: .L3
+        range:
+          startCol: 17
+          endCol: 20
+    - text: '.L5:'
+    - text: '        mov     eax, DWORD PTR [rbp-8]'
+      source:
+        line: 5
+    - text: '        cmp     eax, DWORD PTR [rbp-12]'
+      source:
+        line: 5
+    - text: '        jne     .L4'
+      source:
+        line: 5
+      labels:
+      - name: .L4
+        range:
+          startCol: 17
+          endCol: 20
+    - text: '        mov     eax, DWORD PTR [rbp-8]'
+      source:
+        line: 6
+    - text: '        cdqe'
+      source:
+        line: 6
+    - text: '        sal     rax, 4'
+      source:
+        line: 6
+    - text: '        mov     rdx, rax'
+      source:
+        line: 6
+    - text: '        mov     rax, QWORD PTR [rbp-24]'
+      source:
+        line: 6
+    - text: '        add     rdx, rax'
+      source:
+        line: 6
+    - text: '        mov     eax, DWORD PTR [rbp-12]'
+      source:
+        line: 6
+    - text: '        cdqe'
+      source:
+        line: 6
+    - text: '        mov     eax, DWORD PTR [rdx+rax*4]'
+      source:
+        line: 6
+    - text: '        add     DWORD PTR [rbp-4], eax'
+      source:
+        line: 6
+    - text: '.L4:'
+    - text: '        add     DWORD PTR [rbp-12], 1'
+      source:
+        line: 4
+    - text: '.L3:'
+    - text: '        cmp     DWORD PTR [rbp-12], 3'
+      source:
+        line: 4
+    - text: '        jle     .L5'
+      source:
+        line: 4
+      labels:
+      - name: .L5
+        range:
+          startCol: 17
+          endCol: 20
+    - text: '        add     DWORD PTR [rbp-8], 1'
+      source:
+        line: 3
+    - text: '.L2:'
+    - text: '        cmp     DWORD PTR [rbp-8], 3'
+      source:
+        line: 3
+    - text: '        jle     .L6'
+      source:
+        line: 3
+      labels:
+      - name: .L6
+        range:
+          startCol: 17
+          endCol: 20
+    - text: '        mov     eax, DWORD PTR [rbp-4]'
+      source:
+        line: 9
+    - text: '        pop     rbp'
+      source:
+        line: 10
+    - text: '        ret'
+      source:
+        line: 10
+    labelDefinitions:
+      .L6: 8
+      .L5: 11
+      .L4: 25
+      .L3: 27
+      .L2: 31
+      trace_sum(int const (*) [4]): 1
+- id: hard_fn_ptr_table
+  category: hard_function_pointer_dispatch
+  description: "A static const table of function pointers: with a constant index the call is resolved at compile time (apply_const
+    is one imul and never touches the table), while the runtime-index version stays an indirect tail jump (jmp through a register
+    loaded from the table) after shifting the real arguments down into edi and esi. The static helpers are still emitted because
+    the table takes their address."
+  audience: experienced
+  explanation_type: assembly
+  input:
+    language: C
+    compiler: x86-64 gcc 15.2
+    compilationOptions: ["-O2"]
+    instructionSet: x86_64
+    code: |
+      typedef int (*op_fn)(int, int);
+
+      static int add(int a, int b) { return a + b; }
+      static int sub(int a, int b) { return a - b; }
+      static int mul(int a, int b) { return a * b; }
+
+      static const op_fn table[] = { add, sub, mul };
+
+      int apply(unsigned op, int a, int b) { return op < 3 ? table[op](a, b) : -1; }
+      int apply_const(int a, int b) { return table[2](a, b); }
+    asm:
+    - text: 'add:'
+    - text: '        lea     eax, [rdi+rsi]'
+      source:
+        line: 3
+    - text: '        ret'
+      source:
+        line: 3
+    - text: 'sub:'
+    - text: '        mov     eax, edi'
+      source:
+        line: 4
+    - text: '        sub     eax, esi'
+      source:
+        line: 4
+    - text: '        ret'
+      source:
+        line: 4
+    - text: 'mul:'
+    - text: '        mov     eax, edi'
+      source:
+        line: 5
+    - text: '        imul    eax, esi'
+      source:
+        line: 5
+    - text: '        ret'
+      source:
+        line: 5
+    - text: 'apply:'
+    - text: '        cmp     edi, 2'
+      source:
+        line: 9
+    - text: '        ja      .L6'
+      source:
+        line: 9
+      labels:
+      - name: .L6
+        range:
+          startCol: 17
+          endCol: 20
+    - text: '        mov     edi, edi'
+      source:
+        line: 9
+    - text: '        mov     rcx, QWORD PTR table[0+rdi*8]'
+      source:
+        line: 9
+      labels:
+      - name: table
+        range:
+          startCol: 32
+          endCol: 37
+    - text: '        mov     edi, esi'
+      source:
+        line: 9
+    - text: '        mov     esi, edx'
+      source:
+        line: 9
+    - text: '        jmp     rcx'
+      source:
+        line: 9
+    - text: '.L6:'
+    - text: '        mov     eax, -1'
+      source:
+        line: 9
+    - text: '        ret'
+      source:
+        line: 9
+    - text: 'apply_const:'
+    - text: '        mov     eax, edi'
+      source:
+        line: 5
+    - text: '        imul    eax, esi'
+      source:
+        line: 5
+    - text: '        ret'
+      source:
+        line: 10
+    - text: 'table:'
+    - text: '        .quad   add'
+      labels:
+      - name: add
+        range:
+          startCol: 17
+          endCol: 20
+    - text: '        .quad   sub'
+      labels:
+      - name: sub
+        range:
+          startCol: 17
+          endCol: 20
+    - text: '        .quad   mul'
+      labels:
+      - name: mul
+        range:
+          startCol: 17
+          endCol: 20
+    labelDefinitions:
+      add: 1
+      sub: 4
+      mul: 8
+      apply: 12
+      .L6: 20
+      apply_const: 23
+      table: 27
+- id: hard_jump_to_next
+  category: hard_empty_branch_artifact
+  description: "With -DNDEBUG the assert disappears but an empty conditional branch is left behind: shr sets ZF and the je
+    that follows jumps to the label placed on the very next instruction, so both paths reach the same code. The branch has
+    no effect; it is not a zero-length check that skips code, nor an unreachable-code pattern."
+  audience: beginner
+  explanation_type: assembly
+  input:
+    language: C++
+    compiler: x86-64 gcc 16.2
+    compilationOptions: ["-std=c++23", "-O2", "-DNDEBUG"]
+    instructionSet: x86_64
+    code: |
+      #include <cassert>
+      #include <cstddef>
+      #include <cstdint>
+      #include <memory>
+      #include <span>
+
+      struct Data {
+          int x;
+          int y;
+          double current_value;
+      };
+
+      void process_data(Data &d) {
+          d.x = 42;
+          d.y = 100;
+          d.current_value = 1'000'000.00;
+      }
+
+      std::span<Data> data_from_wire(std::byte *data, std::size_t bytes) {
+          const auto elems = bytes / sizeof(Data);
+          assert(bytes % sizeof(Data) == 0);
+          return std::span<Data>(std::start_lifetime_as_array<Data>(data, elems), elems);
+      }
+
+      void process_data(char *input) {
+          process_data(*std::start_lifetime_as<Data>(input));
+      }
+    asm:
+    - text: '"process_data(Data&)":'
+    - text: '        movabs  rax, 429496729642'
+      source:
+        line: 14
+    - text: '        mov     QWORD PTR [rdi], rax'
+      source:
+        line: 14
+    - text: '        mov     rax, QWORD PTR .LC1[rip]'
+      source:
+        line: 16
+      labels:
+      - name: .LC1
+        range:
+          startCol: 32
+          endCol: 36
+    - text: '        mov     QWORD PTR [rdi+8], rax'
+      source:
+        line: 16
+    - text: '        ret'
+      source:
+        line: 17
+    - text: '"data_from_wire(std::byte*, unsigned long)":'
+    - text: '        shr     rsi, 4'
+      source:
+        line: 350
+        file:
+          /cefs/17/17a2c76db590a13a8a92c74c_consolidated/compilers_c++_x86_gcc_16.2.0/include/c++/16.2.0/bits/stl_construct.h
+    - text: '        je      .L4'
+      source:
+        line: 350
+        file:
+          /cefs/17/17a2c76db590a13a8a92c74c_consolidated/compilers_c++_x86_gcc_16.2.0/include/c++/16.2.0/bits/stl_construct.h
+      labels:
+      - name: .L4
+        range:
+          startCol: 17
+          endCol: 20
+    - text: '.L4:'
+    - text: '        mov     rax, rdi'
+      source:
+        line: 22
+    - text: '        mov     rdx, rsi'
+      source:
+        line: 22
+    - text: '        ret'
+      source:
+        line: 23
+    - text: '"process_data(char*)":'
+    - text: '        movabs  rax, 429496729642'
+      source:
+        line: 14
+    - text: '        mov     QWORD PTR [rdi], rax'
+      source:
+        line: 14
+    - text: '        mov     rax, QWORD PTR .LC1[rip]'
+      source:
+        line: 16
+      labels:
+      - name: .LC1
+        range:
+          startCol: 32
+          endCol: 36
+    - text: '        mov     QWORD PTR [rdi+8], rax'
+      source:
+        line: 16
+    - text: '        ret'
+      source:
+        line: 27
+    - text: '.LC1:'
+    - text: '        .long   0'
+    - text: '        .long   1093567616'
+    labelDefinitions:
+      .L4: 10
+      .LC1: 20
+      '"data_from_wire(std::byte*, unsigned long)"': 7
+      '"process_data(Data&)"': 1
+      '"process_data(char*)"': 14
+- id: hard_rust_iter_vs_index
+  category: hard_rust_bounds_checks
+  description: "Both Rust loops are vectorised with SSE2, which lacks a 32-bit vector multiply, so squares are built from
+    pshufd / pmuludq / punpckldq. In the indexed version the bounds check is hoisted into one test before the loop (n - 1
+    against the slice length, then panic_bounds_check); there is no per-iteration check. Without overflow checks in release
+    mode the multiplications and sum wrap silently."
+  audience: experienced
+  explanation_type: assembly
+  input:
+    language: Rust
+    compiler: rustc 1.93.0
+    compilationOptions: ["-C", "opt-level=2"]
+    instructionSet: x86_64
+    code: |
+      pub fn sum_sq_iter(v: &[i32]) -> i32 {
+          v.iter().map(|x| x * x).sum()
+      }
+
+      pub fn sum_sq_idx(v: &[i32], n: usize) -> i32 {
+          let mut s = 0;
+          for i in 0..n {
+              s += v[i] * v[i];
+          }
+          s
+      }
+    asm:
+    - text: 'example::sum_sq_idx:'
+    - text: '        test    rdx, rdx'
+      source:
+        line: 1903
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/cmp.rs
+    - text: '        je      .LBB0_1'
+      source:
+        line: 765
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/iter/range.rs
+      labels:
+      - name: .LBB0_1
+        range:
+          startCol: 17
+          endCol: 24
+    - text: '        lea     rax, [rdx - 1]'
+      source:
+        line: 8
+    - text: '        cmp     rsi, rax'
+      source:
+        line: 8
+    - text: '        jbe     .LBB0_11'
+      source:
+        line: 8
+      labels:
+      - name: .LBB0_11
+        range:
+          startCol: 17
+          endCol: 25
+    - text: '        cmp     rdx, 8'
+      source:
+        line: 765
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/iter/range.rs
+    - text: '        jae     .LBB0_6'
+      source:
+        line: 765
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/iter/range.rs
+      labels:
+      - name: .LBB0_6
+        range:
+          startCol: 17
+          endCol: 24
+    - text: '        xor     eax, eax'
+      source:
+        line: 0
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/iter/range.rs
+    - text: '        xor     ecx, ecx'
+      source:
+        line: 0
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/iter/range.rs
+    - text: '        jmp     .LBB0_5'
+      source:
+        line: 0
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/iter/range.rs
+      labels:
+      - name: .LBB0_5
+        range:
+          startCol: 17
+          endCol: 24
+    - text: '.LBB0_1:'
+    - text: '        xor     eax, eax'
+      source:
+        line: 0
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/iter/range.rs
+    - text: '        ret'
+      source:
+        line: 11
+    - text: '.LBB0_6:'
+    - text: '        mov     rcx, rdx'
+      source:
+        line: 765
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/iter/range.rs
+    - text: '        and     rcx, -8'
+      source:
+        line: 765
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/iter/range.rs
+    - text: '        pxor    xmm0, xmm0'
+      source:
+        line: 765
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/iter/range.rs
+    - text: '        xor     eax, eax'
+      source:
+        line: 765
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/iter/range.rs
+    - text: '        pxor    xmm1, xmm1'
+      source:
+        line: 765
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/iter/range.rs
+    - text: '.LBB0_7:'
+    - text: '        movdqu  xmm2, xmmword ptr [rdi + 4*rax]'
+      source:
+        line: 8
+    - text: '        movdqu  xmm3, xmmword ptr [rdi + 4*rax + 16]'
+      source:
+        line: 8
+    - text: '        pshufd  xmm4, xmm2, 245'
+      source:
+        line: 8
+    - text: '        pmuludq xmm2, xmm2'
+      source:
+        line: 8
+    - text: '        pshufd  xmm2, xmm2, 232'
+      source:
+        line: 8
+    - text: '        pmuludq xmm4, xmm4'
+      source:
+        line: 8
+    - text: '        pshufd  xmm4, xmm4, 232'
+      source:
+        line: 8
+    - text: '        punpckldq       xmm2, xmm4'
+      source:
+        line: 8
+    - text: '        paddd   xmm0, xmm2'
+      source:
+        line: 8
+    - text: '        pshufd  xmm2, xmm3, 245'
+      source:
+        line: 8
+    - text: '        pmuludq xmm3, xmm3'
+      source:
+        line: 8
+    - text: '        pshufd  xmm3, xmm3, 232'
+      source:
+        line: 8
+    - text: '        pmuludq xmm2, xmm2'
+      source:
+        line: 8
+    - text: '        pshufd  xmm2, xmm2, 232'
+      source:
+        line: 8
+    - text: '        punpckldq       xmm3, xmm2'
+      source:
+        line: 8
+    - text: '        paddd   xmm1, xmm3'
+      source:
+        line: 8
+    - text: '        add     rax, 8'
+      source:
+        line: 799
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/num/uint_macros.rs
+    - text: '        cmp     rcx, rax'
+      source:
+        line: 799
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/num/uint_macros.rs
+    - text: '        jne     .LBB0_7'
+      source:
+        line: 799
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/num/uint_macros.rs
+      labels:
+      - name: .LBB0_7
+        range:
+          startCol: 17
+          endCol: 24
+    - text: '        paddd   xmm1, xmm0'
+      source:
+        line: 765
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/iter/range.rs
+    - text: '        pshufd  xmm0, xmm1, 238'
+      source:
+        line: 765
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/iter/range.rs
+    - text: '        paddd   xmm0, xmm1'
+      source:
+        line: 765
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/iter/range.rs
+    - text: '        pshufd  xmm1, xmm0, 85'
+      source:
+        line: 765
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/iter/range.rs
+    - text: '        paddd   xmm1, xmm0'
+      source:
+        line: 765
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/iter/range.rs
+    - text: '        movd    eax, xmm1'
+      source:
+        line: 765
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/iter/range.rs
+    - text: '        jmp     .LBB0_9'
+      source:
+        line: 765
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/iter/range.rs
+      labels:
+      - name: .LBB0_9
+        range:
+          startCol: 17
+          endCol: 24
+    - text: '.LBB0_11:'
+    - text: '        push    rax'
+      source:
+        line: 765
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/iter/range.rs
+    - text: '        lea     rdx, [rip + .Lanon.b99a46d083cf1393e236285a98b1120c.1]'
+      source:
+        line: 8
+      labels:
+      - name: .Lanon.b99a46d083cf1393e236285a98b1120c.1
+        range:
+          startCol: 29
+          endCol: 70
+    - text: '        mov     rdi, rsi'
+      source:
+        line: 8
+    - text: '        call    qword ptr [rip + core::panicking::panic_bounds_check@GOTPCREL]'
+      source:
+        line: 8
+    - text: '.LBB0_5:'
+    - text: '        mov     esi, dword ptr [rdi + 4*rcx]'
+      source:
+        line: 8
+    - text: '        inc     rcx'
+      source:
+        line: 799
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/num/uint_macros.rs
+    - text: '        imul    esi, esi'
+      source:
+        line: 8
+    - text: '        add     eax, esi'
+      source:
+        line: 8
+    - text: '.LBB0_9:'
+    - text: '        cmp     rdx, rcx'
+      source:
+        line: 765
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/iter/range.rs
+    - text: '        jne     .LBB0_5'
+      source:
+        line: 765
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/iter/range.rs
+      labels:
+      - name: .LBB0_5
+        range:
+          startCol: 17
+          endCol: 24
+    - text: '        ret'
+      source:
+        line: 11
+    - text: ''
+    - text: 'example::sum_sq_iter:'
+    - text: '        test    rsi, rsi'
+      source:
+        line: 1692
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/ptr/non_null.rs
+    - text: '        je      .LBB1_1'
+      source:
+        line: 25
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/slice/iter/macros.rs
+      labels:
+      - name: .LBB1_1
+        range:
+          startCol: 17
+          endCol: 24
+    - text: '        cmp     rsi, 8'
+      source:
+        line: 284
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/slice/iter/macros.rs
+    - text: '        jae     .LBB1_5'
+      source:
+        line: 284
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/slice/iter/macros.rs
+      labels:
+      - name: .LBB1_5
+        range:
+          startCol: 17
+          endCol: 24
+    - text: '        xor     ecx, ecx'
+      source:
+        line: 0
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/slice/iter/macros.rs
+    - text: '        xor     eax, eax'
+      source:
+        line: 0
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/slice/iter/macros.rs
+    - text: '        jmp     .LBB1_4'
+      source:
+        line: 0
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/slice/iter/macros.rs
+      labels:
+      - name: .LBB1_4
+        range:
+          startCol: 17
+          endCol: 24
+    - text: '.LBB1_1:'
+    - text: '        xor     eax, eax'
+      source:
+        line: 0
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/slice/iter/macros.rs
+    - text: '        ret'
+      source:
+        line: 3
+    - text: '.LBB1_5:'
+    - text: '        movabs  rcx, 2305843009213693944'
+      source:
+        line: 0
+    - text: '        and     rcx, rsi'
+      source:
+        line: 284
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/slice/iter/macros.rs
+    - text: '        lea     rax, [4*rsi]'
+      source:
+        line: 284
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/slice/iter/macros.rs
+    - text: '        and     rax, -32'
+      source:
+        line: 284
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/slice/iter/macros.rs
+    - text: '        pxor    xmm0, xmm0'
+      source:
+        line: 284
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/slice/iter/macros.rs
+    - text: '        xor     edx, edx'
+      source:
+        line: 284
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/slice/iter/macros.rs
+    - text: '        pxor    xmm1, xmm1'
+      source:
+        line: 284
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/slice/iter/macros.rs
+    - text: '.LBB1_6:'
+    - text: '        movdqu  xmm2, xmmword ptr [rdi + rdx]'
+      source:
+        line: 50
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/internal_macros.rs
+    - text: '        movdqu  xmm3, xmmword ptr [rdi + rdx + 16]'
+      source:
+        line: 50
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/internal_macros.rs
+    - text: '        pshufd  xmm4, xmm2, 245'
+      source:
+        line: 352
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/ops/arith.rs
+    - text: '        pmuludq xmm2, xmm2'
+      source:
+        line: 352
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/ops/arith.rs
+    - text: '        pshufd  xmm2, xmm2, 232'
+      source:
+        line: 352
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/ops/arith.rs
+    - text: '        pmuludq xmm4, xmm4'
+      source:
+        line: 352
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/ops/arith.rs
+    - text: '        pshufd  xmm4, xmm4, 232'
+      source:
+        line: 352
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/ops/arith.rs
+    - text: '        punpckldq       xmm2, xmm4'
+      source:
+        line: 352
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/ops/arith.rs
+    - text: '        paddd   xmm0, xmm2'
+      source:
+        line: 53
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/iter/traits/accum.rs
+    - text: '        pshufd  xmm2, xmm3, 245'
+      source:
+        line: 352
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/ops/arith.rs
+    - text: '        pmuludq xmm3, xmm3'
+      source:
+        line: 352
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/ops/arith.rs
+    - text: '        pshufd  xmm3, xmm3, 232'
+      source:
+        line: 352
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/ops/arith.rs
+    - text: '        pmuludq xmm2, xmm2'
+      source:
+        line: 352
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/ops/arith.rs
+    - text: '        pshufd  xmm2, xmm2, 232'
+      source:
+        line: 352
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/ops/arith.rs
+    - text: '        punpckldq       xmm3, xmm2'
+      source:
+        line: 352
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/ops/arith.rs
+    - text: '        paddd   xmm1, xmm3'
+      source:
+        line: 53
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/iter/traits/accum.rs
+    - text: '        add     rdx, 32'
+      source:
+        line: 0
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/slice/iter/macros.rs
+    - text: '        cmp     rax, rdx'
+      source:
+        line: 0
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/slice/iter/macros.rs
+    - text: '        jne     .LBB1_6'
+      source:
+        line: 0
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/slice/iter/macros.rs
+      labels:
+      - name: .LBB1_6
+        range:
+          startCol: 17
+          endCol: 24
+    - text: '        paddd   xmm1, xmm0'
+      source:
+        line: 284
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/slice/iter/macros.rs
+    - text: '        pshufd  xmm0, xmm1, 238'
+      source:
+        line: 284
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/slice/iter/macros.rs
+    - text: '        paddd   xmm0, xmm1'
+      source:
+        line: 284
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/slice/iter/macros.rs
+    - text: '        pshufd  xmm1, xmm0, 85'
+      source:
+        line: 284
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/slice/iter/macros.rs
+    - text: '        paddd   xmm1, xmm0'
+      source:
+        line: 284
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/slice/iter/macros.rs
+    - text: '        movd    eax, xmm1'
+      source:
+        line: 284
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/slice/iter/macros.rs
+    - text: '        jmp     .LBB1_8'
+      source:
+        line: 284
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/slice/iter/macros.rs
+      labels:
+      - name: .LBB1_8
+        range:
+          startCol: 17
+          endCol: 24
+    - text: '.LBB1_4:'
+    - text: '        mov     edx, dword ptr [rdi + 4*rcx]'
+      source:
+        line: 50
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/internal_macros.rs
+    - text: '        imul    edx, edx'
+      source:
+        line: 352
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/ops/arith.rs
+    - text: '        add     eax, edx'
+      source:
+        line: 53
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/iter/traits/accum.rs
+    - text: '        inc     rcx'
+      source:
+        line: 799
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/num/uint_macros.rs
+    - text: '.LBB1_8:'
+    - text: '        cmp     rsi, rcx'
+      source:
+        line: 284
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/slice/iter/macros.rs
+    - text: '        jne     .LBB1_4'
+      source:
+        line: 284
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/slice/iter/macros.rs
+      labels:
+      - name: .LBB1_4
+        range:
+          startCol: 17
+          endCol: 24
+    - text: '        ret'
+      source:
+        line: 3
+    - text: ''
+    - text: '.Lanon.b99a46d083cf1393e236285a98b1120c.0:'
+    - text: '        .asciz  "/app/example.rs"'
+    - text: ''
+    - text: '.Lanon.b99a46d083cf1393e236285a98b1120c.1:'
+    - text: '        .quad   .Lanon.b99a46d083cf1393e236285a98b1120c.0'
+      labels:
+      - name: .Lanon.b99a46d083cf1393e236285a98b1120c.0
+        range:
+          startCol: 17
+          endCol: 58
+    - text: '        .asciz  "\017\000\000\000\000\000\000\000\b\000\000\000\016\000\000"'
+    - text: ''
+    labelDefinitions:
+      .LBB0_1: 12
+      .LBB0_6: 15
+      .LBB0_7: 21
+      .LBB0_11: 48
+      .LBB0_5: 53
+      .LBB0_9: 58
+      .LBB1_1: 71
+      .LBB1_5: 74
+      .LBB1_6: 82
+      .LBB1_4: 109
+      .LBB1_8: 114
+      .Lanon.b99a46d083cf1393e236285a98b1120c.0: 119
+      .Lanon.b99a46d083cf1393e236285a98b1120c.1: 122
+      example::sum_sq_iter: 63
+      example::sum_sq_idx: 1
+- id: hard_rust_enum_match
+  category: hard_rust_enum_layout
+  description: "A data-carrying enum is a tagged union: an 8-byte discriminant at offset 0 and the f64 payloads from offset
+    8. The match is a jump table of 32-bit relative offsets reached with an indirect jmp; each arm loads its payload from
+    different offsets, and the Tri arm evaluates Heron's formula with sqrtsd. Circle's constant is pi loaded from memory.
+    The Point arm is just a zeroed register."
+  audience: beginner
+  explanation_type: assembly
+  input:
+    language: Rust
+    compiler: rustc 1.93.0
+    compilationOptions: ["-C", "opt-level=3"]
+    instructionSet: x86_64
+    code: |
+      pub enum Shape {
+          Circle(f64),
+          Rect(f64, f64),
+          Tri(f64, f64, f64),
+          Point,
+      }
+
+      #[inline(never)]
+      pub fn area(s: &Shape) -> f64 {
+          match *s {
+              Shape::Circle(r) => 3.14159 * r * r,
+              Shape::Rect(w, h) => w * h,
+              Shape::Tri(a, b, c) => {
+                  let p = (a + b + c) / 2.0;
+                  (p * (p - a) * (p - b) * (p - c)).sqrt()
+              }
+              Shape::Point => 0.0,
+          }
+      }
+    asm:
+    - text: '.LCPI0_0:'
+    - text: '        .quad   0x3fe0000000000000'
+    - text: '.LCPI0_1:'
+    - text: '        .quad   0x400921f9f01b866e'
+    - text: 'example::area:'
+    - text: '        mov     rax, qword ptr [rdi]'
+      source:
+        line: 10
+    - text: '        lea     rcx, [rip + .LJTI0_0]'
+      source:
+        line: 10
+      labels:
+      - name: .LJTI0_0
+        range:
+          startCol: 29
+          endCol: 37
+    - text: '        movsxd  rax, dword ptr [rcx + 4*rax]'
+      source:
+        line: 10
+    - text: '        add     rax, rcx'
+      source:
+        line: 10
+    - text: '        jmp     rax'
+      source:
+        line: 10
+    - text: '.LBB0_2:'
+    - text: '        movsd   xmm1, qword ptr [rdi + 8]'
+      source:
+        line: 11
+    - text: '        movsd   xmm0, qword ptr [rip + .LCPI0_1]'
+      source:
+        line: 0
+      labels:
+      - name: .LCPI0_1
+        range:
+          startCol: 40
+          endCol: 48
+    - text: '        mulsd   xmm0, xmm1'
+      source:
+        line: 11
+    - text: '        mulsd   xmm0, xmm1'
+      source:
+        line: 11
+    - text: '        ret'
+      source:
+        line: 19
+    - text: '.LBB0_4:'
+    - text: '        movsd   xmm0, qword ptr [rdi + 8]'
+      source:
+        line: 13
+    - text: '        movsd   xmm1, qword ptr [rdi + 16]'
+      source:
+        line: 13
+    - text: '        movsd   xmm2, qword ptr [rdi + 24]'
+      source:
+        line: 13
+    - text: '        movapd  xmm3, xmm0'
+      source:
+        line: 14
+    - text: '        addsd   xmm3, xmm1'
+      source:
+        line: 14
+    - text: '        addsd   xmm3, xmm2'
+      source:
+        line: 14
+    - text: '        mulsd   xmm3, qword ptr [rip + .LCPI0_0]'
+      source:
+        line: 14
+      labels:
+      - name: .LCPI0_0
+        range:
+          startCol: 40
+          endCol: 48
+    - text: '        movapd  xmm4, xmm3'
+      source:
+        line: 15
+    - text: '        subsd   xmm4, xmm0'
+      source:
+        line: 15
+    - text: '        mulsd   xmm4, xmm3'
+      source:
+        line: 15
+    - text: '        movapd  xmm0, xmm3'
+      source:
+        line: 15
+    - text: '        subsd   xmm0, xmm1'
+      source:
+        line: 15
+    - text: '        mulsd   xmm0, xmm4'
+      source:
+        line: 15
+    - text: '        subsd   xmm3, xmm2'
+      source:
+        line: 15
+    - text: '        mulsd   xmm3, xmm0'
+      source:
+        line: 15
+    - text: '        xorps   xmm0, xmm0'
+      source:
+        line: 1967
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/num/f64.rs
+    - text: '        sqrtsd  xmm0, xmm3'
+      source:
+        line: 1967
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/num/f64.rs
+    - text: '        ret'
+      source:
+        line: 19
+    - text: '.LBB0_1:'
+    - text: '        xorps   xmm0, xmm0'
+      source:
+        line: 0
+    - text: '        ret'
+      source:
+        line: 19
+    - text: '.LBB0_3:'
+    - text: '        movsd   xmm0, qword ptr [rdi + 8]'
+      source:
+        line: 12
+    - text: '        mulsd   xmm0, qword ptr [rdi + 16]'
+      source:
+        line: 12
+    - text: '        ret'
+      source:
+        line: 19
+    - text: '.LJTI0_0:'
+    - text: '        .long   .LBB0_2-.LJTI0_0'
+      labels:
+      - name: .LBB0_2
+        range:
+          startCol: 17
+          endCol: 24
+      - name: .LJTI0_0
+        range:
+          startCol: 25
+          endCol: 33
+    - text: '        .long   .LBB0_3-.LJTI0_0'
+      labels:
+      - name: .LBB0_3
+        range:
+          startCol: 17
+          endCol: 24
+      - name: .LJTI0_0
+        range:
+          startCol: 25
+          endCol: 33
+    - text: '        .long   .LBB0_4-.LJTI0_0'
+      labels:
+      - name: .LBB0_4
+        range:
+          startCol: 17
+          endCol: 24
+      - name: .LJTI0_0
+        range:
+          startCol: 25
+          endCol: 33
+    - text: '        .long   .LBB0_1-.LJTI0_0'
+      labels:
+      - name: .LBB0_1
+        range:
+          startCol: 17
+          endCol: 24
+      - name: .LJTI0_0
+        range:
+          startCol: 25
+          endCol: 33
+    - text: ''
+    labelDefinitions:
+      .LCPI0_0: 1
+      .LCPI0_1: 3
+      .LBB0_2: 11
+      .LBB0_4: 17
+      .LBB0_1: 36
+      .LBB0_3: 39
+      .LJTI0_0: 43
+      example::area: 5
+- id: hard_rust_option_box
+  category: hard_rust_niche_optimization
+  description: "Option<Box<Node>> uses the null-pointer niche: None is a zero pointer, with no separate tag. sum_list is a
+    pointer-chasing loop whose test is on the pointer itself. push allocates through __rust_alloc with an out-of-memory path,
+    and the compiler also emits a recursive drop_in_place plus unwinding cleanup code placed after ret that is only reachable
+    through exception tables."
+  audience: experienced
+  explanation_type: assembly
+  input:
+    language: Rust
+    compiler: rustc 1.93.0
+    compilationOptions: ["-C", "opt-level=2"]
+    instructionSet: x86_64
+    code: |
+      pub struct Node {
+          val: i32,
+          next: Option<Box<Node>>,
+      }
+
+      #[inline(never)]
+      pub fn sum_list(mut cur: &Option<Box<Node>>) -> i32 {
+          let mut s = 0;
+          while let Some(n) = cur {
+              s += n.val;
+              cur = &n.next;
+          }
+          s
+      }
+
+      #[inline(never)]
+      pub fn push(head: Option<Box<Node>>, val: i32) -> Option<Box<Node>> {
+          Some(Box::new(Node { val, next: head }))
+      }
+    asm:
+    - text: 'core::ptr::drop_in_place<alloc::boxed::Box<example::Node>>:'
+    - text: '        push    r14'
+      source:
+        line: 805
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/ptr/mod.rs
+    - text: '        push    rbx'
+      source:
+        line: 805
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/ptr/mod.rs
+    - text: '        push    rax'
+      source:
+        line: 805
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/ptr/mod.rs
+    - text: '        mov     rbx, qword ptr [rdi]'
+      source:
+        line: 805
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/ptr/mod.rs
+    - text: '        cmp     qword ptr [rbx], 0'
+      source:
+        line: 805
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/ptr/mod.rs
+    - text: '        je      .LBB0_2'
+      source:
+        line: 805
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/ptr/mod.rs
+      labels:
+      - name: .LBB0_2
+        range:
+          startCol: 17
+          endCol: 24
+    - text: '        mov     rdi, rbx'
+      source:
+        line: 805
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/ptr/mod.rs
+    - text: '        call    core::ptr::drop_in_place<alloc::boxed::Box<example::Node>>'
+      source:
+        line: 805
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/ptr/mod.rs
+      labels:
+      - name: core::ptr::drop_in_place<alloc::boxed::Box<example::Node>>
+        range:
+          startCol: 17
+          endCol: 75
+    - text: '.LBB0_2:'
+    - text: '        mov     esi, 16'
+      source:
+        line: 115
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/alloc/src/alloc.rs
+    - text: '        mov     edx, 8'
+      source:
+        line: 115
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/alloc/src/alloc.rs
+    - text: '        mov     rdi, rbx'
+      source:
+        line: 115
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/alloc/src/alloc.rs
+    - text: '        add     rsp, 8'
+      source:
+        line: 115
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/alloc/src/alloc.rs
+    - text: '        pop     rbx'
+      source:
+        line: 115
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/alloc/src/alloc.rs
+    - text: '        pop     r14'
+      source:
+        line: 115
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/alloc/src/alloc.rs
+    - text: '        jmp     qword ptr [rip + __rustc::__rust_dealloc@GOTPCREL]'
+      source:
+        line: 115
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/alloc/src/alloc.rs
+    - text: '        mov     r14, rax'
+      source:
+        line: 0
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/alloc/src/alloc.rs
+    - text: '        mov     esi, 16'
+      source:
+        line: 115
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/alloc/src/alloc.rs
+    - text: '        mov     edx, 8'
+      source:
+        line: 115
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/alloc/src/alloc.rs
+    - text: '        mov     rdi, rbx'
+      source:
+        line: 115
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/alloc/src/alloc.rs
+    - text: '        call    qword ptr [rip + __rustc::__rust_dealloc@GOTPCREL]'
+      source:
+        line: 115
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/alloc/src/alloc.rs
+    - text: '        mov     rdi, r14'
+      source:
+        line: 115
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/alloc/src/alloc.rs
+    - text: '        call    _Unwind_Resume@PLT'
+      source:
+        line: 115
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/alloc/src/alloc.rs
+    - text: ''
+    - text: 'example::push:'
+    - text: '        push    rbp'
+      source:
+        line: 17
+    - text: '        push    r14'
+      source:
+        line: 17
+    - text: '        push    rbx'
+      source:
+        line: 17
+    - text: '        sub     rsp, 16'
+      source:
+        line: 17
+    - text: '        mov     ebp, esi'
+      source:
+        line: 17
+    - text: '        mov     rbx, rdi'
+      source:
+        line: 17
+    - text: '        mov     qword ptr [rsp], rdi'
+      source:
+        line: 17
+    - text: '        mov     dword ptr [rsp + 8], esi'
+      source:
+        line: 17
+    - text: '        call    qword ptr [rip + __rustc::__rust_no_alloc_shim_is_unstable_v2@GOTPCREL]'
+      source:
+        line: 93
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/alloc/src/alloc.rs
+    - text: '        mov     edi, 16'
+      source:
+        line: 95
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/alloc/src/alloc.rs
+    - text: '        mov     esi, 8'
+      source:
+        line: 95
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/alloc/src/alloc.rs
+    - text: '        call    qword ptr [rip + __rustc::__rust_alloc@GOTPCREL]'
+      source:
+        line: 95
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/alloc/src/alloc.rs
+    - text: '        test    rax, rax'
+      source:
+        line: 352
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/alloc/src/alloc.rs
+    - text: '        je      .LBB1_1'
+      source:
+        line: 352
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/alloc/src/alloc.rs
+      labels:
+      - name: .LBB1_1
+        range:
+          startCol: 17
+          endCol: 24
+    - text: '        mov     qword ptr [rax], rbx'
+      source:
+        line: 265
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/alloc/src/boxed.rs
+    - text: '        mov     dword ptr [rax + 8], ebp'
+      source:
+        line: 265
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/alloc/src/boxed.rs
+    - text: '        add     rsp, 16'
+      source:
+        line: 19
+    - text: '        pop     rbx'
+      source:
+        line: 19
+    - text: '        pop     r14'
+      source:
+        line: 19
+    - text: '        pop     rbp'
+      source:
+        line: 19
+    - text: '        ret'
+      source:
+        line: 19
+    - text: '.LBB1_1:'
+    - text: '        mov     edi, 8'
+      source:
+        line: 354
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/alloc/src/alloc.rs
+    - text: '        mov     esi, 16'
+      source:
+        line: 354
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/alloc/src/alloc.rs
+    - text: '        call    qword ptr [rip + alloc::alloc::handle_alloc_error@GOTPCREL]'
+      source:
+        line: 354
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/alloc/src/alloc.rs
+    - text: '        ud2'
+      source:
+        line: 354
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/alloc/src/alloc.rs
+    - text: '        mov     r14, rax'
+      source:
+        line: 0
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/alloc/src/alloc.rs
+    - text: '        test    rbx, rbx'
+      source:
+        line: 805
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/ptr/mod.rs
+    - text: '        je      .LBB1_5'
+      source:
+        line: 805
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/ptr/mod.rs
+      labels:
+      - name: .LBB1_5
+        range:
+          startCol: 17
+          endCol: 24
+    - text: '        mov     rdi, rsp'
+      source:
+        line: 0
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/ptr/mod.rs
+    - text: '        call    core::ptr::drop_in_place<alloc::boxed::Box<example::Node>>'
+      source:
+        line: 805
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/ptr/mod.rs
+      labels:
+      - name: core::ptr::drop_in_place<alloc::boxed::Box<example::Node>>
+        range:
+          startCol: 17
+          endCol: 75
+    - text: '.LBB1_5:'
+    - text: '        mov     rdi, r14'
+      source:
+        line: 0
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/ptr/mod.rs
+    - text: '        call    _Unwind_Resume@PLT'
+      source:
+        line: 0
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/ptr/mod.rs
+    - text: '        call    qword ptr [rip + core::panicking::panic_in_cleanup@GOTPCREL]'
+      source:
+        line: 264
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/alloc/src/boxed.rs
+    - text: ''
+    - text: 'example::sum_list:'
+    - text: '        mov     rcx, qword ptr [rdi]'
+      source:
+        line: 9
+    - text: '        xor     eax, eax'
+      source:
+        line: 9
+    - text: '        test    rcx, rcx'
+      source:
+        line: 9
+    - text: '        je      .LBB2_3'
+      source:
+        line: 9
+      labels:
+      - name: .LBB2_3
+        range:
+          startCol: 17
+          endCol: 24
+    - text: '.LBB2_1:'
+    - text: '        add     eax, dword ptr [rcx + 8]'
+      source:
+        line: 10
+    - text: '        mov     rcx, qword ptr [rcx]'
+      source:
+        line: 9
+    - text: '        test    rcx, rcx'
+      source:
+        line: 9
+    - text: '        jne     .LBB2_1'
+      source:
+        line: 9
+      labels:
+      - name: .LBB2_1
+        range:
+          startCol: 17
+          endCol: 24
+    - text: '.LBB2_3:'
+    - text: '        ret'
+      source:
+        line: 14
+    - text: ''
+    - text: 'DW.ref.rust_eh_personality:'
+    - text: '        .quad   rust_eh_personality'
+    labelDefinitions:
+      .LBB0_2: 10
+      .LBB1_1: 48
+      .LBB1_5: 58
+      .LBB2_1: 68
+      .LBB2_3: 73
+      DW.ref.rust_eh_personality: 76
+      core::ptr::drop_in_place<alloc::boxed::Box<example::Node>>: 1
+      example::sum_list: 63
+      example::push: 26
+- id: hard_rust_checked_arith
+  category: hard_rust_overflow_checks
+  description: "checked_mul / checked_add return Option<u32> in a register pair: tag in eax and value in edx. The multiply
+    overflow comes from OF after a one-operand mul (setno), the add overflow is detected by comparing the sum with an operand
+    (cmp, setae), and the two are combined with and. With overflow-checks on, plain u8 addition branches to a panic call instead
+    of wrapping."
+  audience: beginner
+  explanation_type: assembly
+  input:
+    language: Rust
+    compiler: rustc 1.93.0
+    compilationOptions: ["-C", "opt-level=2", "-C", "overflow-checks=on"]
+    instructionSet: x86_64
+    code: |
+      #[inline(never)]
+      pub fn mul_add(a: u32, b: u32, c: u32) -> Option<u32> {
+          a.checked_mul(b)?.checked_add(c)
+      }
+
+      #[inline(never)]
+      pub fn bump(x: u8) -> u8 {
+          x + 1
+      }
+    asm:
+    - text: 'example::bump:'
+    - text: '        cmp     dil, -1'
+      source:
+        line: 8
+    - text: '        je      .LBB0_2'
+      source:
+        line: 8
+      labels:
+      - name: .LBB0_2
+        range:
+          startCol: 17
+          endCol: 24
+    - text: '        inc     dil'
+      source:
+        line: 8
+    - text: '        mov     eax, edi'
+      source:
+        line: 9
+    - text: '        ret'
+      source:
+        line: 9
+    - text: '.LBB0_2:'
+    - text: '        push    rax'
+      source:
+        line: 9
+    - text: '        lea     rdi, [rip + .Lanon.edbb9804330ee55236a96578ff89dda3.1]'
+      source:
+        line: 8
+      labels:
+      - name: .Lanon.edbb9804330ee55236a96578ff89dda3.1
+        range:
+          startCol: 29
+          endCol: 70
+    - text: '        call    qword ptr [rip + core::panicking::panic_const::panic_const_add_overflow@GOTPCREL]'
+      source:
+        line: 8
+    - text: ''
+    - text: 'example::mul_add:'
+    - text: '        mov     ecx, edx'
+      source:
+        line: 2
+    - text: '        mov     eax, edi'
+      source:
+        line: 2
+    - text: '        mul     esi'
+      source:
+        line: 2946
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/num/uint_macros.rs
+    - text: '        lea     edx, [rax + rcx]'
+      source:
+        line: 457
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/intrinsics/mod.rs
+    - text: '        setno   cl'
+      source:
+        line: 457
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/intrinsics/mod.rs
+    - text: '        cmp     edx, eax'
+      source:
+        line: 457
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/intrinsics/mod.rs
+    - text: '        setae   al'
+      source:
+        line: 457
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/intrinsics/mod.rs
+    - text: '        and     al, cl'
+      source:
+        line: 457
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/intrinsics/mod.rs
+    - text: '        movzx   eax, al'
+      source:
+        line: 457
+        file: /rustc/254b59607d4417e9dffbc307138ae5c86280fe4c/library/core/src/intrinsics/mod.rs
+    - text: '        ret'
+      source:
+        line: 4
+    - text: ''
+    - text: '.Lanon.edbb9804330ee55236a96578ff89dda3.0:'
+    - text: '        .asciz  "/app/example.rs"'
+    - text: ''
+    - text: '.Lanon.edbb9804330ee55236a96578ff89dda3.1:'
+    - text: '        .quad   .Lanon.edbb9804330ee55236a96578ff89dda3.0'
+      labels:
+      - name: .Lanon.edbb9804330ee55236a96578ff89dda3.0
+        range:
+          startCol: 17
+          endCol: 58
+    - text: '        .asciz  "\017\000\000\000\000\000\000\000\b\000\000\000\005\000\000"'
+    - text: ''
+    labelDefinitions:
+      .LBB0_2: 7
+      .Lanon.edbb9804330ee55236a96578ff89dda3.0: 24
+      .Lanon.edbb9804330ee55236a96578ff89dda3.1: 27
+      example::mul_add: 12
+      example::bump: 1
+- id: hard_a64_prologue_csel
+  category: hard_aarch64_prologue_csel
+  description: "aarch64 frame setup uses pre-indexed stp with writeback (stp x29, x30, [sp, -32]!) and a second stp for callee-saved
+    x19/x20, and two csel instructions compute min and max from one cmp x1, x0, with the same operand order but opposite conditions
+    (le versus ge). Which register holds which result across the two calls, and the ldp post-index unwind, are easy to confuse."
+  audience: beginner
+  explanation_type: assembly
+  input:
+    language: C
+    compiler: ARM64 gcc 15.2.0
+    compilationOptions: ["-O2"]
+    instructionSet: aarch64
+    code: |
+      long helper(long);
+
+      long pick_and_call(long a, long b) {
+          long hi = a > b ? a : b;
+          long lo = a < b ? a : b;
+          return helper(hi) + helper(lo);
+      }
+    asm:
+    - text: 'pick_and_call:'
+    - text: '        stp     x29, x30, [sp, -32]!'
+      source:
+        line: 3
+    - text: '        cmp     x1, x0'
+      source:
+        line: 5
+    - text: '        mov     x29, sp'
+      source:
+        line: 3
+    - text: '        stp     x19, x20, [sp, 16]'
+      source:
+        line: 3
+    - text: '        csel    x20, x1, x0, le'
+      source:
+        line: 5
+    - text: '        csel    x0, x1, x0, ge'
+      source:
+        line: 6
+    - text: '        bl      helper'
+      source:
+        line: 6
+    - text: '        mov     x19, x0'
+      source:
+        line: 6
+    - text: '        mov     x0, x20'
+      source:
+        line: 6
+    - text: '        bl      helper'
+      source:
+        line: 6
+    - text: '        add     x0, x19, x0'
+      source:
+        line: 7
+    - text: '        ldp     x19, x20, [sp, 16]'
+      source:
+        line: 7
+    - text: '        ldp     x29, x30, [sp], 32'
+      source:
+        line: 7
+    - text: '        ret'
+      source:
+        line: 7
+    labelDefinitions:
+      pick_and_call: 1
+- id: hard_a64_neon_loop
+  category: hard_aarch64_vectorized_loop
+  description: "Auto-vectorised saxpy on aarch64: the main loop processes four floats per iteration with q-register ldr/str
+    and fmla by element (v0.s[0] is the scalar a); the 0-3 leftover elements are straight-line scalar fmadd blocks with early
+    exits, not a loop. The byte count for the vector loop is built with lsr / lsl, and a separate entry label skips the vector
+    loop when n < 4."
+  audience: experienced
+  explanation_type: assembly
+  input:
+    language: C
+    compiler: ARM64 gcc 15.2.0
+    compilationOptions: ["-O3"]
+    instructionSet: aarch64
+    code: |
+      void saxpy(float *restrict y, const float *restrict x, float a, int n) {
+          for (int i = 0; i < n; i++)
+              y[i] += a * x[i];
+      }
+    asm:
+    - text: 'saxpy:'
+    - text: '        cmp     w2, 0'
+      source:
+        line: 2
+    - text: '        ble     .L1'
+      source:
+        line: 2
+      labels:
+      - name: .L1
+        range:
+          startCol: 17
+          endCol: 20
+    - text: '        sub     w3, w2, #1'
+      source:
+        line: 2
+    - text: '        cmp     w3, 2'
+      source:
+        line: 2
+    - text: '        bls     .L6'
+      source:
+        line: 2
+      labels:
+      - name: .L6
+        range:
+          startCol: 17
+          endCol: 20
+    - text: '        lsr     w4, w2, 2'
+      source:
+        line: 2
+    - text: '        mov     x3, 0'
+      source:
+        line: 2
+    - text: '        lsl     x4, x4, 4'
+      source:
+        line: 2
+    - text: '.L4:'
+    - text: '        ldr     q5, [x0, x3]'
+      source:
+        line: 3
+    - text: '        ldr     q6, [x1, x3]'
+      source:
+        line: 3
+    - text: '        fmla    v5.4s, v6.4s, v0.s[0]'
+      source:
+        line: 3
+    - text: '        str     q5, [x0, x3]'
+      source:
+        line: 3
+    - text: '        add     x3, x3, 16'
+      source:
+        line: 2
+    - text: '        cmp     x3, x4'
+      source:
+        line: 2
+    - text: '        bne     .L4'
+      source:
+        line: 2
+      labels:
+      - name: .L4
+        range:
+          startCol: 17
+          endCol: 20
+    - text: '        and     w4, w2, -4'
+      source:
+        line: 2
+    - text: '        cmp     w2, w4'
+      source:
+        line: 2
+    - text: '        beq     .L1'
+      source:
+        line: 2
+      labels:
+      - name: .L1
+        range:
+          startCol: 17
+          endCol: 20
+    - text: '.L3:'
+    - text: '        ubfiz   x3, x4, 2, 32'
+      source:
+        line: 3
+    - text: '        add     w5, w4, 1'
+      source:
+        line: 2
+    - text: '        ldr     s4, [x1, x3]'
+      source:
+        line: 3
+    - text: '        ldr     s3, [x0, x3]'
+      source:
+        line: 3
+    - text: '        fmadd   s3, s4, s0, s3'
+      source:
+        line: 3
+    - text: '        str     s3, [x0, x3]'
+      source:
+        line: 3
+    - text: '        cmp     w2, w5'
+      source:
+        line: 2
+    - text: '        ble     .L1'
+      source:
+        line: 2
+      labels:
+      - name: .L1
+        range:
+          startCol: 17
+          endCol: 20
+    - text: '        add     x5, x3, 4'
+      source:
+        line: 3
+    - text: '        add     w4, w4, 2'
+      source:
+        line: 2
+    - text: '        ldr     s2, [x1, x5]'
+      source:
+        line: 3
+    - text: '        ldr     s1, [x0, x5]'
+      source:
+        line: 3
+    - text: '        fmadd   s1, s0, s2, s1'
+      source:
+        line: 3
+    - text: '        str     s1, [x0, x5]'
+      source:
+        line: 3
+    - text: '        cmp     w2, w4'
+      source:
+        line: 2
+    - text: '        ble     .L1'
+      source:
+        line: 2
+      labels:
+      - name: .L1
+        range:
+          startCol: 17
+          endCol: 20
+    - text: '        add     x3, x3, 8'
+      source:
+        line: 3
+    - text: '        ldr     s31, [x1, x3]'
+      source:
+        line: 3
+    - text: '        ldr     s30, [x0, x3]'
+      source:
+        line: 3
+    - text: '        fmadd   s30, s31, s0, s30'
+      source:
+        line: 3
+    - text: '        str     s30, [x0, x3]'
+      source:
+        line: 3
+    - text: '.L1:'
+    - text: '        ret'
+      source:
+        line: 4
+    - text: '.L6:'
+    - text: '        mov     w4, 0'
+      source:
+        line: 2
+    - text: '        b       .L3'
+      source:
+        line: 2
+      labels:
+      - name: .L3
+        range:
+          startCol: 17
+          endCol: 20
+    labelDefinitions:
+      saxpy: 1
+      .L4: 10
+      .L3: 21
+      .L1: 43
+      .L6: 45
+- id: hard_a64_o0_loop
+  category: hard_aarch64_unoptimized
+  description: "-O0 aarch64: a 32-byte frame is allocated, the argument and both locals are spilled to sp-relative slots and
+    reloaded at every use, and the loop is entered by an unconditional branch to the comparison at the bottom. Nothing is
+    kept in registers across statements; claiming any optimisation here is wrong."
+  audience: beginner
+  explanation_type: assembly
+  input:
+    language: C
+    compiler: ARM64 gcc 15.2.0
+    compilationOptions: ["-O0"]
+    instructionSet: aarch64
+    code: |
+      int sum_to(int n) {
+          int s = 0;
+          for (int i = 1; i <= n; i++)
+              s += i;
+          return s;
+      }
+    asm:
+    - text: 'sum_to:'
+    - text: '        sub     sp, sp, #32'
+      source:
+        line: 1
+    - text: '        str     w0, [sp, 12]'
+      source:
+        line: 1
+    - text: '        str     wzr, [sp, 28]'
+      source:
+        line: 2
+    - text: '        mov     w0, 1'
+      source:
+        line: 3
+    - text: '        str     w0, [sp, 24]'
+      source:
+        line: 3
+    - text: '        b       .L2'
+      source:
+        line: 3
+      labels:
+      - name: .L2
+        range:
+          startCol: 17
+          endCol: 20
+    - text: '.L3:'
+    - text: '        ldr     w1, [sp, 28]'
+      source:
+        line: 4
+    - text: '        ldr     w0, [sp, 24]'
+      source:
+        line: 4
+    - text: '        add     w0, w1, w0'
+      source:
+        line: 4
+    - text: '        str     w0, [sp, 28]'
+      source:
+        line: 4
+    - text: '        ldr     w0, [sp, 24]'
+      source:
+        line: 3
+    - text: '        add     w0, w0, 1'
+      source:
+        line: 3
+    - text: '        str     w0, [sp, 24]'
+      source:
+        line: 3
+    - text: '.L2:'
+    - text: '        ldr     w1, [sp, 24]'
+      source:
+        line: 3
+    - text: '        ldr     w0, [sp, 12]'
+      source:
+        line: 3
+    - text: '        cmp     w1, w0'
+      source:
+        line: 3
+    - text: '        ble     .L3'
+      source:
+        line: 3
+      labels:
+      - name: .L3
+        range:
+          startCol: 17
+          endCol: 20
+    - text: '        ldr     w0, [sp, 28]'
+      source:
+        line: 5
+    - text: '        add     sp, sp, 32'
+      source:
+        line: 6
+    - text: '        ret'
+      source:
+        line: 6
+    labelDefinitions:
+      sum_to: 1
+      .L3: 8
+      .L2: 16
+- id: hard_a64_ccmp_select
+  category: hard_aarch64_conditional_compare
+  description: "ccmp performs the second comparison only if the first condition held, otherwise it loads the immediate NZCV
+    value (#4 sets Z, which makes eq true in either_zero and gt false in both_positive); cset then materialises the boolean.
+    has_flag is a single ubfx bit extract and pick is tst plus csel. The ccmp semantics and the inverted-looking condition
+    codes are routinely described incorrectly."
+  audience: experienced
+  explanation_type: assembly
+  input:
+    language: C
+    compiler: armv8-a clang 20.1.0
+    compilationOptions: ["-O2"]
+    instructionSet: aarch64
+    code: |
+      int either_zero(int a, int b)       { return a == 0 || b == 0; }
+      int both_positive(int a, int b)     { return a > 0 && b > 0; }
+      int has_flag(unsigned f)            { return (f & 0x40) != 0; }
+      int pick(unsigned f, int a, int b)  { return (f & 0x80) ? a : b; }
+    asm:
+    - text: 'either_zero:'
+    - text: '        cmp     w0, #0'
+      source:
+        line: 1
+    - text: '        ccmp    w1, #0, #4, ne'
+      source:
+        line: 1
+    - text: '        cset    w0, eq'
+      source:
+        line: 1
+    - text: '        ret'
+      source:
+        line: 1
+    - text: ''
+    - text: 'both_positive:'
+    - text: '        cmp     w0, #0'
+      source:
+        line: 2
+    - text: '        ccmp    w1, #0, #4, gt'
+      source:
+        line: 2
+    - text: '        cset    w0, gt'
+      source:
+        line: 2
+    - text: '        ret'
+      source:
+        line: 2
+    - text: ''
+    - text: 'has_flag:'
+    - text: '        ubfx    w0, w0, #6, #1'
+      source:
+        line: 3
+    - text: '        ret'
+      source:
+        line: 3
+    - text: ''
+    - text: 'pick:'
+    - text: '        tst     w0, #0x80'
+      source:
+        line: 4
+    - text: '        csel    w0, w2, w1, eq'
+      source:
+        line: 4
+    - text: '        ret'
+      source:
+        line: 4
+    - text: ''
+    labelDefinitions:
+      either_zero: 1
+      both_positive: 7
+      has_flag: 13
+      pick: 17
+- id: hard_rv_count_loop
+  category: hard_riscv_loops
+  description: "RISC-V has no flags: conditions are fused into branches such as ble a4,zero and bne against zero (what bnez
+    expands to). count_pos computes an end pointer up front and reuses a1 and a0 for different roles (end pointer, then the
+    counter), skips the increment with a forward branch, and loops on pointer inequality. 32-bit adds use addiw/addw to keep
+    results sign-extended on rv64."
+  audience: experienced
+  explanation_type: assembly
+  input:
+    language: C
+    compiler: RISC-V (64-bits) gcc 15.2.0
+    compilationOptions: ["-O2"]
+    instructionSet: riscv64
+    code: |
+      int count_pos(const int *a, int n) {
+          int c = 0;
+          for (int i = 0; i < n; i++)
+              if (a[i] > 0)
+                  c++;
+          return c;
+      }
+
+      int bits_in(unsigned long x) {
+          int c = 0;
+          while (x) {
+              c += x & 1;
+              x >>= 1;
+          }
+          return c;
+      }
+    asm:
+    - text: 'count_pos:'
+    - text: '        ble     a1,zero,.L5'
+      labels:
+      - name: .L5
+        range:
+          startCol: 25
+          endCol: 28
+    - text: '        slli    a1,a1,2'
+    - text: '        mv      a5,a0'
+    - text: '        add     a1,a0,a1'
+    - text: '        li      a0,0'
+    - text: '.L4:'
+    - text: '        lw      a4,0(a5)'
+    - text: '        addi    a5,a5,4'
+    - text: '        ble     a4,zero,.L3'
+      labels:
+      - name: .L3
+        range:
+          startCol: 25
+          endCol: 28
+    - text: '        addiw   a0,a0,1'
+    - text: '.L3:'
+    - text: '        bne     a1,a5,.L4'
+      labels:
+      - name: .L4
+        range:
+          startCol: 23
+          endCol: 26
+    - text: '        ret'
+    - text: '.L5:'
+    - text: '        li      a0,0'
+    - text: '        ret'
+    - text: 'bits_in:'
+    - text: '        mv      a5,a0'
+    - text: '        li      a0,0'
+    - text: '        beq     a5,zero,.L11'
+      labels:
+      - name: .L11
+        range:
+          startCol: 25
+          endCol: 29
+    - text: '.L10:'
+    - text: '        andi    a4,a5,1'
+    - text: '        srli    a5,a5,1'
+    - text: '        addw    a0,a4,a0'
+    - text: '        bne     a5,zero,.L10'
+      labels:
+      - name: .L10
+        range:
+          startCol: 25
+          endCol: 29
+    - text: '        ret'
+    - text: '.L11:'
+    - text: '        ret'
+    labelDefinitions:
+      count_pos: 1
+      .L4: 7
+      .L3: 12
+      .L5: 15
+      bits_in: 18
+      .L10: 22
+      .L11: 28
+- id: hard_rv_div_const
+  category: hard_riscv_magic_division
+  description: "Signed 32-bit division and modulo by 10 on rv64 with no div instruction: the magic multiplier 0x66666667 is
+    built from li 1717985280 plus addi 1639, the 64-bit mul uses the sign-extended argument, srai by 34 extracts the quotient,
+    and the sign bit (sraiw by 31) is subtracted to round toward zero. mod10 multiplies the quotient back by 10 using shifts
+    and adds."
+  audience: beginner
+  explanation_type: assembly
+  input:
+    language: C
+    compiler: RISC-V (64-bits) gcc 15.2.0
+    compilationOptions: ["-O2"]
+    instructionSet: riscv64
+    code: |
+      int div10(int x) { return x / 10; }
+      int mod10(int x) { return x % 10; }
+    asm:
+    - text: 'div10:'
+    - text: '        li      a5,1717985280'
+    - text: '        addi    a5,a5,1639'
+    - text: '        mul     a5,a0,a5'
+    - text: '        sraiw   a0,a0,31'
+    - text: '        srai    a5,a5,34'
+    - text: '        subw    a0,a5,a0'
+    - text: '        ret'
+    - text: 'mod10:'
+    - text: '        li      a5,1717985280'
+    - text: '        addi    a5,a5,1639'
+    - text: '        mul     a5,a0,a5'
+    - text: '        sraiw   a4,a0,31'
+    - text: '        srai    a5,a5,34'
+    - text: '        subw    a5,a5,a4'
+    - text: '        slliw   a4,a5,2'
+    - text: '        addw    a5,a4,a5'
+    - text: '        slliw   a5,a5,1'
+    - text: '        subw    a0,a0,a5'
+    - text: '        ret'
+    labelDefinitions:
+      div10: 1
+      mod10: 9
+- id: hard_wasm_sum_loop
+  category: hard_wasm_structured_control
+  description: "WebAssembly text is a stack machine with structured control flow: a br_if depth counts enclosing block/loop
+    labels outward (a br_if to a loop is a continue, to a block is a break), and operands live on an implicit stack. This
+    sum is unrolled by 4 with a remainder loop, and the result is left on the stack for end_function. Misreading which label
+    a br_if targets is the main failure."
+  audience: experienced
+  explanation_type: assembly
+  input:
+    language: C
+    compiler: WebAssembly clang (trunk)
+    compilationOptions: ["-O2"]
+    instructionSet: wasm32
+    code: |
+      int sum_array(const int *a, int n) {
+          int s = 0;
+          for (int i = 0; i < n; i++)
+              s += a[i];
+          return s;
+      }
+    asm:
+    - text: 'sum_array:'
+    - text: '        block           '
+      source:
+        line: 3
+    - text: '        local.get       1'
+      source:
+        line: 3
+    - text: '        i32.const       1'
+      source:
+        line: 3
+    - text: '        i32.ge_s'
+      source:
+        line: 3
+    - text: '        br_if           0'
+      source:
+        line: 3
+    - text: '        i32.const       0'
+      source:
+        line: 0
+    - text: '        return'
+      source:
+        line: 5
+    - text: '        end_block'
+      source:
+        line: 0
+    - text: '        local.get       1'
+      source:
+        line: 3
+    - text: '        i32.const       3'
+      source:
+        line: 3
+    - text: '        i32.and '
+      source:
+        line: 3
+    - text: '        local.set       2'
+      source:
+        line: 3
+    - text: '        i32.const       0'
+      source:
+        line: 3
+    - text: '        local.set       3'
+      source:
+        line: 3
+    - text: '        i32.const       0'
+      source:
+        line: 3
+    - text: '        local.set       4'
+      source:
+        line: 3
+    - text: '        block           '
+      source:
+        line: 3
+    - text: '        block           '
+      source:
+        line: 3
+    - text: '        local.get       1'
+      source:
+        line: 3
+    - text: '        i32.const       4'
+      source:
+        line: 3
+    - text: '        i32.lt_u'
+      source:
+        line: 3
+    - text: '        br_if           0'
+      source:
+        line: 3
+    - text: '        local.get       1'
+      source:
+        line: 3
+    - text: '        i32.const       2147483644'
+      source:
+        line: 3
+    - text: '        i32.and '
+      source:
+        line: 3
+    - text: '        local.set       5'
+      source:
+        line: 3
+    - text: '        i32.const       0'
+      source:
+        line: 3
+    - text: '        local.set       3'
+      source:
+        line: 3
+    - text: '        local.get       0'
+      source:
+        line: 3
+    - text: '        local.set       1'
+      source:
+        line: 3
+    - text: '        i32.const       0'
+      source:
+        line: 3
+    - text: '        local.set       4'
+      source:
+        line: 3
+    - text: '        loop            '
+      source:
+        line: 0
+    - text: '        local.get       1'
+      source:
+        line: 0
+    - text: '        i32.const       12'
+      source:
+        line: 0
+    - text: '        i32.add '
+      source:
+        line: 4
+    - text: '        i32.load        0'
+      source:
+        line: 4
+    - text: '        local.get       1'
+      source:
+        line: 4
+    - text: '        i32.const       8'
+      source:
+        line: 4
+    - text: '        i32.add '
+      source:
+        line: 4
+    - text: '        i32.load        0'
+      source:
+        line: 4
+    - text: '        local.get       1'
+      source:
+        line: 4
+    - text: '        i32.const       4'
+      source:
+        line: 4
+    - text: '        i32.add '
+      source:
+        line: 4
+    - text: '        i32.load        0'
+      source:
+        line: 4
+    - text: '        local.get       1'
+      source:
+        line: 4
+    - text: '        i32.load        0'
+      source:
+        line: 4
+    - text: '        local.get       4'
+      source:
+        line: 4
+    - text: '        i32.add '
+      source:
+        line: 4
+    - text: '        i32.add '
+      source:
+        line: 4
+    - text: '        i32.add '
+      source:
+        line: 4
+    - text: '        i32.add '
+      source:
+        line: 4
+    - text: '        local.set       4'
+      source:
+        line: 4
+    - text: '        local.get       1'
+      source:
+        line: 0
+    - text: '        i32.const       16'
+      source:
+        line: 0
+    - text: '        i32.add '
+      source:
+        line: 3
+    - text: '        local.set       1'
+      source:
+        line: 3
+    - text: '        local.get       5'
+      source:
+        line: 3
+    - text: '        local.get       3'
+      source:
+        line: 3
+    - text: '        i32.const       4'
+      source:
+        line: 3
+    - text: '        i32.add '
+      source:
+        line: 3
+    - text: '        local.tee       3'
+      source:
+        line: 3
+    - text: '        i32.ne  '
+      source:
+        line: 3
+    - text: '        br_if           0'
+      source:
+        line: 3
+    - text: '        end_loop'
+      source:
+        line: 3
+    - text: '        local.get       2'
+      source:
+        line: 3
+    - text: '        i32.eqz'
+      source:
+        line: 3
+    - text: '        br_if           1'
+      source:
+        line: 3
+    - text: '        end_block'
+      source:
+        line: 0
+    - text: '        local.get       0'
+      source:
+        line: 3
+    - text: '        local.get       3'
+      source:
+        line: 3
+    - text: '        i32.const       2'
+      source:
+        line: 3
+    - text: '        i32.shl '
+      source:
+        line: 3
+    - text: '        i32.add '
+      source:
+        line: 3
+    - text: '        local.set       1'
+      source:
+        line: 3
+    - text: '        loop            '
+      source:
+        line: 4
+    - text: '        local.get       1'
+      source:
+        line: 4
+    - text: '        i32.load        0'
+      source:
+        line: 4
+    - text: '        local.get       4'
+      source:
+        line: 4
+    - text: '        i32.add '
+      source:
+        line: 4
+    - text: '        local.set       4'
+      source:
+        line: 4
+    - text: '        local.get       1'
+      source:
+        line: 0
+    - text: '        i32.const       4'
+      source:
+        line: 0
+    - text: '        i32.add '
+      source:
+        line: 3
+    - text: '        local.set       1'
+      source:
+        line: 3
+    - text: '        local.get       2'
+      source:
+        line: 3
+    - text: '        i32.const       -1'
+      source:
+        line: 3
+    - text: '        i32.add '
+      source:
+        line: 3
+    - text: '        local.tee       2'
+      source:
+        line: 3
+    - text: '        br_if           0'
+      source:
+        line: 3
+    - text: '        end_loop'
+      source:
+        line: 3
+    - text: '        end_block'
+      source:
+        line: 3
+    - text: '        local.get       4'
+      source:
+        line: 5
+    - text: '        end_function'
+      source:
+        line: 5
+    - text: ''
+    labelDefinitions:
+      sum_array: 1
+- id: hard_arm32_predication
+  category: hard_arm32_conditional_execution
+  description: "32-bit ARM (Thumb-2) selects results with conditionally executed instructions instead of branches: ite gt
+    makes the next two instructions execute on gt and le respectively, so both subgt and suble appear in the stream though
+    only one runs. clamp0 is bic with an arithmetic-shifted copy of itself (r0 & ~(r0 >> 31)), sign combines a conditional
+    mov with a lsr-by-31 operand, and max3 uses two it lt blocks."
+  audience: beginner
+  explanation_type: assembly
+  input:
+    language: C
+    compiler: ARM GCC 15.2.0
+    compilationOptions: ["-O2"]
+    instructionSet: arm32
+    code: |
+      int abs_diff(int a, int b) { return a > b ? a - b : b - a; }
+      int clamp0(int x)          { return x < 0 ? 0 : x; }
+      int sign(int x)            { return (x > 0) - (x < 0); }
+      int max3(int a, int b, int c) {
+          int m = a > b ? a : b;
+          return m > c ? m : c;
+      }
+    asm:
+    - text: 'abs_diff:'
+    - text: '        cmp     r0, r1'
+      source:
+        line: 1
+    - text: '        ite     gt'
+      source:
+        line: 1
+    - text: '        subgt   r0, r0, r1'
+      source:
+        line: 1
+    - text: '        suble   r0, r1, r0'
+      source:
+        line: 1
+    - text: '        bx      lr'
+      source:
+        line: 1
+    - text: 'clamp0:'
+    - text: '        bic     r0, r0, r0, asr #31'
+      source:
+        line: 2
+    - text: '        bx      lr'
+      source:
+        line: 2
+    - text: 'sign:'
+    - text: '        cmp     r0, #0'
+      source:
+        line: 3
+    - text: '        ite     gt'
+      source:
+        line: 3
+    - text: '        movgt   r3, #1'
+      source:
+        line: 3
+    - text: '        movle   r3, #0'
+      source:
+        line: 3
+    - text: '        sub     r0, r3, r0, lsr #31'
+      source:
+        line: 3
+    - text: '        bx      lr'
+      source:
+        line: 3
+    - text: 'max3:'
+    - text: '        cmp     r0, r2'
+      source:
+        line: 6
+    - text: '        it      lt'
+      source:
+        line: 6
+    - text: '        movlt   r0, r2'
+      source:
+        line: 6
+    - text: '        cmp     r0, r1'
+      source:
+        line: 7
+    - text: '        it      lt'
+      source:
+        line: 7
+    - text: '        movlt   r0, r1'
+      source:
+        line: 7
+    - text: '        bx      lr'
+      source:
+        line: 7
+    labelDefinitions:
+      abs_diff: 1
+      clamp0: 7
+      sign: 10
+      max3: 17

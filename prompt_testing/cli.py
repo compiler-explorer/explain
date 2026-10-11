@@ -52,8 +52,11 @@ def cli(ctx, project_root):
     default="adaptive",
     help="Extended thinking on the reviewer. Default 'adaptive' improves rigor at ~70% extra reviewer cost.",
 )
+@click.option("--review-concurrency", type=int, default=6, help="Reviews to run in parallel")
 @click.pass_context
-def run(ctx, prompt, cases, categories, output, max_concurrent, review, review_model, reviewer_thinking):
+def run(
+    ctx, prompt, cases, categories, output, max_concurrent, review, review_model, reviewer_thinking, review_concurrency
+):
     """Run test cases and save results for review."""
     tester = PromptTester(ctx.obj["project_root"], max_concurrent=max_concurrent)
     results = tester.run(
@@ -64,7 +67,9 @@ def run(ctx, prompt, cases, categories, output, max_concurrent, review, review_m
 
     if review:
         thinking = {"type": "adaptive"} if reviewer_thinking == "adaptive" else None
-        results = asyncio.run(_run_reviews(ctx.obj["project_root"], results, review_model, thinking))
+        results = asyncio.run(
+            _run_reviews(ctx.obj["project_root"], results, review_model, thinking, review_concurrency)
+        )
 
     tester.save(results, output)
 
@@ -203,8 +208,14 @@ def compilers(ctx, language, search, limit):  # noqa: ARG001
             click.echo(f"... and {len(results) - limit} more")
 
 
-async def _run_reviews(project_root: Path, results: dict, model: str, thinking: dict[str, Any] | None = None) -> dict:
-    """Run correctness reviews on all successful results."""
+async def _run_reviews(
+    project_root: Path, results: dict, model: str, thinking: dict[str, Any] | None = None, concurrency: int = 6
+) -> dict:
+    """Run correctness reviews on all successful assembly results, `concurrency` at a time.
+
+    Poem-type cases are skipped: the reviewer judges how well the assembly is explained, so it marks every haiku
+    incorrect, and those cases have never counted towards accuracy.
+    """
     from prompt_testing.reviewer import CorrectnessReviewer
 
     reviewer = CorrectnessReviewer(model=model, thinking=thinking)
@@ -212,47 +223,45 @@ async def _run_reviews(project_root: Path, results: dict, model: str, thinking: 
     all_cases = load_all_test_cases(str(test_dir))
     cases_by_id = {c["id"]: c for c in all_cases}
 
-    successful = [r for r in results["results"] if r["success"]]
-    click.echo(f"\nReviewing {len(successful)} results with {model}...")
+    to_review = [
+        r
+        for r in results["results"]
+        if r["success"]
+        and r["case_id"] in cases_by_id
+        and cases_by_id[r["case_id"]].get("explanation_type", "assembly") == "assembly"
+    ]
+    click.echo(f"\nReviewing {len(to_review)} results with {model} ({concurrency} at a time)...")
 
-    review_cost = 0.0
-    errors_found = 0
-    review_failures = 0
     cost_per_input_token, cost_per_output_token = get_model_cost(model)
+    semaphore = asyncio.Semaphore(concurrency)
+    done = 0
 
-    for i, result in enumerate(successful, 1):
-        case = cases_by_id.get(result["case_id"])
-        if not case:
-            continue
-
-        review = await reviewer.review_test_result(case, result["explanation"])
+    async def review_one(result: dict) -> float:
+        nonlocal done
+        async with semaphore:
+            review = await reviewer.review_test_result(cases_by_id[result["case_id"]], result["explanation"])
         result["review"] = review
-
-        # `correct`: True = passed, False = real factual error,
-        # None = reviewer infrastructure failure (parse/empty response).
-        # Distinguish so suite metrics don't conflate the two.
-        correct = review.get("correct")
-        if correct is True:
-            status = "✓"
-        elif correct is False:
-            status = "✗"
-            errors_found += 1
-        else:
-            status = "?"
-            review_failures += 1
-        n_issues = len(review.get("issues", []))
         cost = (
             review.get("reviewer_input_tokens", 0) * cost_per_input_token
             + review.get("reviewer_output_tokens", 0) * cost_per_output_token
         )
-        review_cost += cost
-        click.echo(f"  [{i}/{len(successful)}] {status} {result['case_id']} ({n_issues} issues, ${cost:.4f})")
+        # `correct`: True = passed, False = real factual error,
+        # None = reviewer infrastructure failure (parse/empty response).
+        # Distinguish so suite metrics don't conflate the two.
+        status = {True: "✓", False: "✗"}.get(review.get("correct"), "?")
+        done += 1
+        n_issues = len(review.get("issues", []))
+        click.echo(f"  [{done}/{len(to_review)}] {status} {result['case_id']} ({n_issues} issues, ${cost:.4f})")
+        return cost
+
+    review_cost = sum(await asyncio.gather(*(review_one(r) for r in to_review)))
+    reviewed = [r["review"] for r in to_review]
 
     results["review_model"] = model
     results["review_cost_usd"] = round(review_cost, 6)
     results["total_cost_usd"] = round(results["total_cost_usd"] + review_cost, 6)
-    results["errors_found"] = errors_found
-    results["review_failures"] = review_failures
+    results["errors_found"] = sum(1 for rv in reviewed if rv.get("correct") is False)
+    results["review_failures"] = sum(1 for rv in reviewed if rv.get("correct") is None)
     return results
 
 
@@ -292,15 +301,16 @@ def _print_review_summary(results: dict[str, Any]) -> None:
     default="adaptive",
     help="Extended thinking on the reviewer (default 'adaptive' for tighter rigor).",
 )
+@click.option("--concurrency", type=int, default=6, help="Reviews to run in parallel")
 @click.pass_context
-def review(ctx, results_file, model, thinking):
+def review(ctx, results_file, model, thinking, concurrency):
     """Run Opus correctness review on existing results."""
     results_dir = ctx.obj["project_root"] / "prompt_testing" / "results"
     path = results_dir / results_file if not Path(results_file).is_absolute() else Path(results_file)
 
     thinking_cfg = {"type": "adaptive"} if thinking == "adaptive" else None
     results = json.loads(path.read_text())
-    results = asyncio.run(_run_reviews(ctx.obj["project_root"], results, model, thinking_cfg))
+    results = asyncio.run(_run_reviews(ctx.obj["project_root"], results, model, thinking_cfg, concurrency))
 
     # Save updated results
     path.write_text(json.dumps(results, indent=2))
