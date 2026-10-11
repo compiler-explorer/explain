@@ -59,8 +59,9 @@ cases:
       source:
         line: 4
     labelDefinitions:
-      .L1: 3
-      .L2: 9
+      factorial(int): 1
+      .L2: 5
+      .L1: 11
   difficulty: beginner
 - id: factorial_experienced_assembly
   category: recursion
@@ -121,8 +122,9 @@ cases:
       source:
         line: 4
     labelDefinitions:
-      .L1: 3
-      .L2: 9
+      factorial(int): 1
+      .L2: 5
+      .L1: 11
   difficulty: experienced
 - id: loop_experienced_assembly
   category: loop_optimization
@@ -583,16 +585,17 @@ cases:
           endCol: 25
     - text: ''
     labelDefinitions:
-      .LBB0_16: 2
-      .LBB0_3: 5
-      .LBB0_14: 13
-      .LBB0_13: 20
-      .LBB0_15: 51
-      .LBB0_12: 58
-      .LBB0_6: 70
-      .LBB0_8: 101
-      .LBB0_11: 103
-      .LBB0_10: 126
+      add_arrays(float*, float const*, float const*, int): 1
+      .LBB0_12: 8
+      .LBB0_13: 15
+      .LBB0_14: 22
+      .LBB0_15: 25
+      .LBB0_3: 54
+      .LBB0_8: 75
+      .LBB0_10: 105
+      .LBB0_11: 118
+      .LBB0_16: 121
+      .LBB0_6: 124
   difficulty: experienced
 - id: struct_beginner_assembly
   category: data_structures
@@ -629,5 +632,6 @@ cases:
     - text: '        ret'
       source:
         line: 8
-    labelDefinitions: {}
+    labelDefinitions:
+      manhattan_distance: 1
   difficulty: beginner

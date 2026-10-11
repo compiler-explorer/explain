@@ -15,6 +15,10 @@ call, then a response with usage/cost metrics. See `claude_explain.md` for detai
 There is a prompt-testing framework (`prompt_testing/`, CLI `prompt-test`) for evaluating prompt and model
 changes against curated test cases, with an Opus-based correctness review. Use it before changing
 `app/prompt.yaml`: run the suite with `--review` before and after, and compare accuracy, latency, and tokens.
+The original cases are near ceiling for Sonnet 5.5; the 32 `hard_*` cases are where models and prompts separate, and
+reviewer noise is about +/-5 points, so pool configs and run 3+ times before trusting a small gap
+(see `prompt_testing/README.md`). Fixture `labelDefinitions` must be Compiler Explorer's map (label to 1-based line
+of its definition); `prompt_testing/test_fixtures.py` enforces it.
 
 ## Development Commands
 

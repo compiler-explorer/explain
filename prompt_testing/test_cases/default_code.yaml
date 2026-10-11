@@ -38,7 +38,8 @@ cases:
     - text: '        ret'
       source:
         line: 4
-    labelDefinitions: {}
+    labelDefinitions:
+      square(int): 1
 - id: square_cpp_o1
   category: default_code
   description: The default code with optimization on
@@ -64,7 +65,8 @@ cases:
     - text: '        ret'
       source:
         line: 4
-    labelDefinitions: {}
+    labelDefinitions:
+      square(int): 1
   common_mistakes:
   - Claims this is optimized when it's actually unoptimized
   - Describes stack usage as 'efficient' when it's not
@@ -101,7 +103,8 @@ cases:
     - text: '        ret'
       source:
         line: 4
-    labelDefinitions: {}
+    labelDefinitions:
+      square(int): 1
 - id: square_cpp_o1_aarch64
   category: default_code
   description: The default code with optimization on (aarch64)
@@ -124,4 +127,5 @@ cases:
     - text: '        ret'
       source:
         line: 4
-    labelDefinitions: {}
+    labelDefinitions:
+      square(int): 1

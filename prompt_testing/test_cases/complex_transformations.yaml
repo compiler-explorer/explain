@@ -351,15 +351,16 @@ cases:
           startCol: 17
           endCol: 20
     labelDefinitions:
-      .L25: 5
-      .L3: 9
-      .L11: 21
-      .L5: 32
-      .L23: 37
-      .L27: 42
-      .L9: 85
-      .L4: 90
-      .L7: 93
+      add_arrays(float*, float*, float*, int): 1
+      .L5: 27
+      .L4: 45
+      .L7: 54
+      .L23: 73
+      .L25: 75
+      .L3: 77
+      .L9: 80
+      .L11: 88
+      .L27: 92
   difficulty: advanced
 - id: complex_branch_001
   category: branch_optimization
@@ -412,5 +413,6 @@ cases:
         line: 6
     - text: ''
     labelDefinitions:
-      .LBB0_1: 2
+      process_value(int): 1
+      .LBB0_1: 7
   difficulty: advanced

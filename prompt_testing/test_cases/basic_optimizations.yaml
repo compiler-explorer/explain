@@ -69,8 +69,9 @@ cases:
       source:
         line: 7
     labelDefinitions:
-      .L4: 2
-      .L3: 10
+      sum_array(int*, int): 1
+      .L3: 7
+      .L4: 13
   difficulty: beginner
 - id: basic_inline_001
   category: function_inlining
@@ -97,7 +98,8 @@ cases:
       source:
         line: 2
     - text: ''
-    labelDefinitions: {}
+    labelDefinitions:
+      compute(int): 1
   difficulty: beginner
 - id: basic_const_001
   category: constant_folding
@@ -121,5 +123,6 @@ cases:
     - text: '        ret'
       source:
         line: 3
-    labelDefinitions: {}
+    labelDefinitions:
+      compute_constant: 1
   difficulty: beginner
