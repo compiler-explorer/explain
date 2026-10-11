@@ -95,6 +95,13 @@ Pre-commit hooks may modify files (e.g. ruff format); re-`git add` if a hook rep
   the CE frontend can render.
 - **`build_api_payload` is the single source of truth for API kwargs.** Production (`app/explain.py`) and the
   prompt-test runner both call it; don't reconstruct thinking/temperature/output_config logic elsewhere.
+- **Latency is output length.** A Sonnet 5.5 call takes about 0.4s plus 7.7ms per output token (~130 tok/s), so
+  shorter answers are the main speed lever; input size barely matters (cutting input tokens 35% did not move
+  latency). The old "under roughly 250 words" limit was ignored (mean 423 words on the hard corpus). A
+  sentence/bullet cap ("at most 6 bullets or short paragraphs, none longer than two sentences, no headings") cut
+  mean latency 8.2s to 6.5s (p95 12.2s to 9.0s, max 17.7s to 9.9s) with no detectable change in accuracy (87.8%
+  vs 88.3% correct over 188 reviews each, across both corpora). Anthropic's latency guide says the same: word
+  limits work worse than sentence or paragraph limits.
 
 ## Code Style Guidelines
 
