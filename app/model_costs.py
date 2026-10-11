@@ -19,7 +19,7 @@ class ModelCost(NamedTuple):
 
 
 # Model family costs in USD per million tokens
-# Updated: 2026-09-29 based on https://platform.claude.com/docs/en/about-claude/pricing
+# Updated: 2026-10-10 based on https://platform.claude.com/docs/en/about-claude/pricing
 #
 # Notes:
 # - Opus 4.5+ moved to a new lower price tier ($5/$25) and now bundle the 1M
@@ -32,8 +32,14 @@ class ModelCost(NamedTuple):
 MODEL_FAMILIES = {
     # Claude 5 family. Sonnet 5's launch $2/$10 became its standard price;
     # the planned 2026-09-01 rise to $3/$15 was cancelled.
+    "fable-5.1": ModelCost(10.0, 50.0),
+    "fable-5": ModelCost(10.0, 50.0),
     "sonnet-5.5": ModelCost(2.0, 10.0),
     "sonnet-5": ModelCost(2.0, 10.0),
+    # Haiku 5.5 is the first model with length-tiered pricing: these are the
+    # rates for prompts up to 100k tokens ($0.50/$2.50 above that). Explain
+    # requests are capped far below 100k, so the base tier always applies.
+    "haiku-5.5": ModelCost(0.10, 0.50),
     "opus-5.5": ModelCost(4.0, 20.0),
     "opus-5": ModelCost(5.0, 25.0),
     # Opus 4.5+: new pricing tier, 1M context bundled
