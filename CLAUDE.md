@@ -131,6 +131,10 @@ Pre-commit hooks may modify files (e.g. ruff format); re-`git add` if a hook rep
   compile arbitrary, sometimes exploit-adjacent code. Sonnet 5.5 declines in more categories than Sonnet 5
   (adds `bio`, `reasoning_extraction`, `general_harms`); watch the metric after model bumps. `app/explain.py` returns a distinct user-facing message,
   discards any partial output, and emits `ClaudeExplainRefusal`.
+- **A spent workspace limit is a 400, not a 429.** Anthropic returns `invalid_request_error` ("You have reached
+  your specified workspace API usage limits...") until the limit resets or is raised in the Console (a
+  per-workspace limit, separate from the org one). `app/explain.py` matches the message and emits
+  `ClaudeExplainUsageLimit`; any other unhandled API error emits `ClaudeExplainApiError` before re-raising.
 - **Multi-block responses.** With thinking enabled the API returns thinking blocks before the text block; both
   `app/explain.py` and `prompt_testing/runner.py` pick the last text block via
   `getattr(c, "type", None) == "text"`. Preserve that pattern in new response-consuming code. "No text block"
