@@ -90,18 +90,37 @@ def _transient_error_response(
             "Claude Explain took too long to respond — the input may be very large "
             "or the model is under heavy load. Please try again in a moment."
         )
+        metric = "ClaudeExplainTimeout"
     else:
         message_text = "Claude Explain is temporarily unavailable. Please try again in a moment."
+        metric = "ClaudeExplainTransientError"
     LOGGER.warning("Anthropic call failed (%s): %s", type(error).__name__, error)
+    return _failed_call_response(body, model, metrics_provider, message_text, metric)
+
+
+def _is_usage_limit_error(error: APIStatusError) -> bool:
+    """Whether Anthropic refused the call because the workspace hit its spend limit.
+
+    The API reports this as a 400 invalid_request_error rather than a 429, so
+    without checking the message it looks like a malformed request.
+    """
+    return error.status_code == 400 and "usage limit" in error.message.lower()
+
+
+def _failed_call_response(
+    body: ExplainRequest,
+    model: str,
+    metrics_provider: MetricsProvider,
+    message_text: str,
+    metric: str,
+) -> ExplainResponse:
+    """Build a structured error response for a Claude call that did not complete."""
     metrics_provider.set_property("language", body.language)
     metrics_provider.set_property("compiler", body.compiler)
     metrics_provider.set_property("instructionSet", body.instructionSet or "unknown")
     metrics_provider.set_property("cached", "false")
     metrics_provider.put_metric("ClaudeExplainRequest", 1)
-    if isinstance(error, (TimeoutError, APITimeoutError)):
-        metrics_provider.put_metric("ClaudeExplainTimeout", 1)
-    else:
-        metrics_provider.put_metric("ClaudeExplainTransientError", 1)
+    metrics_provider.put_metric(metric, 1)
     return ExplainResponse(
         status="error",
         message=message_text,
@@ -151,10 +170,20 @@ async def _call_anthropic_api(
     except (TimeoutError, APITimeoutError, APIConnectionError) as e:
         return _transient_error_response(body, prompt_data["model"], metrics_provider, e)
     except APIStatusError as e:
+        if _is_usage_limit_error(e):
+            LOGGER.error("Anthropic usage limit reached: %s", e)
+            return _failed_call_response(
+                body,
+                prompt_data["model"],
+                metrics_provider,
+                "Claude Explain has reached its usage limit and is unavailable for now. Please try again later.",
+                "ClaudeExplainUsageLimit",
+            )
         # Surface only transient upstream failures gracefully; let genuine
         # client errors (e.g. a malformed 400) propagate as a real failure.
         if e.status_code in (408, 409, 429, 500, 502, 503, 504, 529):
             return _transient_error_response(body, prompt_data["model"], metrics_provider, e)
+        metrics_provider.put_metric("ClaudeExplainApiError", 1)
         raise
 
     # Extract usage information
