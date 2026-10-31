@@ -2,7 +2,9 @@ import json
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
+import httpx
 import pytest
+from anthropic import BadRequestError
 from ruamel.yaml import YAML
 
 from app.explain import process_request
@@ -358,6 +360,44 @@ class TestProcessRequest:
         assert "too long" in response.message
         assert response.usage is not None
         assert response.usage.totalTokens == 0
+
+    @staticmethod
+    def _bad_request(message: str) -> BadRequestError:
+        response = httpx.Response(400, request=httpx.Request("POST", "https://api.anthropic.com/v1/messages"))
+        body = {"type": "error", "error": {"type": "invalid_request_error", "message": message}}
+        return BadRequestError(f"Error code: 400 - {body}", response=response, body=body)
+
+    @pytest.mark.asyncio
+    async def test_usage_limit_returns_clear_error(self, sample_request):
+        """Anthropic reports a spent workspace limit as a 400; it must become a
+        structured error with its own metric, not an opaque 500."""
+        mock_client = MagicMock()
+        mock_client.messages.create = AsyncMock(
+            side_effect=self._bad_request(
+                "You have reached your specified workspace API usage limits. "
+                "You will regain access on 2026-11-01 at 00:00 UTC."
+            )
+        )
+        metrics = MagicMock()
+
+        test_prompt = Prompt(Path("app/prompt.yaml"))
+        response = await process_request(sample_request, mock_client, test_prompt, metrics)
+
+        assert response.status == "error"
+        assert "usage limit" in response.message
+        metrics.put_metric.assert_any_call("ClaudeExplainUsageLimit", 1)
+
+    @pytest.mark.asyncio
+    async def test_other_client_errors_still_raise(self, sample_request):
+        """A genuine malformed-request 400 still propagates, but is counted so it can alarm."""
+        mock_client = MagicMock()
+        mock_client.messages.create = AsyncMock(side_effect=self._bad_request("max_tokens: field required"))
+        metrics = MagicMock()
+
+        test_prompt = Prompt(Path("app/prompt.yaml"))
+        with pytest.raises(BadRequestError):
+            await process_request(sample_request, mock_client, test_prompt, metrics)
+        metrics.put_metric.assert_any_call("ClaudeExplainApiError", 1)
 
 
 class TestPromptValidation:
